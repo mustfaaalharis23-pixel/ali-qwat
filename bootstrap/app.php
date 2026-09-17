@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // The host terminates TLS in front of the application and passes the
+        // original request in X-Forwarded-*. Without trusting it every link and
+        // asset the panel writes comes out as http on an https page, and the
+        // browser blocks them.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             SetLocale::class,
         ]);

@@ -1,0 +1,43 @@
+# A test deployment: the panel and a database, created together.
+#
+# The invoice PDF is not part of it — the browser that draws it is not in the
+# image — and the free plan keeps no disk, so an uploaded item picture lives
+# only until the next deploy.
+services:
+  - type: web
+    name: waqt
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: 'false'
+      # Both are filled in the dashboard: the address Render gives the service,
+      # and a key from `php artisan key:generate --show`.
+      - key: APP_URL
+        sync: false
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: waqt-db
+          property: connectionString
+      # So the logs show up in Render's own log view.
+      - key: LOG_CHANNEL
+        value: stderr
+      # Turned on once to fill the test data, then turned back off.
+      - key: RUN_SEED
+        value: 'false'
+
+databases:
+  - name: waqt-db
+    plan: free
+    region: frankfurt
+    databaseName: waqt
+    user: waqt
