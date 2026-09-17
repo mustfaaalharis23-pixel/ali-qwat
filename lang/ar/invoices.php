@@ -1,0 +1,32 @@
+<?php
+
+return [
+    'print' => [
+        'heading' => 'فاتورة',
+        'brand_line' => 'المعمل',
+        'brand' => 'وكت',
+        'title' => 'فاتورة :number',
+        'print' => 'طباعة',
+        'number' => 'رقم الفاتورة',
+        'date' => 'التاريخ',
+        'time' => 'الوقت',
+        'invoice_to' => 'الفاتورة إلى',
+        'customer' => 'الزبون',
+        'phone' => 'رقم الهاتف',
+        'payment_method' => 'طريقة الدفع',
+        'cashier' => 'الكاشير',
+        'item' => 'المادة',
+        'quantity' => 'الكمية',
+        'unit_price' => 'الإفرادي',
+        'total' => 'الإجمالي',
+        'items_count' => 'عدد المواد',
+        'subtotal' => 'المجموع',
+        'discount' => 'الخصم',
+        'net_total' => 'الصافي',
+        'preparer' => 'المجهّز',
+        'signature' => 'التوقيع',
+        'preparer_note' => 'يوقّع المجهّز بعد مطابقة مواد الفاتورة.',
+        'notes' => 'الملاحظات',
+        'thanks' => 'شكراً لتسوقكم من :name',
+    ],
+];

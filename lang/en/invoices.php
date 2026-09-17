@@ -1,0 +1,32 @@
+<?php
+
+return [
+    'print' => [
+        'heading' => 'Invoice',
+        'brand_line' => 'Factory',
+        'brand' => 'Waqt',
+        'title' => 'Invoice :number',
+        'print' => 'Print',
+        'number' => 'Invoice number',
+        'date' => 'Date',
+        'time' => 'Time',
+        'invoice_to' => 'Invoice to',
+        'customer' => 'Customer',
+        'phone' => 'Phone',
+        'payment_method' => 'Payment method',
+        'cashier' => 'Cashier',
+        'item' => 'Item',
+        'quantity' => 'Quantity',
+        'unit_price' => 'Unit price',
+        'total' => 'Total',
+        'items_count' => 'Items count',
+        'subtotal' => 'Subtotal',
+        'discount' => 'Discount',
+        'net_total' => 'Net total',
+        'preparer' => 'Preparer',
+        'signature' => 'Signature',
+        'preparer_note' => 'The preparer signs after checking the items of the invoice.',
+        'notes' => 'Notes',
+        'thanks' => 'Thank you for choosing :name',
+    ],
+];
