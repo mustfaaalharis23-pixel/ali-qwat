@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PurchaseInvoices\Actions;
 use App\Enums\InvoiceConfirmation;
 use App\Filament\Forms\Components\MoneyInput;
 use App\Invoices\ConfirmPurchaseInvoice;
+use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Models\Invoice;
 use Filament\Actions\Action;
@@ -39,14 +40,19 @@ class ConfirmInvoiceAction extends Action
             ->modalHeading(fn (Invoice $record): string => __('filament/resources/purchase_invoice.actions.confirm.heading', [
                 'side' => $this->sideFor($record)?->getLabel() ?? '',
             ]))
-            ->modalDescription(fn (Invoice $record): string => __('filament/resources/purchase_invoice.actions.confirm.description', [
-                'amount' => FormattedValue::of((float) $record->amount)->number,
-            ]))
+            ->modalDescription(function (Invoice $record): string {
+                $amount = FormattedValue::of((float) $record->amount, Currency::ChineseYuan);
+
+                return __('filament/resources/purchase_invoice.actions.confirm.description', [
+                    'amount' => "{$amount->number} {$amount->currency}",
+                ]);
+            })
             ->modalIcon(Heroicon::OutlinedCheckBadge)
             ->modalSubmitActionLabel(__('filament/resources/purchase_invoice.actions.confirm.submit'))
             ->schema([
                 MoneyInput::make('amount')
                     ->label(__('filament/resources/purchase_invoice.actions.confirm.amount'))
+                    ->suffix(Currency::ChineseYuan->symbol())
                     ->minValue(0.01)
                     ->required(),
             ])

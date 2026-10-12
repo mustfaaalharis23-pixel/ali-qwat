@@ -18,6 +18,8 @@ enum AppPermission: string implements HasLabel
 
     case Checkout = 'app.checkout';
 
+    case Receiving = 'app.receiving';
+
     public function getLabel(): string
     {
         return __('permissions.app.'.Str::after($this->value, '.'));

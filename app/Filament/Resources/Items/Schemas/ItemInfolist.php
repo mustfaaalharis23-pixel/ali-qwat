@@ -8,6 +8,7 @@ use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class ItemInfolist
 {
@@ -20,7 +21,8 @@ class ItemInfolist
         return $schema
             ->components([
                 Section::make(__('filament/resources/item.sections.details'))
-                    ->columns(3)
+                    ->icon(Heroicon::OutlinedCube)
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 3])
                     ->columnSpanFull()
                     ->schema([
                         ImageEntry::make('image')
@@ -48,6 +50,7 @@ class ItemInfolist
                             ->boolean(),
                     ]),
                 Section::make(__('filament/resources/item.fields.description'))
+                    ->icon(Heroicon::OutlinedDocumentText)
                     ->columnSpanFull()
                     ->schema([
                         TextEntry::make('description')

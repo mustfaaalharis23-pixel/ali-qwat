@@ -10,7 +10,7 @@ return new class extends Migration
      * Run the migrations.
      *
      * A payment of a customer on its postpaid orders. The invoice is the postpaid money withdrawal invoice created with it.
-     * The receipt image and the notes are optional.
+     * The receipt image and the notes are optional. A down payment is the one taken with a postpaid sale itself.
      */
     public function up(): void
     {
@@ -20,6 +20,7 @@ return new class extends Migration
             $table->foreignId('invoice_id')->constrained()->restrictOnDelete();
             $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->double('amount');
+            $table->boolean('is_down_payment')->default(false);
             $table->date('date');
             $table->string('image')->nullable();
             $table->text('notes')->nullable();

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\SupplierPaymentType;
 use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,7 +19,6 @@ class SupplierFactory extends Factory
     {
         return [
             'name_ar' => fake()->company(),
-            'payment_type' => fake()->randomElement(SupplierPaymentType::cases()),
         ];
     }
 }

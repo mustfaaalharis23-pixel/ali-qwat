@@ -8,11 +8,14 @@ use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Support\Icons\Heroicon;
 
 class OrderInfolist
 {
     /**
-     * The details page of an order: its information, amounts, lines, and notes.
+     * The details page of an order: its information, amounts (what the customer owes written large first), lines, and notes.
      * What the order cost us and what it earned, on the order and on each line, show only to a user
      * who has the item.view_cost_price permission.
      */
@@ -21,7 +24,8 @@ class OrderInfolist
         return $schema
             ->components([
                 Section::make(__('filament/resources/order.sections.details'))
-                    ->columns(4)
+                    ->icon(Heroicon::OutlinedShoppingBag)
+                    ->columns(['default' => 1, 'sm' => 2, 'xl' => 5])
                     ->columnSpanFull()
                     ->schema([
                         TextEntry::make('customer.name')
@@ -37,56 +41,89 @@ class OrderInfolist
                         TextEntry::make('user.name')
                             ->label(__('filament/resources/order.fields.user_id')),
                     ]),
+                // What the customer owes is written large: the total, what was paid, and what is left, red while something is owed.
                 Section::make(__('filament/resources/order.sections.amounts'))
-                    ->columns(['md' => 2, 'xl' => 4])
+                    ->icon(Heroicon::OutlinedBanknotes)
+                    ->columns(['default' => 1, 'sm' => 2, 'xl' => 4])
                     ->columnSpanFull()
                     ->schema([
+                        TextEntry::make('total_amount')
+                            ->label(__('filament/resources/order.fields.total_amount'))
+                            ->numeric()
+                            ->badge()
+                            ->color('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold),
+                        TextEntry::make('paid_amount')
+                            ->label(__('filament/resources/order.fields.paid_amount'))
+                            ->numeric()
+                            ->badge()
+                            ->color('success')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold),
+                        TextEntry::make('remaining')
+                            ->label(__('filament/resources/order.fields.remaining'))
+                            ->numeric()
+                            ->badge()
+                            ->color(fn (float $state): string => $state > 0 ? 'danger' : 'success')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold),
+                        TextEntry::make('profit')
+                            ->label(__('filament/resources/order.fields.profit'))
+                            ->numeric()
+                            ->badge()
+                            ->color('success')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->visible(fn (): bool => self::canSeeTheCost()),
                         TextEntry::make('amount')
                             ->label(__('filament/resources/order.fields.amount'))
                             ->numeric(),
-                        TextEntry::make('total_amount')
-                            ->label(__('filament/resources/order.fields.total_amount'))
-                            ->numeric(),
-                        TextEntry::make('paid_amount')
-                            ->label(__('filament/resources/order.fields.paid_amount'))
-                            ->numeric(),
-                        TextEntry::make('remaining')
-                            ->label(__('filament/resources/order.fields.remaining'))
-                            ->numeric(),
+                        TextEntry::make('down_payment')
+                            ->label(__('filament/resources/order.fields.down_payment'))
+                            ->numeric()
+                            ->placeholder('-'),
                         TextEntry::make('total_cost')
                             ->label(__('filament/resources/order.fields.total_cost'))
                             ->numeric()
                             ->visible(fn (): bool => self::canSeeTheCost()),
-                        TextEntry::make('profit')
-                            ->label(__('filament/resources/order.fields.profit'))
-                            ->numeric()
-                            ->color('success')
-                            ->visible(fn (): bool => self::canSeeTheCost()),
                     ]),
-                RepeatableEntry::make('items')
-                    ->label(__('filament/resources/order.fields.items'))
-                    ->table(array_values(array_filter([
-                        TableColumn::make(__('filament/resources/order.fields.item'))->width('40%'),
-                        TableColumn::make(__('filament/resources/order.fields.quantity')),
-                        TableColumn::make(__('filament/resources/order.fields.price')),
-                        TableColumn::make(__('filament/resources/order.fields.total_price')),
-                        self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.cost_price')) : null,
-                        self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.profit')) : null,
-                    ])))
-                    ->schema(array_values(array_filter([
-                        TextEntry::make('item.name'),
-                        TextEntry::make('quantity')->numeric(),
-                        TextEntry::make('price')->numeric(),
-                        TextEntry::make('total_price')->numeric(),
-                        self::canSeeTheCost() ? TextEntry::make('cost_price')->numeric() : null,
-                        self::canSeeTheCost() ? TextEntry::make('profit')->numeric()->color('success') : null,
-                    ])))
-                    ->columnSpanFull(),
+                Section::make(__('filament/resources/order.fields.items'))
+                    ->icon(Heroicon::OutlinedQueueList)
+                    ->columnSpanFull()
+                    ->schema([
+                        self::linesEntry(),
+                    ]),
                 TextEntry::make('notes')
                     ->label(__('filament/resources/order.fields.notes'))
                     ->placeholder('—')
                     ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * The order's lines as a table. What each line cost us and earned shows only to a user who can see the cost.
+     */
+    private static function linesEntry(): RepeatableEntry
+    {
+        return RepeatableEntry::make('items')
+            ->hiddenLabel()
+            ->table(array_values(array_filter([
+                TableColumn::make(__('filament/resources/order.fields.item'))->width('40%'),
+                TableColumn::make(__('filament/resources/order.fields.quantity')),
+                TableColumn::make(__('filament/resources/order.fields.price')),
+                TableColumn::make(__('filament/resources/order.fields.total_price')),
+                self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.cost_price')) : null,
+                self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.profit')) : null,
+            ])))
+            ->schema(array_values(array_filter([
+                TextEntry::make('item.name'),
+                TextEntry::make('quantity')->numeric(),
+                TextEntry::make('price')->numeric(),
+                TextEntry::make('total_price')->numeric(),
+                self::canSeeTheCost() ? TextEntry::make('cost_price')->numeric() : null,
+                self::canSeeTheCost() ? TextEntry::make('profit')->numeric()->color('success') : null,
+            ])));
     }
 
     /**

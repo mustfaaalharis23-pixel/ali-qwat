@@ -27,27 +27,45 @@ class UserForm
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->label(__('filament/resources/user.fields.name'))
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('email')
-                    ->label(__('filament/resources/user.fields.email'))
-                    ->email()
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
-                TextInput::make('password')
-                    ->label(__('filament/resources/user.fields.password'))
-                    ->password()
-                    ->revealable()
-                    ->required(fn (string $operation): bool => $operation === 'create')
-                    ->dehydrated(fn (?string $state): bool => filled($state)),
-                Toggle::make('is_super')
-                    ->label(__('filament/resources/user.fields.is_super'))
-                    ->superOnly(),
-                Toggle::make('is_cashier')
-                    ->label(__('filament/resources/user.fields.is_cashier')),
+                Section::make(__('filament/resources/user.sections.account'))
+                    ->icon(Heroicon::OutlinedUserCircle)
+                    ->columns(['default' => 1, 'md' => 3])
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('name')
+                            ->label(__('filament/resources/user.fields.name'))
+                            ->required()
+                            ->maxLength(255),
+                        TextInput::make('email')
+                            ->label(__('filament/resources/user.fields.email'))
+                            ->email()
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true),
+                        TextInput::make('password')
+                            ->label(__('filament/resources/user.fields.password'))
+                            ->password()
+                            ->revealable()
+                            ->required(fn (string $operation): bool => $operation === 'create')
+                            ->dehydrated(fn (?string $state): bool => filled($state))
+                            ->hiddenOn('view'),
+                    ]),
+                Section::make(__('filament/resources/user.sections.role'))
+                    ->icon(Heroicon::OutlinedShieldCheck)
+                    ->columns(['default' => 1, 'md' => 3])
+                    ->columnSpanFull()
+                    ->schema([
+                        Toggle::make('is_active')
+                            ->label(__('filament/resources/user.fields.is_active'))
+                            // The column starts a user off as not active, and a user who
+                            // is not active cannot open the panel at all.
+                            ->default(true),
+                        Toggle::make('is_cashier')
+                            ->label(__('filament/resources/user.fields.is_cashier')),
+                        Toggle::make('is_super')
+                            ->label(__('filament/resources/user.fields.is_super'))
+                            ->superOnly(),
+                    ]),
                 Section::make(__('permissions.section'))
                     ->key('permissionsSection')
                     ->headerActions([

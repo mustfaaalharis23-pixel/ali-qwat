@@ -9,7 +9,13 @@ return [
         'name' => 'Name',
         'email' => 'Email',
         'password' => 'Password',
+        'is_active' => 'Active',
         'is_super' => 'Super user',
         'is_cashier' => 'Cashier',
+    ],
+
+    'sections' => [
+        'account' => 'Account',
+        'role' => 'Status and role',
     ],
 ];

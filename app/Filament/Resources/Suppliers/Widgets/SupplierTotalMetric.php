@@ -9,7 +9,7 @@ use App\Models\Supplier;
 
 /**
  * The template of the total cards on a supplier's page: the supplier comes from the page,
- * the numbers are overall totals so there is no range list, and amounts are in Iraqi dinar.
+ * the numbers are overall totals so there is no range list, and amounts are in Chinese yuan.
  */
 abstract class SupplierTotalMetric extends ValueMetric
 {
@@ -30,6 +30,6 @@ abstract class SupplierTotalMetric extends ValueMetric
 
     protected function currency(): ?Currency
     {
-        return Currency::IraqiDinar;
+        return Currency::ChineseYuan;
     }
 }

@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Enums\InvoiceConfirmation;
 use App\Enums\InvoiceType;
-use App\Enums\SupplierPaymentType;
 use App\Invoices\ConfirmPurchaseInvoice;
 use App\Models\GeneralDescription;
 use App\Models\Invoice;
@@ -43,15 +42,15 @@ class InvoiceSeeder extends Seeder
         $this->generalInvoice($user, 'ايرادات خارجية', 'بيع خردة', $thisMonth->addDays(4), 600000);
         $this->generalInvoice($user, 'استثمار', 'استثمار الشركاء', $lastMonth->addDays(4), 10000000);
 
-        $postpaidSupplier = Supplier::query()->where('payment_type', SupplierPaymentType::Postpaid)->firstOrFail();
+        $supplier = Supplier::query()->firstOrFail();
         $items = Item::query()->with('specificDescription')->take(4)->get();
 
-        $olderPurchase = $this->purchaseInvoice($user, $postpaidSupplier, $lastMonth->addDays(14), [
+        $olderPurchase = $this->purchaseInvoice($user, $supplier, $lastMonth->addDays(14), [
             [$items[0], 10, 12, 1440000],
             [$items[1], 5, 20, 1500000],
         ]);
 
-        $newerPurchase = $this->purchaseInvoice($user, $postpaidSupplier, $thisMonth->addDays(5), [
+        $newerPurchase = $this->purchaseInvoice($user, $supplier, $thisMonth->addDays(5), [
             [$items[2], 4, 10, 800000],
             [$items[3], 2, 25, 650000],
         ]);
@@ -60,7 +59,7 @@ class InvoiceSeeder extends Seeder
         $this->confirm($user, $olderPurchase, InvoiceConfirmation::Receiver);
         $this->confirm($user, $newerPurchase, InvoiceConfirmation::Receiver);
 
-        $this->confirm($user, $this->purchaseInvoice($user, $postpaidSupplier, $thisMonth->addDays(7), [
+        $this->confirm($user, $this->purchaseInvoice($user, $supplier, $thisMonth->addDays(7), [
             [$items[0], 5, 12, 780000],
         ]), InvoiceConfirmation::Importer);
 
@@ -112,6 +111,7 @@ class InvoiceSeeder extends Seeder
 
     /**
      * Creates a purchase invoice with one line per item: [item, boxes, box quantity, price].
+     * Every carton holds one packet, and every carton is 0.05 CBM, about 50 × 40 × 25 cm. One CBM is shipped at $120.
      *
      * @param  list<array{Item, int, int, float}>  $lines
      */
@@ -124,6 +124,7 @@ class InvoiceSeeder extends Seeder
             'supplier_id' => $supplier->id,
             'user_id' => $user->id,
             'date' => $date,
+            'cbm_price' => 120,
             'images' => [self::IMAGE],
         ]);
 
@@ -133,6 +134,8 @@ class InvoiceSeeder extends Seeder
                 'specific_description_id' => $item->specificDescription->id,
                 'boxes_count' => $boxesCount,
                 'box_quantity' => $boxQuantity,
+                'boxes_per_carton' => 1,
+                'carton_cbm' => 0.05,
                 'price' => $price,
             ]);
         }

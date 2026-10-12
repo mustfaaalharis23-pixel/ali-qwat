@@ -5,11 +5,13 @@ namespace App\Models;
 use App\Enums\InvoiceType;
 use Database\Factories\GeneralDescriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'type', 'is_purchases_description'])]
+#[Fillable(['name', 'type', 'is_purchases_description', 'is_capital_movement'])]
 class GeneralDescription extends BaseModel
 {
     /** @use HasFactory<GeneralDescriptionFactory> */
@@ -21,6 +23,19 @@ class GeneralDescription extends BaseModel
     public static function purchases(): self
     {
         return static::query()->where('is_purchases_description', true)->firstOrFail();
+    }
+
+    /**
+     * The capital movement descriptions: the money the partners put in and take out, such as an investment or a return of capital.
+     * Money under them is neither a profit nor an expense; it only changes what the company holds.
+     * This is the only definition of a capital movement description.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function capitalMovements(Builder $query): void
+    {
+        $query->where('is_capital_movement', true);
     }
 
     /**
@@ -51,6 +66,7 @@ class GeneralDescription extends BaseModel
         return [
             'type' => InvoiceType::class,
             'is_purchases_description' => 'boolean',
+            'is_capital_movement' => 'boolean',
         ];
     }
 }

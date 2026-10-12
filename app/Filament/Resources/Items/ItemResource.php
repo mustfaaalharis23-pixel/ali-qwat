@@ -48,6 +48,11 @@ class ItemResource extends Resource
         return __('filament/navigation.groups.items_management');
     }
 
+    public static function getNavigationSort(): int
+    {
+        return 1;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ItemForm::configure($schema);

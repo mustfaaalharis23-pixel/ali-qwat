@@ -9,6 +9,7 @@ use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class AuditInfolist
 {
@@ -17,6 +18,7 @@ class AuditInfolist
         return $schema
             ->components([
                 Section::make(__('filament/resources/audit.sections.details'))
+                    ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->schema([
                         TextEntry::make('event')
                             ->label(__('filament/resources/audit.fields.event'))
@@ -35,9 +37,10 @@ class AuditInfolist
                             ->label(__('filament/resources/audit.fields.created_at'))
                             ->dateTime(),
                     ])
-                    ->columns(3)
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 3])
                     ->columnSpanFull(),
                 Section::make(__('filament/resources/audit.sections.changes'))
+                    ->icon(Heroicon::OutlinedArrowsRightLeft)
                     ->schema([
                         RepeatableEntry::make('changes')
                             ->hiddenLabel()

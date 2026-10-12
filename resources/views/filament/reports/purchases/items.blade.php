@@ -36,14 +36,14 @@
                     <tr style="{{ $line }}">
                         <td style="{{ $cell }}; text-align: start">{{ $item['name'] }}</td>
                         <td style="{{ $cell }}; text-align: end">{{ FormattedValue::of($item['quantity'])->number }}</td>
-                        <td style="{{ $cell }}; text-align: end">{{ FormattedValue::of($item['amount'], Currency::IraqiDinar)->number }}</td>
+                        <td style="{{ $cell }}; text-align: end">{{ FormattedValue::of($item['amount'], Currency::ChineseYuan)->number }}</td>
                     </tr>
                 @endforeach
             </tbody>
 
             <tfoot>
                 @php
-                    $total = FormattedValue::of(array_sum(array_column($items, 'amount')), Currency::IraqiDinar);
+                    $total = FormattedValue::of(array_sum(array_column($items, 'amount')), Currency::ChineseYuan);
                 @endphp
 
                 <tr>

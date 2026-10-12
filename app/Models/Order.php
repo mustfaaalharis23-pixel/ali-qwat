@@ -24,6 +24,7 @@ use Illuminate\Validation\ValidationException;
     'payment_type',
     'date',
     'notes',
+    'down_payment',
 ])]
 class Order extends BaseModel
 {
@@ -67,6 +68,27 @@ class Order extends BaseModel
     public static function boxBalance(OrderPaymentType $paymentType, Period $period, ?User $cashier = null): float
     {
         return static::sales($paymentType, $period, $cashier) - InvoiceItem::withdrawn($paymentType, $period, $cashier);
+    }
+
+    /**
+     * The sales of the period, whatever their payment type: the sum of the total amounts of its orders.
+     * The total amount is what the order finally costs, so a discount on the order is counted. Deleted orders are not counted.
+     * This is the only definition of the sales of a period.
+     */
+    public static function salesAmount(Period $period): float
+    {
+        return (float) $period->applyTo(static::query(), 'date')->sum('total_amount');
+    }
+
+    /**
+     * The profit of the sales inside the period: the sum of the profits its orders kept.
+     * Every sale line froze what its item cost the moment it was sold, so the profit of an old sale never moves
+     * when a later purchase changes the cost. Deleted orders are not counted.
+     * This is the only definition of the profit of the sales.
+     */
+    public static function salesProfit(Period $period): float
+    {
+        return (float) $period->applyTo(static::query(), 'date')->sum('profit');
     }
 
     /**
@@ -184,6 +206,7 @@ class Order extends BaseModel
             'total_amount' => 'float',
             'paid_amount' => 'float',
             'remaining' => 'float',
+            'down_payment' => 'float',
             'total_cost' => 'float',
             'profit' => 'float',
         ];

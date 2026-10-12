@@ -19,6 +19,7 @@ return [
         'total_amount' => 'Total amount',
         'paid_amount' => 'Paid',
         'remaining' => 'Remaining',
+        'down_payment' => 'Down payment',
         'notes' => 'Notes',
         'items' => 'Items',
         'items_count' => 'Items count',

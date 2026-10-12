@@ -2,6 +2,8 @@
 
 namespace App\Invoices;
 
+use App\Metrics\Currency;
+use App\Metrics\FormattedValue;
 use App\Models\Invoice;
 use App\Models\Payoff;
 use App\Models\Supplier;
@@ -11,7 +13,6 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Number;
 use Illuminate\Validation\ValidationException;
 
 class DistributeSupplierPayoff
@@ -40,8 +41,10 @@ class DistributeSupplierPayoff
         }
 
         if ($amount > $debt + 0.0001) {
+            $formattedDebt = FormattedValue::of($debt, Currency::ChineseYuan);
+
             throw ValidationException::withMessages([
-                'amount' => __('invoices.validation.payoff_exceeds_supplier_debt', ['debt' => Number::format($debt, precision: 2)]),
+                'amount' => __('invoices.validation.payoff_exceeds_supplier_debt', ['debt' => "{$formattedDebt->number} {$formattedDebt->currency}"]),
             ]);
         }
 

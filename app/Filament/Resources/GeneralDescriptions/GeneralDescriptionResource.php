@@ -47,6 +47,14 @@ class GeneralDescriptionResource extends Resource
         return __('filament/navigation.groups.accounting');
     }
 
+    /**
+     * It sits under general invoices in the sidebar, since it only sorts their lines, and shows while they are open.
+     */
+    public static function getNavigationParentItem(): ?string
+    {
+        return __('filament/resources/general_invoice.navigation_label');
+    }
+
     public static function getNavigationSort(): int
     {
         return 1;

@@ -17,6 +17,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -50,12 +51,12 @@ class PurchaseInvoiceResource extends Resource
 
     public static function getNavigationGroup(): string
     {
-        return __('filament/navigation.groups.accounting');
+        return __('filament/navigation.groups.purchases');
     }
 
     public static function getNavigationSort(): int
     {
-        return 4;
+        return 1;
     }
 
     public static function form(Schema $schema): Schema
@@ -89,6 +90,36 @@ class PurchaseInvoiceResource extends Resource
             'view' => ViewPurchaseInvoice::route('/{record}'),
             'edit' => EditPurchaseInvoice::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * A small chip under the invoice's name telling a split apart: a part says which invoice it was split from,
+     * and an original says which parts were split off it. Null for an invoice that was never split.
+     * It reads the invoice's split parts, so a list should load them with the invoices.
+     */
+    public static function splitFacts(Invoice $invoice): ?View
+    {
+        if ($invoice->split_from_invoice_id !== null) {
+            $fact = [
+                'text' => __('filament/resources/purchase_invoice.split.part', ['number' => $invoice->split_from_invoice_id]),
+                'tooltip' => __('filament/resources/purchase_invoice.split.part_hint', ['number' => $invoice->split_from_invoice_id]),
+                'color' => 'warning',
+                'icon' => Heroicon::OutlinedScissors,
+            ];
+        } elseif ($invoice->splitParts->isNotEmpty()) {
+            $fact = [
+                'text' => __('filament/resources/purchase_invoice.split.original', [
+                    'numbers' => $invoice->splitParts->pluck('id')->map(fn (int $id): string => "#{$id}")->implode(' '),
+                ]),
+                'tooltip' => __('filament/resources/purchase_invoice.split.original_hint'),
+                'color' => 'gray',
+                'icon' => Heroicon::OutlinedDocumentDuplicate,
+            ];
+        } else {
+            return null;
+        }
+
+        return view('filament.forms.components.line-facts', ['facts' => [$fact]]);
     }
 
     public static function getEloquentQuery(): Builder

@@ -16,6 +16,7 @@ return [
         'group' => 'Sales application',
         'orders' => 'Orders screen',
         'checkout' => 'Selling (checkout)',
+        'receiving' => 'Receiving goods (barcode scan)',
     ],
 
     'copy' => [

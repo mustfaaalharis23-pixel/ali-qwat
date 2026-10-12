@@ -58,7 +58,7 @@ class InvoiceFactory extends Factory
     }
 
     /**
-     * Indicate that the invoice is a purchase invoice, under the purchases description, with a new supplier.
+     * Indicate that the invoice is a purchase invoice, under the purchases description, with a new supplier and a price of one CBM.
      */
     public function purchase(): static
     {
@@ -66,6 +66,7 @@ class InvoiceFactory extends Factory
             'general_description_id' => GeneralDescription::purchases()->id,
             'type' => InvoiceType::Output,
             'supplier_id' => Supplier::factory(),
+            'cbm_price' => fake()->randomFloat(2, 80, 200),
         ]);
     }
 }

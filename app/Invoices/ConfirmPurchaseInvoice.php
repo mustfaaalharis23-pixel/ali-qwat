@@ -3,6 +3,7 @@
 namespace App\Invoices;
 
 use App\Enums\InvoiceConfirmation;
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -27,6 +28,27 @@ class ConfirmPurchaseInvoice
 
         $invoice->forceFill([
             $side->checkerColumn() => $checker->id,
+            $side->confirmedAtColumn() => now(),
+            'status' => $side->nextStatus(),
+        ])->save();
+    }
+
+    /**
+     * The importer's side is confirmed the moment a purchase invoice is created: whoever creates it is its importer,
+     * so it is born waiting for the receiver only. No permission is asked for and no amount is written again,
+     * because creating the invoice is the confirmation itself.
+     * An invoice that is not a purchase, or one already past this stage, is left exactly as it is.
+     */
+    public function handleOnCreation(Invoice $invoice): void
+    {
+        if (! $invoice->isPurchase() || $invoice->status !== InvoiceStatus::Pending) {
+            return;
+        }
+
+        $side = InvoiceConfirmation::Importer;
+
+        $invoice->forceFill([
+            $side->checkerColumn() => $invoice->user_id,
             $side->confirmedAtColumn() => now(),
             'status' => $side->nextStatus(),
         ])->save();

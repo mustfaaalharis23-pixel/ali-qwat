@@ -6,7 +6,20 @@ return [
         'postpaid' => 'Postpaid',
     ],
 
+    'packages' => [
+        'piece' => 'Piece',
+        'dozen' => 'Dozen',
+        'packet' => 'Packet',
+    ],
+
+    'package_counts' => [
+        'piece' => ':count piece|:count pieces',
+        'dozen' => ':count dozen|:count dozen',
+        'packet' => ':count packet|:count packets',
+    ],
+
     'validation' => [
+        'quantity_not_whole_packages' => 'The quantity must make whole packages: one :package is :size pieces.',
         'quantity_more_than_available' => 'There is not enough of :item: only :available left.',
         'quantity_must_be_positive' => 'The quantity must be more than zero.',
         'price_must_be_positive' => 'The price must be more than zero.',
@@ -23,5 +36,8 @@ return [
         'payment_on_deleted_order' => 'A deleted order cannot get a payment.',
         'payment_order_cannot_change' => 'A payment cannot be moved to another order.',
         'payments_exceed_order_amount' => 'The payments cannot add up to more than the order amount.',
+        'down_payment_postpaid_only' => 'A down payment can only be taken with a postpaid sale.',
+        'down_payment_must_be_positive' => 'The down payment must be more than zero.',
+        'down_payment_exceeds_order_amount' => 'The down payment cannot be more than the order amount.',
     ],
 ];

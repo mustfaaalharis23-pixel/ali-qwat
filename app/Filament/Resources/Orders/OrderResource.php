@@ -41,7 +41,12 @@ class OrderResource extends Resource
 
     public static function getNavigationGroup(): string
     {
-        return __('filament/navigation.groups.orders_and_customers');
+        return __('filament/navigation.groups.sales');
+    }
+
+    public static function getNavigationSort(): int
+    {
+        return 1;
     }
 
     public static function form(Schema $schema): Schema

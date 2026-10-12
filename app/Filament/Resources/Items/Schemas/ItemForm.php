@@ -9,7 +9,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Number;
 
 class ItemForm
@@ -23,60 +25,77 @@ class ItemForm
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->label(__('filament/resources/item.fields.name'))
-                    ->required()
-                    ->maxLength(255),
-                FileUpload::make('image')
-                    ->label(__('filament/resources/item.fields.image'))
-                    ->image()
-                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                    ->maxSize(2048)
-                    ->disk('public')
-                    ->directory('items')
-                    ->required(),
-                Select::make('supplier_id')
-                    ->label(__('filament/resources/item.fields.supplier_id'))
-                    ->relationship('supplier', 'name_ar')
-                    ->searchable()
-                    ->preload(),
-                MoneyInput::make('sale_price')
-                    ->label(__('filament/resources/item.fields.sale_price'))
-                    ->minValue(0)
-                    ->default(0)
-                    ->required(),
-                MoneyInput::make('cost_price')
-                    ->label(__('filament/resources/item.fields.cost_price'))
-                    ->default(0)
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->visible(fn (): bool => self::canSeeTheCost()),
-                TextInput::make('profit_margin')
-                    ->label(__('filament/resources/item.fields.profit_margin'))
-                    ->formatStateUsing(fn (?Item $record): string => Number::format($record?->profitMargin() ?? 0, maxPrecision: 2))
-                    ->disabled()
-                    ->dehydrated(false)
+                Section::make(__('filament/resources/item.sections.details'))
+                    ->icon(Heroicon::OutlinedCube)
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('name')
+                            ->label(__('filament/resources/item.fields.name'))
+                            ->required()
+                            ->maxLength(255),
+                        Select::make('supplier_id')
+                            ->label(__('filament/resources/item.fields.supplier_id'))
+                            ->relationship('supplier', 'name_ar')
+                            ->searchable()
+                            ->preload(),
+                        FileUpload::make('image')
+                            ->label(__('filament/resources/item.fields.image'))
+                            ->image()
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(2048)
+                            ->disk('public')
+                            ->directory('items')
+                            ->required(),
+                        Textarea::make('description')
+                            ->label(__('filament/resources/item.fields.description'))
+                            ->rows(4),
+                        Toggle::make('is_active')
+                            ->label(__('filament/resources/item.fields.is_active'))
+                            ->default(true)
+                            ->columnSpanFull(),
+                    ]),
+                Section::make(__('filament/resources/item.sections.prices'))
+                    ->icon(Heroicon::OutlinedBanknotes)
+                    ->columns(['default' => 1, 'md' => 3])
+                    ->columnSpanFull()
+                    ->schema([
+                        MoneyInput::make('sale_price')
+                            ->label(__('filament/resources/item.fields.sale_price'))
+                            ->minValue(0)
+                            ->default(0)
+                            ->required(),
+                        MoneyInput::make('cost_price')
+                            ->label(__('filament/resources/item.fields.cost_price'))
+                            ->default(0)
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->visible(fn (): bool => self::canSeeTheCost()),
+                        TextInput::make('profit_margin')
+                            ->label(__('filament/resources/item.fields.profit_margin'))
+                            ->formatStateUsing(fn (?Item $record): string => Number::format($record?->profitMargin() ?? 0, maxPrecision: 2))
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->hiddenOn('create')
+                            ->visible(fn (): bool => self::canSeeTheCost()),
+                    ]),
+                Section::make(__('filament/resources/item.sections.stock'))
+                    ->icon(Heroicon::OutlinedArchiveBox)
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->columnSpanFull()
                     ->hiddenOn('create')
-                    ->visible(fn (): bool => self::canSeeTheCost()),
-                TextInput::make('available_quantity')
-                    ->label(__('filament/resources/item.fields.available_quantity'))
-                    ->numeric()
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->hiddenOn('create'),
-                TextInput::make('incoming_quantity')
-                    ->label(__('filament/resources/item.fields.incoming_quantity'))
-                    ->numeric()
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->hiddenOn('create'),
-                Textarea::make('description')
-                    ->label(__('filament/resources/item.fields.description'))
-                    ->rows(4)
-                    ->columnSpanFull(),
-                Toggle::make('is_active')
-                    ->label(__('filament/resources/item.fields.is_active'))
-                    ->default(true),
+                    ->schema([
+                        TextInput::make('available_quantity')
+                            ->label(__('filament/resources/item.fields.available_quantity'))
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('incoming_quantity')
+                            ->label(__('filament/resources/item.fields.incoming_quantity'))
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false),
+                    ]),
             ]);
     }
 

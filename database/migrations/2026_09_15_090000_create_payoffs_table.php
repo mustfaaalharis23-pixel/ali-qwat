@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('invoice_id')->constrained()->restrictOnDelete();
             $table->double('amount');
+            $table->boolean('is_initial_payment')->default(false);
             $table->date('date');
             $table->string('image')->nullable();
             $table->timestamps();

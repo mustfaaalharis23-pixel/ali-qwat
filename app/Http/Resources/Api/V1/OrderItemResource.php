@@ -8,7 +8,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * One sold line of an order: the item, how many were sold, at what price, and the total of the line.
+ * One sold line of an order: the item, how many pieces were sold and in which package, at what price, and the total of the line.
  * The cost and the profit of the line stay in the panel and are never sent to the application.
  *
  * @mixin OrderItem
@@ -26,6 +26,10 @@ class OrderItemResource extends JsonResource
             'name' => $this->item?->name,
             'image' => $this->item?->image ? Storage::disk('public')->url($this->item->image) : null,
             'quantity' => $this->quantity,
+            'package' => [
+                'value' => $this->package->value,
+                'label' => $this->package->getLabel(),
+            ],
             'price' => $this->price,
             'total_price' => $this->total_price,
         ];

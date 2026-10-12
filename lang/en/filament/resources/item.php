@@ -54,8 +54,8 @@ return [
             'example' => 'The item was sold on three orders: 5, 4, and 3 units. The card shows 12.',
         ],
         'last_purchase_price' => [
-            'explanation' => 'What one unit of this item cost on the last purchase: the unit price of the last batch that came in on an invoice both sides confirmed, rounded to two decimals. This is the cost price the profit margin is worked out from.',
-            'example' => 'The last invoice bought 50 units for 650,000. The card shows 13,000.',
+            'explanation' => 'What one unit of this item cost in dinars on the last purchase: the final cost of one unit (its price + its transport) in the last batch that came in on an invoice both sides confirmed. This is the cost price the profit margin is worked out from.',
+            'example' => 'On the last invoice a unit cost 850 dinars and its transport 425 dinars. The card shows 1,275.',
         ],
         'average_purchase_price' => [
             'explanation' => 'What one unit of this item cost on average across every purchase: all the money paid for it over all the quantity bought, so a big purchase weighs more than a small one. Only the invoices both sides confirmed are counted.',
@@ -73,6 +73,7 @@ return [
 
     'sections' => [
         'details' => 'Item details',
+        'prices' => 'Prices',
         'stock' => 'Stock',
         'purchase_prices' => 'Purchase prices',
     ],

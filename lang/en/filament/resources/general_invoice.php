@@ -5,6 +5,23 @@ return [
     'plural_label' => 'General invoices',
     'navigation_label' => 'General invoices',
 
+    'widgets' => [
+        'expenses_chart' => [
+            'heading' => 'Expenses by description',
+            'others' => 'Others',
+        ],
+    ],
+
+    'sections' => [
+        'details' => 'Invoice details',
+        'amounts' => 'Amounts',
+        'attachments' => 'Images and notes',
+    ],
+
+    'fields' => [
+        'items' => 'Lines',
+    ],
+
     'money_transfer_notice' => [
         'heading' => 'Money cannot be withdrawn by hand',
         'cannot_save' => 'An invoice cannot be saved under this general description, because it is for money withdrawals.',

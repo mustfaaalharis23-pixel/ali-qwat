@@ -8,7 +8,7 @@ use App\Metrics\Currency;
 use App\Metrics\MetricRange;
 
 /**
- * The total remaining debt to the suppliers in Iraqi dinar. It has only one range, so no range list is shown.
+ * The total remaining debt to the suppliers in Chinese yuan. It has only one range, so no range list is shown.
  */
 class TotalDebtMetric extends ValueMetric
 {
@@ -44,6 +44,6 @@ class TotalDebtMetric extends ValueMetric
 
     protected function currency(): ?Currency
     {
-        return Currency::IraqiDinar;
+        return Currency::ChineseYuan;
     }
 }

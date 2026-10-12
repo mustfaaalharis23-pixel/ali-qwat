@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Package;
 use App\Observers\StockObserver;
 use Database\Factories\OrderItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,12 +17,22 @@ use Illuminate\Validation\ValidationException;
     'order_id',
     'item_id',
     'quantity',
+    'package',
     'price',
 ])]
 class OrderItem extends BaseModel
 {
     /** @use HasFactory<OrderItemFactory> */
     use HasFactory, SoftDeletes;
+
+    /**
+     * A line is a piece unless it was sold in another package. The package is information only: the quantity is in pieces.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'package' => 'piece',
+    ];
 
     /**
      * Before every save, the quantity and price must be more than zero, the item must have enough stock,
@@ -166,6 +177,7 @@ class OrderItem extends BaseModel
     {
         return [
             'quantity' => 'float',
+            'package' => Package::class,
             'price' => 'float',
             'total_price' => 'float',
             'cost_price' => 'float',

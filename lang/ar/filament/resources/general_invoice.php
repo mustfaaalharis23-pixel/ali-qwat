@@ -5,6 +5,23 @@ return [
     'plural_label' => 'الفواتير العامة',
     'navigation_label' => 'الفواتير العامة',
 
+    'widgets' => [
+        'expenses_chart' => [
+            'heading' => 'المصاريف حسب الوصف',
+            'others' => 'غيرها',
+        ],
+    ],
+
+    'sections' => [
+        'details' => 'تفاصيل الفاتورة',
+        'amounts' => 'المبالغ',
+        'attachments' => 'الصور والملاحظات',
+    ],
+
+    'fields' => [
+        'items' => 'البنود',
+    ],
+
     'money_transfer_notice' => [
         'heading' => 'لا يمكن سحب الأموال يدويًا',
         'cannot_save' => 'لا يمكن حفظ فاتورة تحت هذا الوصف العام، لأنه مخصص لسحب الأموال.',

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\ExchangeRateSource;
 use App\Enums\InvoiceConfirmation;
+use App\Enums\InvoiceStage;
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Metrics\Period;
 use App\Observers\StockObserver;
+use Carbon\CarbonImmutable;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -25,9 +28,14 @@ use Illuminate\Validation\ValidationException;
     'type',
     'general_description_id',
     'supplier_id',
+    'invoice_category_id',
     'user_id',
     'cashier_id',
     'date',
+    'exchange_rate',
+    'exchange_rate_source',
+    'dinar_rate',
+    'cbm_price',
     'status',
     'original_invoice_id',
     'images',
@@ -48,10 +56,18 @@ class Invoice extends BaseModel
     ];
 
     /**
+     * Whether the save in progress changes the invoice's price of one CBM or its dinar rate, which the lines' costs come from.
+     */
+    protected bool $costRatesChanged = false;
+
+    /**
      * Before every save, wherever it is saved from, a purchase invoice keeps its general description,
-     * the invoice must have the type of its general description, only a purchase invoice has a supplier,
+     * the invoice must have the type of its general description, only a purchase invoice has a supplier or a container,
      * and its paid amount and remaining are set from its amount and payoffs.
-     * An invoice that has payoffs, or that belongs to a customer payment, cannot be deleted.
+     * A purchase invoice needs its price of one CBM, which can be changed only until the invoice first enters a container.
+     * A new purchase invoice is named by the model, not typed: see namePurchaseInvoiceAfterSupplier(), and starts in production.
+     * An invoice that has payoffs, or that belongs to a customer payment, cannot be deleted; its initial payment does not count,
+     * because it goes with the invoice: deleting the invoice deletes it, and restoring the invoice brings it back.
      */
     protected static function booted(): void
     {
@@ -59,12 +75,47 @@ class Invoice extends BaseModel
             $invoice->ensurePurchaseInvoiceKeepsItsGeneralDescription();
             $invoice->ensureTypeMatchesGeneralDescription();
             $invoice->ensureOnlyPurchaseInvoiceHasSupplier();
+            $invoice->ensureOnlyPurchaseInvoiceHasContainer();
+            $invoice->ensureOnlyPurchaseInvoiceHasCategory();
+            $invoice->ensurePurchaseInvoiceHasCbmPrice();
+            $invoice->ensureCbmPriceIsNotLocked();
+            $invoice->lockCbmPriceInContainer();
             $invoice->applyPaymentAmounts();
+        });
+
+        static::creating(function (Invoice $invoice): void {
+            $invoice->namePurchaseInvoiceAfterSupplier();
+            $invoice->startPurchaseInvoiceInProduction();
+        });
+
+        // Changing the price of one CBM or the dinar rate saves the lines again, so they keep their costs at the new rates.
+        static::saving(function (Invoice $invoice): void {
+            $invoice->costRatesChanged = $invoice->exists && $invoice->isDirty(['cbm_price', 'dinar_rate']);
+        });
+
+        static::saved(function (Invoice $invoice): void {
+            if (! $invoice->costRatesChanged) {
+                return;
+            }
+
+            // The original is synced only after this event, so without this the saves below would see the change again.
+            $invoice->costRatesChanged = false;
+            $invoice->syncOriginalAttributes(['cbm_price', 'dinar_rate']);
+            $invoice->items()->each(fn (InvoiceItem $line) => $line->save());
+            $invoice->recalculateAmounts();
         });
 
         static::deleting(function (Invoice $invoice): void {
             $invoice->ensureHasNoPayoffs();
             $invoice->ensureHasNoCustomerPayment();
+        });
+
+        static::deleted(function (Invoice $invoice): void {
+            $invoice->payoffs()->where('is_initial_payment', true)->each(fn (Payoff $payoff) => $payoff->deleteWithItsInvoice());
+        });
+
+        static::restored(function (Invoice $invoice): void {
+            $invoice->payoffs()->onlyTrashed()->where('is_initial_payment', true)->each(fn (Payoff $payoff) => $payoff->restore());
         });
     }
 
@@ -74,6 +125,39 @@ class Invoice extends BaseModel
     public function isPurchase(): bool
     {
         return $this->generalDescription()->withTrashed()->first()?->is_purchases_description === true;
+    }
+
+    /**
+     * Moves this purchase invoice to its next stage, one step forward.
+     *
+     * @throws ValidationException when it is not a purchase invoice, or it is already at the last stage.
+     */
+    public function advanceStage(): void
+    {
+        $next = $this->stage?->next();
+
+        if ($next === null) {
+            throw ValidationException::withMessages([
+                'stage' => __('invoices.validation.stage_cannot_advance'),
+            ]);
+        }
+
+        $this->stage = $next;
+        $this->save();
+    }
+
+    /**
+     * Marks this purchase invoice as received, straight from whatever stage it is at. Scanning a carton label is the proof
+     * that the goods arrived, so unlike advanceStage() it does not go one step at a time. An invoice already received stays as it is.
+     */
+    public function receive(): void
+    {
+        if ($this->stage === InvoiceStage::Received) {
+            return;
+        }
+
+        $this->stage = InvoiceStage::Received;
+        $this->save();
     }
 
     /**
@@ -149,6 +233,67 @@ class Invoice extends BaseModel
     }
 
     /**
+     * The invoices under a capital movement description, in both directions: the money the partners put in,
+     * and the money they take out. It is not a profit and not an expense, so the profit and loss report keeps it
+     * out of both sides and shows it on its own. This is the only definition of a capital movement invoice.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function capitalMovements(Builder $query): void
+    {
+        $query->whereHas('generalDescription', fn (Builder $query): Builder => $query->withTrashed()->capitalMovements());
+    }
+
+    /**
+     * The invoices that only move money between the boxes: one of their lines is under a description that has a transfer type,
+     * such as the cashier money transfer and the customer payment. The money is already in the sales, so it is not a revenue.
+     * This is the only definition of a money transfer invoice in queries.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function moneyTransfers(Builder $query): void
+    {
+        $query->whereHas('items', fn (Builder $query): Builder => $query
+            ->withTrashed()
+            ->whereHas('specificDescription', fn (Builder $query): Builder => $query->withTrashed()->whereNotNull('transfer_type')));
+    }
+
+    /**
+     * The external revenues: the revenues that are a profit of their own, next to the profit of the sales.
+     * They are the input invoices without the money transfers, whose money comes from the sales and is counted there,
+     * and without the capital movements, which are not earned. This is the only definition of an external revenue.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function externalRevenues(Builder $query): void
+    {
+        $query
+            ->revenues()
+            ->whereDoesntHave('generalDescription', fn (Builder $query): Builder => $query->withTrashed()->capitalMovements())
+            ->whereDoesntHave('items', fn (Builder $query): Builder => $query
+                ->withTrashed()
+                ->whereHas('specificDescription', fn (Builder $query): Builder => $query->withTrashed()->whereNotNull('transfer_type')));
+    }
+
+    /**
+     * The operating expenses: the expenses that lower the profit. They are the general expenses without the capital movements,
+     * because taking capital out is not a cost of the work. The purchase invoices are already out of the general expenses:
+     * buying goods only turns money into stock. This is the only definition of an operating expense.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function operatingExpenses(Builder $query): void
+    {
+        $query
+            ->generalExpenses()
+            ->whereDoesntHave('generalDescription', fn (Builder $query): Builder => $query->withTrashed()->capitalMovements());
+    }
+
+    /**
      * The purchase invoices: invoices under the purchases description. This is the only definition of a purchase invoice in queries.
      *
      * @param  Builder<self>  $query
@@ -218,6 +363,39 @@ class Invoice extends BaseModel
      * @param  Builder<self>  $query
      * @return array{suppliers: list<array<string, string|float>>, others: float}
      */
+    /**
+     * Where the general expenses went: the descriptions spent on the most, from the largest to the smallest,
+     * and the sum of the rest as one part. It reads the general expenses only, so the purchases have no part in it,
+     * and it sums what was actually paid, which for a general invoice is its whole amount.
+     *
+     * @return array{descriptions: list<array{name: string, expense: float}>, others: float}
+     */
+    public static function generalExpensesByDescription(int $top = 5): array
+    {
+        $rows = static::query()
+            ->generalExpenses()
+            ->selectRaw('general_description_id, sum(paid_amount) as total')
+            ->groupBy('general_description_id')
+            ->orderByDesc('total')
+            ->orderBy('general_description_id')
+            ->get();
+
+        $names = GeneralDescription::withTrashed()
+            ->whereIn('id', $rows->pluck('general_description_id'))
+            ->pluck('name', 'id');
+
+        return [
+            'descriptions' => $rows->take($top)
+                ->map(fn (Invoice $row): array => [
+                    'name' => $names[$row->general_description_id],
+                    'expense' => (float) $row->total,
+                ])
+                ->values()
+                ->all(),
+            'others' => (float) $rows->slice($top)->sum('total'),
+        ];
+    }
+
     private static function sumBySupplier(Builder $query, string $column, string $key, int $top): array
     {
         $rows = $query
@@ -251,7 +429,61 @@ class Invoice extends BaseModel
     }
 
     /**
-     * Sets the amount to the sum of the line prices and saves the invoice. A deleted invoice keeps its amount.
+     * What the company owed its suppliers at the end of that day: the remaining of the purchase invoices dated up to it.
+     * What was paid on an invoice is counted on the invoice's own date, exactly like the accountant's box counts it,
+     * so the money that left the box and the debt that went down always agree.
+     * Unlike the total debt, this looks back in time and counts every purchase invoice, even one that is fully paid,
+     * and a return invoice lowers the balance because its remaining is negative.
+     * This is the only definition of what was owed to the suppliers at a moment.
+     */
+    public static function supplierBalanceAt(CarbonImmutable $moment): float
+    {
+        return (float) (new Period(null, $moment))
+            ->applyTo(static::query()->purchases(), 'date')
+            ->sum('remaining');
+    }
+
+    /**
+     * The goods that were bought and not in the stock yet at the end of that day: the amounts of the purchase invoices
+     * dated up to it that both sides did not confirm. The company already owes them, and their goods enter the stock
+     * only when both sides confirm, so they are held here at what they were bought for.
+     * This is the only definition of the purchases waiting for a confirmation at a moment.
+     */
+    public static function unconfirmedPurchasesAt(CarbonImmutable $moment): float
+    {
+        return (float) (new Period(null, $moment))
+            ->applyTo(static::query()->purchases()->where('status', '!=', InvoiceStatus::Confirmed), 'date')
+            ->sum('amount');
+    }
+
+    /**
+     * The purchases of the period: the sum of the amounts of the purchase invoices dated inside it, whatever their
+     * confirmation, paid or still owed. Deleted invoices are not counted. This is the only definition of the purchases of a period.
+     */
+    public static function purchasesAmount(Period $period): float
+    {
+        return (float) $period->applyTo(static::query()->purchases(), 'date')->sum('amount');
+    }
+
+    /**
+     * The capital the partners moved inside the period: what they put in minus what they took out.
+     * It is not a profit and not an expense, so it is what explains a change in the value of the company
+     * that the profit does not explain. This is the only definition of the capital movement of a period.
+     */
+    public static function capitalMovement(Period $period): float
+    {
+        $putIn = (float) $period->applyTo(static::query()->capitalMovements()->revenues(), 'date')->sum('paid_amount');
+        $takenOut = (float) $period->applyTo(static::query()->capitalMovements()->expenses(), 'date')->sum('paid_amount');
+
+        return $putIn - $takenOut;
+    }
+
+    /**
+     * Sets the amount to the sum of the line prices, and the CBM to the sum of the lines' CBM, and saves the invoice.
+     * The amount in US dollars is the sum of the lines' prices in dollars (none without an exchange rate), and the transport cost
+     * in US dollars the sum of the lines' transport costs (none without a price of one CBM).
+     * The amount and the transport cost in Iraqi dinars are the sums of the lines' (none without both rates).
+     * A deleted invoice keeps its amount and its CBM.
      */
     public function recalculateAmounts(): void
     {
@@ -260,7 +492,22 @@ class Invoice extends BaseModel
         }
 
         $this->amount = (float) $this->items()->sum('price');
+        $this->cbm = (float) $this->items()->sum('cbm');
+        $this->amount_usd = $this->exchange_rate > 0 ? (float) $this->items()->sum('price_usd') : null;
+        $this->transport_cost_usd = $this->cbm_price !== null ? (float) $this->items()->sum('transport_cost_usd') : null;
+        $hasDinarCosts = $this->exchange_rate > 0 && $this->dinarsPerDollar() !== null;
+        $this->amount_iqd = $hasDinarCosts ? (float) $this->items()->sum('price_iqd') : null;
+        $this->transport_cost_iqd = $hasDinarCosts && $this->cbm_price !== null ? (float) $this->items()->sum('transport_cost_iqd') : null;
         $this->save();
+    }
+
+    /**
+     * The Iraqi dinars in one US dollar. The dinar rate is written as the market writes it, in thousands of dinars for 100 dollars:
+     * 170 means 100 $ = 170,000 dinars, so one dollar is 1,700 dinars. Null without a dinar rate.
+     */
+    public function dinarsPerDollar(): ?float
+    {
+        return $this->dinar_rate > 0 ? $this->dinar_rate * 1000 / 100 : null;
     }
 
     /**
@@ -314,6 +561,26 @@ class Invoice extends BaseModel
     }
 
     /**
+     * The category of this purchase invoice, such as frames or lenses. A general invoice has none.
+     *
+     * @return BelongsTo<InvoiceCategory, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceCategory::class, 'invoice_category_id');
+    }
+
+    /**
+     * The container this purchase invoice is shipped in, if any.
+     *
+     * @return BelongsTo<Container, $this>
+     */
+    public function container(): BelongsTo
+    {
+        return $this->belongsTo(Container::class);
+    }
+
+    /**
      * The user who created this invoice.
      *
      * @return BelongsTo<User, $this>
@@ -361,6 +628,26 @@ class Invoice extends BaseModel
     public function originalInvoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class, 'original_invoice_id');
+    }
+
+    /**
+     * The purchase invoice this one was split off from, when only part of that invoice was shipped in a container.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function splitFrom(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'split_from_invoice_id');
+    }
+
+    /**
+     * The parts split off this purchase invoice into containers.
+     *
+     * @return HasMany<Invoice, $this>
+     */
+    public function splitParts(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'split_from_invoice_id');
     }
 
     /**
@@ -420,13 +707,106 @@ class Invoice extends BaseModel
     }
 
     /**
+     * A new purchase invoice is named after its supplier and the supplier's counter, such as "علي 3" for his third purchase invoice.
+     * Deleted invoices are counted too, so a number is never used twice. Parts split off an invoice are not counted, because they are named after it.
+     * The name is set once and stays when the invoice is edited.
+     */
+    protected function namePurchaseInvoiceAfterSupplier(): void
+    {
+        if ($this->supplier_id === null || ! $this->isPurchase()) {
+            return;
+        }
+
+        $supplier = Supplier::withTrashed()->findOrFail($this->supplier_id);
+        $counter = static::withTrashed()->where('supplier_id', $supplier->id)->whereNull('split_from_invoice_id')->count() + 1;
+
+        $this->name = "{$supplier->name_ar} {$counter}";
+    }
+
+    /**
+     * A new purchase invoice starts in production. A general invoice has no stage.
+     */
+    protected function startPurchaseInvoiceInProduction(): void
+    {
+        if ($this->isPurchase()) {
+            $this->stage = InvoiceStage::InProduction;
+        }
+    }
+
+    /**
+     * Only a purchase invoice can be in a container.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureOnlyPurchaseInvoiceHasContainer(): void
+    {
+        if ($this->container_id !== null && ! $this->isPurchase()) {
+            throw ValidationException::withMessages([
+                'container_id' => __('invoices.validation.general_invoice_has_no_container'),
+            ]);
+        }
+    }
+
+    /**
+     * A purchase invoice needs its price of one CBM in US dollars, which its transport cost is calculated from.
+     *
+     * @throws ValidationException
+     */
+    protected function ensurePurchaseInvoiceHasCbmPrice(): void
+    {
+        if ($this->cbm_price === null && $this->isPurchase()) {
+            throw ValidationException::withMessages([
+                'cbm_price' => __('invoices.validation.purchase_invoice_needs_cbm_price'),
+            ]);
+        }
+    }
+
+    /**
+     * Once the invoice has entered a container, its price of one CBM cannot be changed, even after it leaves the container.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureCbmPriceIsNotLocked(): void
+    {
+        if ($this->exists && $this->isDirty('cbm_price') && $this->getOriginal('cbm_price_locked_at') !== null) {
+            throw ValidationException::withMessages([
+                'cbm_price' => __('invoices.validation.cbm_price_locked'),
+            ]);
+        }
+    }
+
+    /**
+     * The first time the invoice is in a container, its price of one CBM is locked for good.
+     */
+    protected function lockCbmPriceInContainer(): void
+    {
+        if ($this->container_id !== null && $this->cbm_price_locked_at === null) {
+            $this->cbm_price_locked_at = now();
+        }
+    }
+
+    /**
+     * Only a purchase invoice has a category.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureOnlyPurchaseInvoiceHasCategory(): void
+    {
+        if ($this->invoice_category_id !== null && ! $this->isPurchase()) {
+            throw ValidationException::withMessages([
+                'invoice_category_id' => __('invoices.validation.general_invoice_has_no_category'),
+            ]);
+        }
+    }
+
+    /**
      * An invoice that has payoffs cannot be deleted.
      *
      * @throws ValidationException
      */
     protected function ensureHasNoPayoffs(): void
     {
-        if ($this->payoffs()->exists()) {
+        if ($this->payoffs()->where('is_initial_payment', false)->exists()) {
             throw ValidationException::withMessages([
                 'invoice' => __('invoices.validation.invoice_has_payoffs'),
             ]);
@@ -477,12 +857,23 @@ class Invoice extends BaseModel
         return [
             'type' => InvoiceType::class,
             'status' => InvoiceStatus::class,
+            'stage' => InvoiceStage::class,
             'date' => 'date',
             'importer_confirmed_at' => 'datetime',
             'receiver_confirmed_at' => 'datetime',
             'amount' => 'float',
             'paid_amount' => 'float',
             'remaining' => 'float',
+            'cbm' => 'float',
+            'cbm_price' => 'float',
+            'cbm_price_locked_at' => 'datetime',
+            'exchange_rate' => 'float',
+            'amount_usd' => 'float',
+            'amount_iqd' => 'float',
+            'dinar_rate' => 'float',
+            'transport_cost_iqd' => 'float',
+            'transport_cost_usd' => 'float',
+            'exchange_rate_source' => ExchangeRateSource::class,
             'profit_difference' => 'float',
             'images' => 'array',
         ];

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\DownloadPurchaseLabelController;
 use App\Http\Controllers\PrintInvoiceController;
+use App\Http\Controllers\PrintPurchaseInvoiceController;
 use App\Http\Controllers\SwitchLocaleController;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
@@ -19,3 +21,17 @@ Route::get('/invoices/{order}/print/{format}', PrintInvoiceController::class)
     ->middleware(['auth', SetLocale::class])
     ->whereIn('format', ['a4', 'pos'])
     ->name('invoices.print');
+
+/**
+ * The checking sheet of one purchase invoice, for the employee who receives and counts the goods.
+ */
+Route::get('/purchase-invoices/{invoice}/print', PrintPurchaseInvoiceController::class)
+    ->middleware(['auth', SetLocale::class])
+    ->name('purchase-invoices.print');
+
+/**
+ * The carton label of one purchase invoice as a PDF file, for the supplier's factory.
+ */
+Route::get('/purchase-invoices/{invoice}/label', DownloadPurchaseLabelController::class)
+    ->middleware(['auth', SetLocale::class])
+    ->name('purchase-invoices.label');

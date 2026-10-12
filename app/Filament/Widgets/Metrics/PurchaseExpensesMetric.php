@@ -8,7 +8,7 @@ use App\Metrics\Currency;
 use App\Metrics\MetricRange;
 
 /**
- * The purchase expenses in Iraqi dinar: what was paid on the purchase invoices, with every range to choose from. It opens on this month.
+ * The purchase expenses in Chinese yuan: what was paid on the purchase invoices, with every range to choose from. It opens on this month.
  */
 class PurchaseExpensesMetric extends ValueMetric
 {
@@ -44,6 +44,6 @@ class PurchaseExpensesMetric extends ValueMetric
 
     protected function currency(): ?Currency
     {
-        return Currency::IraqiDinar;
+        return Currency::ChineseYuan;
     }
 }

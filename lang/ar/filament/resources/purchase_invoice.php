@@ -8,19 +8,108 @@ return [
     'sections' => [
         'details' => 'تفاصيل الفاتورة',
         'amounts' => 'المبالغ',
+        'dollars' => 'بالدولار',
+        'dinars' => 'بالدينار العراقي',
+        'shipping' => 'الشحن',
+        'progress' => 'الحالة والتأكيدات',
+        'attachments' => 'الصور والملاحظات',
     ],
 
     'fields' => [
         'items' => 'البنود',
+        'initial_payment' => 'دفعة أولية',
         'item' => 'المنتج',
+        'unit_cost' => 'كلفة القطعة',
+        'final_unit_cost' => 'الكلفة النهائية للقطعة',
+        'unit_cost_usd' => 'كلفة القطعة بالدولار',
+        'price_usd' => 'السعر بالدولار',
+        'line_total' => 'الكلي',
     ],
 
-    'hints' => [
-        'item' => 'المتوفر: :available · القادم: :incoming · سعر البيع: :sale_price',
-        'cost' => 'كلفة الوحدة الحالية: :cost_price · السابقة: :last_cost_price',
+    'split' => [
+        'part' => 'مفصولة من #:number',
+        'part_hint' => 'جزء انفصل من الفاتورة #:number لما انشحن قسم منها بحاوية',
+        'original' => 'أصلية · انفصل منها :numbers',
+        'original_hint' => 'هذي الفاتورة الأصلية، وانفصلت منها أجزاء انشحنت بحاويات',
+    ],
+
+    'lines_below' => [
+        'packets' => ':packets باكيت × :capacity',
+        'per_carton' => ':value باكيت بالكارتونة',
+        'carton_cbm' => ':value للكارتونة',
+        'usd' => ':value $',
+        'final_parts' => ':cost + نقل :transport',
+        'per_piece' => ':value $ للقطعة',
+    ],
+
+    'exchange_rate_source_hint' => 'المصدر: :source',
+    'dinar_rate_unit' => 'ألف د.ع',
+    'dinar_rate_hint' => 'مثل ما يحچي السوق: 100 $ = 170 ألف. يعني 1 $ = :value د.ع',
+    'cbm_price_hint' => 'يتعدل لحد ما الفاتورة تدخل حاوية، وبعدها ينقفل للأبد.',
+    'cbm_price_locked_hint' => 'مقفول: الفاتورة دخلت حاوية.',
+
+    'notifications' => [
+        'exchange_rate_unavailable' => [
+            'title' => 'ما كدرنا نجيب سعر الصرف',
+            'body' => 'لا البنك الزراعي الصيني ولا بنك China Merchants ردّوا. اكتب سعر الصرف بيدك: كم يوان بالدولار الواحد.',
+        ],
+    ],
+
+    'validation' => [
+        'initial_payment_above_amount' => 'الدفعة الأولية أكبر من مبلغ الفاتورة.',
+    ],
+
+    'initial_payment_note' => [
+        'heading' => 'اختياري: مبلغ دفعته للمورد وقت الشراء',
+        'description' => 'ينحفظ تلقائياً كأول تسديد على الفاتورة بتاريخها، وينقص من الباقي على المورد. ما يكدر يكون أكثر من مبلغ الفاتورة، والتسديدات الثانية تضيفها من صفحة الفاتورة بعدين.',
+    ],
+
+    'facts' => [
+        'quantity' => ':value قطعة',
+        'available' => 'المتوفر :value',
+        'incoming' => 'القادم :value',
+        'sale_price' => 'البيع :value',
+        'line_total' => 'الكلي :value',
+        'unit_cost_usd' => 'القطعة :value $',
+        'line_total_usd' => 'الكلي :value $',
+        'unit_cost_iqd' => 'القطعة :value د.ع',
+        'line_total_iqd' => 'الكلي :value د.ع',
+        'final_unit_cost_iqd' => 'النهائية :value د.ع',
+        'cartons' => ':value كارتونة',
+        'line_cbm' => ':value CBM',
+        'transport_cost' => 'النقل :value $',
+        'transport_cost_per_piece' => 'نقل القطعة :value $',
+        'previous_unit_cost' => 'السابقة :value',
+        'supplier_debt' => 'دين المورد الحالي :value',
+        'invoice_amount' => 'مبلغ الفاتورة :value',
+        'remaining_after_payment' => 'الباقي منها بعد الدفعة :value',
+        'supplier_debt_after' => 'دين المورد بعدها :value',
+    ],
+
+    'facts_hints' => [
+        'quantity' => 'عدد القطع بالبند: عدد الباكيتات × سعة الباكيت',
+        'available' => 'الكمية الموجودة بالمخزن الآن',
+        'incoming' => 'مشتراة وأكدها المستورد، وبعدها ما وصلت',
+        'sale_price' => 'سعر بيع القطعة',
+        'line_total' => 'السعر الكلي للبند: عدد القطع × كلفة القطعة',
+        'unit_cost_usd' => 'كلفة القطعة بالدولار: كلفة القطعة ÷ سعر صرف الفاتورة',
+        'line_total_usd' => 'السعر الكلي للبند بالدولار: الكلي ÷ سعر صرف الفاتورة',
+        'unit_cost_iqd' => 'كلفة القطعة بالدينار: كلفتها بالدولار × سعر الدولار بالدينار',
+        'line_total_iqd' => 'السعر الكلي للبند بالدينار: الكلي بالدولار × سعر الدولار بالدينار',
+        'final_unit_cost_iqd' => 'الكلفة النهائية للقطعة بالدينار: كلفتها + نقلها. هذي تصير كلفة المادة',
+        'cartons' => 'عدد كراتين البند: عدد الباكيتات ÷ تعبئة الكارتونة، والكارتونة الناقصة تنحسب كاملة',
+        'line_cbm' => 'حجم البند: عدد الكراتين × حجم الكارتونة الواحدة',
+        'transport_cost' => 'نقل البند بالدولار: CBM البند × سعر المتر المكعب بالفاتورة',
+        'transport_cost_per_piece' => 'نقل القطعة الوحدة بالدولار: نقل البند ÷ عدد القطع',
+        'previous_unit_cost' => 'كلفة المادة الحالية بالدينار، من آخر فاتورة شراء مؤكدة. أحمر إذا الكلفة النهائية لهذا البند أغلى منها، وأخضر إذا أرخص',
+        'supplier_debt' => 'كل الباقي على المورد من فواتيره قبل هذي الفاتورة',
+        'invoice_amount' => 'مجموع السعر الكلي للبنود',
+        'remaining_after_payment' => 'مبلغ الفاتورة ناقص الدفعة الأولية',
+        'supplier_debt_after' => 'دين المورد الحالي + الباقي من هذي الفاتورة',
     ],
 
     'actions' => [
+        'print_label' => 'طباعة الملصق',
         'confirm' => [
             'label' => 'تأكيد كـ:side',
             'heading' => 'تأكيد كـ:side',
@@ -29,12 +118,19 @@ return [
             'submit' => 'تأكيد',
             'done' => 'تم التأكيد كـ:side',
         ],
+        'advance_stage' => [
+            'label' => 'نقل إلى: :stage',
+            'description' => 'المرحلة تمشي للأمام بس، وما ترجع لورا.',
+            'done' => 'الفاتورة صارت: :stage',
+        ],
         'revert_confirmation' => [
             'label' => 'التراجع عن آخر تأكيد',
             'description' => 'ترجع الفاتورة إلى المرحلة التي قبل آخر تأكيد.',
             'done' => 'تم التراجع عن آخر تأكيد',
         ],
+        'print' => 'طباعة فاتورة الشراء',
         'add_line' => 'إضافة بند',
+        'more' => 'المزيد',
     ],
 
     'widgets' => [

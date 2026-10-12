@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('type');
             $table->boolean('is_purchases_description')->default(false);
+            $table->boolean('is_capital_movement')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });

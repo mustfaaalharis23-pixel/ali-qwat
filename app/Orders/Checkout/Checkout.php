@@ -2,11 +2,13 @@
 
 namespace App\Orders\Checkout;
 
+use App\Enums\OrderPaymentType;
 use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
+use App\Orders\PayCustomerDebt;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,8 +16,9 @@ use Illuminate\Validation\ValidationException;
 class Checkout
 {
     /**
-     * The sale: checks the customer, the payment type, and the items' prices, then saves the order and its items together,
-     * so either all of them are saved or none is. Each item's price is its sale price from the database.
+     * The sale: checks the customer, the payment type, the items' prices, and the down payment, then saves the order,
+     * its items, and its down payment together, so either all of them are saved or none is.
+     * Each item's price is its sale price from the database.
      *
      * @throws ValidationException
      */
@@ -26,16 +29,58 @@ class Checkout
 
         $items = $this->soldItems($data);
         $this->ensureItemsCanBeSold($items);
+        $this->ensureDownPaymentFits($data, $items);
 
         return DB::transaction(function () use ($user, $data, $items): Order {
             $order = $this->createOrder($user, $data);
 
             foreach ($data->lines as $line) {
-                $this->addLine($order, $items->findOrFail($line->itemId), $line->quantity);
+                $this->addLine($order, $items->findOrFail($line->itemId), $line);
+            }
+
+            if ($data->downPayment !== null) {
+                app(PayCustomerDebt::class)->downPayment($user, $order, $data->downPayment);
             }
 
             return $order;
         });
+    }
+
+    /**
+     * A down payment is taken with a postpaid sale only, it is more than zero, and it is not more than what the order comes to.
+     *
+     * @param  Collection<int, Item>  $items
+     *
+     * @throws ValidationException
+     */
+    private function ensureDownPaymentFits(CheckoutData $data, Collection $items): void
+    {
+        if ($data->downPayment === null) {
+            return;
+        }
+
+        if ($data->paymentType !== OrderPaymentType::Postpaid) {
+            throw ValidationException::withMessages([
+                'down_payment' => __('orders.validation.down_payment_postpaid_only'),
+            ]);
+        }
+
+        if ($data->downPayment <= 0) {
+            throw ValidationException::withMessages([
+                'down_payment' => __('orders.validation.down_payment_must_be_positive'),
+            ]);
+        }
+
+        $orderAmount = array_sum(array_map(
+            fn (CheckoutLine $line): float => (float) $items->findOrFail($line->itemId)->sale_price * $line->quantity,
+            $data->lines,
+        ));
+
+        if ($data->downPayment > $orderAmount + 0.0001) {
+            throw ValidationException::withMessages([
+                'down_payment' => __('orders.validation.down_payment_exceeds_order_amount'),
+            ]);
+        }
     }
 
     /**
@@ -112,15 +157,17 @@ class Checkout
             'payment_type' => $data->paymentType,
             'date' => $data->date,
             'notes' => $data->notes,
+            'down_payment' => $data->downPayment,
         ]);
     }
 
-    private function addLine(Order $order, Item $item, float $quantity): OrderItem
+    private function addLine(Order $order, Item $item, CheckoutLine $line): OrderItem
     {
         return OrderItem::create([
             'order_id' => $order->id,
             'item_id' => $item->id,
-            'quantity' => $quantity,
+            'quantity' => $line->quantity,
+            'package' => $line->package,
             'price' => $item->sale_price,
         ]);
     }

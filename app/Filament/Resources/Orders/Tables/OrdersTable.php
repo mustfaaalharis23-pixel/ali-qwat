@@ -39,6 +39,11 @@ class OrdersTable
                     ->label(__('filament/resources/order.fields.total_amount'))
                     ->numeric()
                     ->sortable(),
+                TextColumn::make('down_payment')
+                    ->label(__('filament/resources/order.fields.down_payment'))
+                    ->numeric()
+                    ->placeholder('-')
+                    ->sortable(),
                 TextColumn::make('remaining')
                     ->label(__('filament/resources/order.fields.remaining'))
                     ->numeric()

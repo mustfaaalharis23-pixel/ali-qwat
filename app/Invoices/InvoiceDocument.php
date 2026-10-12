@@ -28,6 +28,7 @@ class InvoiceDocument
             'order' => $order,
             'money' => fn (float $amount): string => FormattedValue::of($amount, Currency::IraqiDinar)->number,
             'currency' => Currency::IraqiDinar->symbol(),
+            'fonts' => $this->fontFaces(),
         ]);
     }
 
@@ -52,5 +53,21 @@ class InvoiceDocument
             : $browsershot->format('A4');
 
         return $browsershot->pdf();
+    }
+
+    /**
+     * The invoice's font, written into the page itself: every font file named in public/fonts/invoice/font.css
+     * is replaced by its contents. So the page on the screen and the PDF use the same font without a network,
+     * and the PDF needs no file link, which the browser that makes it refuses.
+     */
+    private function fontFaces(): string
+    {
+        $directory = public_path('fonts/invoice');
+
+        return preg_replace_callback(
+            '/url\(([^)]+\.woff2)\)/',
+            fn (array $match): string => 'url(data:font/woff2;base64,'.base64_encode(file_get_contents("{$directory}/{$match[1]}")).')',
+            file_get_contents("{$directory}/font.css"),
+        );
     }
 }

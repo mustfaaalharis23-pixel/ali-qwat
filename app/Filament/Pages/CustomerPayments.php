@@ -42,12 +42,12 @@ class CustomerPayments extends Page
 
     public static function getNavigationGroup(): string
     {
-        return __('filament/navigation.groups.accounting');
+        return __('filament/navigation.groups.sales');
     }
 
     public static function getNavigationSort(): int
     {
-        return 5;
+        return 3;
     }
 
     public static function getNavigationLabel(): string

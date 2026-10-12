@@ -13,6 +13,10 @@ return [
         'payment_type' => 'Payment type',
     ],
 
+    'sections' => [
+        'details' => 'Customer details',
+    ],
+
     'actions' => [
         'pay_debt' => [
             'label' => 'Pay debt',
@@ -65,6 +69,7 @@ return [
             'opening_balance' => 'Previous balance',
             'order' => 'Postpaid order',
             'payment' => 'Payment',
+            'down_payment' => 'Down payment',
         ],
         'details' => [
             'opening_balance' => 'Everything before :date',

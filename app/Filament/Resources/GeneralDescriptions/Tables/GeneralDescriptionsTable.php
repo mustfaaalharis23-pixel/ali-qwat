@@ -32,6 +32,9 @@ class GeneralDescriptionsTable
                 IconColumn::make('is_purchases_description')
                     ->label(__('filament/resources/general_description.fields.is_purchases_description'))
                     ->boolean(),
+                IconColumn::make('is_capital_movement')
+                    ->label(__('filament/resources/general_description.fields.is_capital_movement'))
+                    ->boolean(),
             ])
             ->filters([
                 SelectFilter::make('type')

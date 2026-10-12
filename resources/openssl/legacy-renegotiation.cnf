@@ -1,0 +1,13 @@
+# Used only by App\Invoices\FetchDollarRate, in the separate process that asks the Agricultural Bank of China
+# for its exchange rates: the bank's server only speaks an old TLS without secure renegotiation, which OpenSSL 3
+# refuses by default. The app's own process never loads this file.
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_init
+
+[ssl_init]
+system_default = system_default
+
+[system_default]
+Options = UnsafeLegacyRenegotiation

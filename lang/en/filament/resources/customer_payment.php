@@ -8,6 +8,7 @@ return [
     'fields' => [
         'customer_id' => 'Customer',
         'amount' => 'Amount',
+        'is_down_payment' => 'Down payment',
         'date' => 'Date',
         'image' => 'Receipt image',
         'notes' => 'Notes',

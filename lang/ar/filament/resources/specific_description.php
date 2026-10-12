@@ -13,6 +13,10 @@ return [
         'transfer_type' => 'نوع التحويل',
     ],
 
+    'sections' => [
+        'details' => 'تفاصيل الوصف',
+    ],
+
     'filters' => [
         'item_descriptions' => 'وصوف المنتجات',
     ],

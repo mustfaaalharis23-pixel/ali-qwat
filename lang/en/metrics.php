@@ -71,7 +71,7 @@ return [
         ],
         'purchase_expenses' => [
             'explanation' => 'The total money paid to the suppliers on the purchase invoices dated in the chosen range. Only what has been paid counts, not the full invoice amount; what is still owed shows in the total debt. A payment counts on the date of its invoice. Deleted invoices are not counted.',
-            'example' => 'This month there is a purchase invoice of 1,000,000 IQD with 400,000 IQD paid. Purchase expenses = 400,000 IQD, and the remaining 600,000 IQD is in the total debt.',
+            'example' => 'This month there is a purchase invoice of 1,000,000 ¥ with 400,000 ¥ paid. Purchase expenses = 400,000 ¥, and the remaining 600,000 ¥ is in the total debt.',
         ],
         'revenues' => [
             'explanation' => 'The total money that came in on the Input invoices dated in the chosen range. An Input invoice is always fully paid, so it counts with its full amount. Deleted invoices are not counted.',
@@ -83,7 +83,7 @@ return [
         ],
         'total_debt' => [
             'explanation' => 'What is still owed to all the suppliers right now: for every purchase invoice, its amount minus what has been paid on it, all added together. A fully paid invoice adds nothing. It is the debt as of today, so it has no range. Deleted invoices are not counted.',
-            'example' => 'Supplier A has an invoice of 1,000,000 IQD with 600,000 IQD paid, and supplier B has an invoice of 500,000 IQD with nothing paid. Total debt = 400,000 + 500,000 = 900,000 IQD.',
+            'example' => 'Supplier A has an invoice of 1,000,000 ¥ with 600,000 ¥ paid, and supplier B has an invoice of 500,000 ¥ with nothing paid. Total debt = 400,000 + 500,000 = 900,000 ¥.',
         ],
         'item_count' => [
             'explanation' => 'How many items there are, active and inactive together. Deleted items are not counted. It is the count right now, so it has no range.',

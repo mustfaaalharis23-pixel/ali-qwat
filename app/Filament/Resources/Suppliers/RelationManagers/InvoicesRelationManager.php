@@ -35,7 +35,8 @@ class InvoicesRelationManager extends RelationManager
             ->pluralModelLabel(__('filament/resources/purchase_invoice.plural_label'))
             ->defaultSort('date', 'desc')
             ->columns([
-                IdColumn::make('id'),
+                IdColumn::make('id')
+                    ->resource(PurchaseInvoiceResource::class),
                 TextColumn::make('name')
                     ->label(__('filament/resources/invoice.fields.name'))
                     ->searchable(),

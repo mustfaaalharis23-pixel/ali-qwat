@@ -2,13 +2,12 @@
 
 namespace App\Filament\Reports;
 
-use App\Filament\Forms\Components\DateInput;
+use App\Filament\Forms\Components\PeriodInput;
 use App\Metrics\Currency;
 use App\Metrics\Period;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Components\Actions;
@@ -18,7 +17,6 @@ use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -33,8 +31,8 @@ use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The template of every report: a page with a period form (a single day or a from-until period), a fetch button,
- * an Excel download button, and a table of the fetched rows. A report gives its uriKey, its label, its columns, and its rows.
+ * The template of every report: a page with a period form (one calendar, a period or a single day),
+ * a fetch button, an Excel download button, and a table of the fetched rows. It opens on the last three months, fetched. A report gives its uriKey, its label, its columns, and its rows.
  * The table stays empty until the fetch button is pressed, and the Excel file holds what was fetched.
  *
  * @property-read Schema $form
@@ -49,6 +47,11 @@ abstract class Report extends Page implements HasTable
      * Higher than the Lenses group, so the Reports group comes last in the sidebar.
      */
     protected static ?int $navigationSort = 200;
+
+    /**
+     * How many months back a report opens on.
+     */
+    protected const DEFAULT_MONTHS = 3;
 
     /**
      * The state of the period form.
@@ -99,7 +102,8 @@ abstract class Report extends Page implements HasTable
     abstract public function rows(Period $period): array;
 
     /**
-     * The totals shown in colored cards under the table and at the end of the Excel file. A report has none unless it gives them.
+     * The totals of the report: the colored cards under the table, and the last lines of the Excel file.
+     * A report has none unless it gives them, and a report that shows them its own way keeps only the Excel lines.
      *
      * @param  list<array<string, mixed>>  $rows
      * @return list<array{label: string, value: float, color: string, currency?: Currency}>
@@ -107,6 +111,14 @@ abstract class Report extends Page implements HasTable
     public function totals(array $rows): array
     {
         return [];
+    }
+
+    /**
+     * Whether the totals are shown as cards under the table. A report that says no keeps its totals for the Excel file only.
+     */
+    protected function hasTotalsCards(): bool
+    {
+        return true;
     }
 
     /**
@@ -150,13 +162,18 @@ abstract class Report extends Page implements HasTable
         return static::label();
     }
 
+    /**
+     * A report opens on the last three months, already fetched, so it says something the moment it is opened.
+     */
     public function mount(): void
     {
         $this->form->fill();
+
+        $this->fetch();
     }
 
     /**
-     * The period form: a single day by default, today, or a from-until period.
+     * The period form: one field with one calendar, where a period is two days clicked in it and a single day is one.
      */
     public function form(Schema $schema): Schema
     {
@@ -165,36 +182,11 @@ abstract class Report extends Page implements HasTable
                 Section::make()
                     ->schema([
                         Flex::make([
-                            ToggleButtons::make('mode')
-                                ->label(__('filament/reports.fields.mode'))
-                                ->options([
-                                    'day' => __('filament/reports.modes.day'),
-                                    'range' => __('filament/reports.modes.range'),
-                                ])
-                                ->default('day')
-                                ->grouped()
-                                ->live()
+                            PeriodInput::make('period')
+                                ->label(__('filament/reports.fields.period'))
+                                ->defaultLastMonths(self::DEFAULT_MONTHS)
                                 ->required()
-                                ->grow(false),
-                            DateInput::make('date')
-                                ->label(__('filament/reports.fields.date'))
-                                ->defaultToday()
-                                ->visible(fn (Get $get): bool => $get('mode') === 'day')
-                                ->required()
-                                ->extraFieldWrapperAttributes(['style' => 'min-width: 14rem'])
-                                ->grow(false),
-                            DateInput::make('from')
-                                ->label(__('filament/reports.fields.from'))
-                                ->visible(fn (Get $get): bool => $get('mode') === 'range')
-                                ->required()
-                                ->extraFieldWrapperAttributes(['style' => 'min-width: 14rem'])
-                                ->grow(false),
-                            DateInput::make('until')
-                                ->label(__('filament/reports.fields.until'))
-                                ->visible(fn (Get $get): bool => $get('mode') === 'range')
-                                ->afterOrEqual('from')
-                                ->required()
-                                ->extraFieldWrapperAttributes(['style' => 'min-width: 14rem'])
+                                ->extraFieldWrapperAttributes(['style' => 'width: 20rem; max-width: 100%; flex-shrink: 0'])
                                 ->grow(false),
                             ...$this->filterFields(),
                             Actions::make([
@@ -210,10 +202,11 @@ abstract class Report extends Page implements HasTable
                                     ->disabled(fn (): bool => ! $this->hasFetched())
                                     ->action(fn (): StreamedResponse => $this->downloadExcel()),
                             ])
-                                ->alignEnd(),
+                                ->alignEnd()
+                                ->extraAttributes(['style' => 'margin-top: 1.6rem']),
                         ])
                             ->from('md')
-                            ->verticallyAlignEnd(),
+                            ->extraAttributes(['style' => 'flex-wrap: wrap; row-gap: 1rem']),
                     ]),
             ])
             ->statePath('data');
@@ -228,7 +221,7 @@ abstract class Report extends Page implements HasTable
                 EmbeddedTable::make(),
                 View::make('filament.reports.totals')
                     ->viewData(fn (): array => ['totals' => $this->fetchedTotals()])
-                    ->visible(fn (): bool => $this->fetchedTotals() !== []),
+                    ->visible(fn (): bool => $this->hasTotalsCards() && $this->fetchedTotals() !== []),
             ]);
     }
 
@@ -239,9 +232,10 @@ abstract class Report extends Page implements HasTable
     {
         $data = $this->form->getState();
 
-        [$this->fetchedFrom, $this->fetchedUntil] = $data['mode'] === 'day'
-            ? [$data['date'], $data['date']]
-            : [$data['from'], $data['until']];
+        $period = $data['period'];
+
+        $this->fetchedFrom = $period['from'];
+        $this->fetchedUntil = $period['until'] ?? $period['from'];
 
         $this->cachedRows = null;
         $this->resetTable();

@@ -13,6 +13,10 @@ return [
         'payment_type' => 'نوع الدفع',
     ],
 
+    'sections' => [
+        'details' => 'معلومات الزبون',
+    ],
+
     'actions' => [
         'pay_debt' => [
             'label' => 'تسديد',
@@ -65,6 +69,7 @@ return [
             'opening_balance' => 'رصيد سابق',
             'order' => 'أوردر آجل',
             'payment' => 'تسديد',
+            'down_payment' => 'دفعة أولية',
         ],
         'details' => [
             'opening_balance' => 'كل الحركات قبل :date',

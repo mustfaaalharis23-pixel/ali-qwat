@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['customer_id', 'invoice_id', 'user_id', 'amount', 'date', 'image', 'notes'])]
+#[Fillable(['customer_id', 'invoice_id', 'user_id', 'amount', 'is_down_payment', 'date', 'image', 'notes'])]
 class CustomerPayment extends BaseModel
 {
     /** @use HasFactory<CustomerPaymentFactory> */
@@ -84,6 +84,7 @@ class CustomerPayment extends BaseModel
     {
         return [
             'amount' => 'float',
+            'is_down_payment' => 'boolean',
             'date' => 'date',
         ];
     }

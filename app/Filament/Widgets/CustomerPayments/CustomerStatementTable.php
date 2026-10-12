@@ -27,7 +27,8 @@ use Livewire\Attributes\On;
 /**
  * The account statement tab of the customer payments page. The customer and the period are chosen at the top and apply at once.
  * Under them, three cards sum the period (postpaid orders, payments, and the balance owed), then one line per movement:
- * a postpaid order adds to what the customer owes, and a payment takes from it. Cash orders are paid when they are sold, so they are not in it.
+ * a postpaid order adds to what the customer owes, and a payment takes from it. A down payment is a payment like any other,
+ * only named apart so it can be told from the rest. Cash orders are paid when they are sold, so they are not in it.
  * With a from date, everything before it is summed into a previous balance on the first line.
  */
 class CustomerStatementTable extends TableWidget
@@ -241,12 +242,14 @@ class CustomerStatementTable extends TableWidget
             ->get()
             ->map(fn (CustomerPayment $payment): array => [
                 'date' => $payment->date->toImmutable(),
-                'movement' => __('filament/resources/customer.statement.types.payment'),
+                'movement' => $payment->is_down_payment
+                    ? __('filament/resources/customer.statement.types.down_payment')
+                    : __('filament/resources/customer.statement.types.payment'),
                 'details' => collect([
                     __('filament/resources/customer.statement.details.payment_by', ['user' => $payment->user?->name]),
                     $payment->notes,
                 ])->filter()->implode(' · '),
-                'color' => 'success',
+                'color' => $payment->is_down_payment ? 'info' : 'success',
                 'icon' => Heroicon::OutlinedBanknotes,
                 'owed' => null,
                 'paid' => $payment->amount,

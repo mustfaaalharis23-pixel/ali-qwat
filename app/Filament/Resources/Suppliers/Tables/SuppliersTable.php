@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources\Suppliers\Tables;
 
-use App\Enums\SupplierPaymentType;
 use App\Filament\Forms\Components\DateInput;
 use App\Filament\Forms\Components\MoneyInput;
 use App\Filament\Tables\Columns\IdColumn;
 use App\Invoices\DistributeSupplierPayoff;
+use App\Metrics\Currency;
+use App\Metrics\FormattedValue;
 use App\Models\Payoff;
 use App\Models\Supplier;
 use Filament\Actions\Action;
@@ -18,10 +19,8 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Number;
 
 class SuppliersTable
 {
@@ -42,14 +41,8 @@ class SuppliersTable
                     ->label(__('filament/resources/supplier.fields.email'))
                     ->searchable()
                     ->toggleable(),
-                TextColumn::make('payment_type')
-                    ->label(__('filament/resources/supplier.fields.payment_type'))
-                    ->badge(),
             ])
             ->filters([
-                SelectFilter::make('payment_type')
-                    ->label(__('filament/resources/supplier.fields.payment_type'))
-                    ->options(SupplierPaymentType::class),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -76,12 +69,15 @@ class SuppliersTable
             ->icon(Heroicon::OutlinedBanknotes)
             ->visible(fn (Supplier $record): bool => ! $record->trashed() && (auth()->user()?->can('create', Payoff::class) ?? false))
             ->modalHeading(fn (Supplier $record): string => __('filament/resources/supplier.actions.distribute_payoff.heading', ['supplier' => $record->name_ar]))
-            ->modalDescription(fn (Supplier $record): string => __('filament/resources/supplier.actions.distribute_payoff.debt', [
-                'debt' => Number::format((new DistributeSupplierPayoff)->debtOf($record), precision: 2),
-            ]))
+            ->modalDescription(function (Supplier $record): string {
+                $debt = FormattedValue::of((new DistributeSupplierPayoff)->debtOf($record), Currency::ChineseYuan);
+
+                return __('filament/resources/supplier.actions.distribute_payoff.debt', ['debt' => "{$debt->number} {$debt->currency}"]);
+            })
             ->schema([
                 MoneyInput::make('amount')
                     ->label(__('filament/resources/supplier.actions.distribute_payoff.amount'))
+                    ->suffix(Currency::ChineseYuan->symbol())
                     ->minValue(0.01)
                     ->maxValue(fn (Supplier $record): float => (new DistributeSupplierPayoff)->debtOf($record))
                     ->required(),

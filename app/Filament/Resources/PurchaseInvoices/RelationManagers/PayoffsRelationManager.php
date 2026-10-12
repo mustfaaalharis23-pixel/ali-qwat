@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PurchaseInvoices\RelationManagers;
 use App\Filament\Forms\Components\DateInput;
 use App\Filament\Forms\Components\MoneyInput;
 use App\Filament\Tables\Columns\IdColumn;
+use App\Metrics\Currency;
 use App\Models\Invoice;
 use App\Models\Payoff;
 use Filament\Actions\BulkActionGroup;
@@ -54,6 +55,7 @@ class PayoffsRelationManager extends RelationManager
             ->components([
                 MoneyInput::make('amount')
                     ->label(__('filament/resources/payoff.fields.amount'))
+                    ->suffix(Currency::ChineseYuan->symbol())
                     ->minValue(0.01)
                     ->maxValue(fn (?Payoff $record): float => $this->maximumAmount($record))
                     ->required(),
@@ -88,6 +90,9 @@ class PayoffsRelationManager extends RelationManager
                 TextColumn::make('amount')
                     ->label(__('filament/resources/payoff.fields.amount'))
                     ->numeric()
+                    ->description(fn (Payoff $record): ?string => $record->is_initial_payment
+                        ? __('filament/resources/payoff.fields.is_initial_payment')
+                        : null)
                     ->sortable(),
                 ImageColumn::make('image')
                     ->label(__('filament/resources/payoff.fields.image'))
@@ -100,16 +105,21 @@ class PayoffsRelationManager extends RelationManager
                 CreateAction::make()
                     ->after(fn () => $this->dispatch('payoffs-changed')),
             ])
+            // The initial payment is never changed or deleted on its own, so its row has none of these.
             ->recordActions([
                 EditAction::make()
+                    ->hidden(fn (Payoff $record): bool => $record->is_initial_payment)
                     ->after(fn () => $this->dispatch('payoffs-changed')),
                 DeleteAction::make()
+                    ->hidden(fn (Payoff $record): bool => $record->is_initial_payment)
                     ->after(fn () => $this->dispatch('payoffs-changed')),
                 ForceDeleteAction::make()
+                    ->hidden(fn (Payoff $record): bool => $record->is_initial_payment)
                     ->after(fn () => $this->dispatch('payoffs-changed')),
                 RestoreAction::make()
                     ->after(fn () => $this->dispatch('payoffs-changed')),
             ])
+            ->checkIfRecordIsSelectableUsing(fn (Payoff $record): bool => ! $record->is_initial_payment)
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()

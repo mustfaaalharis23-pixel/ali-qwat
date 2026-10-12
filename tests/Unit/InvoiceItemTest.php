@@ -106,6 +106,83 @@ class InvoiceItemTest extends TestCase
     }
 
     /**
+     * EN: A purchase line's cartons are its packets ÷ the packets one carton holds: 100 packets, 10 per carton, are 10 cartons.
+     *     A typed carton count is ignored, and the CBM follows the calculated cartons: 10 × 0.05 = 0.5.
+     * AR: عدد كراتين بند الشراء = عدد الباكيتات ÷ تعبئة الكارتونة: 100 باكيت، 10 بالكارتونة، يعني 10 كراتين.
+     *     عدد الكراتين المكتوب باليد ما ينحسب، والـ CBM يمشي على الكراتين المحسوبة: 10 × 0.05 = 0.5.
+     */
+    public function test_purchase_line_cartons_are_packets_over_packets_per_carton(): void
+    {
+        $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), [
+            'boxes_count' => 100,
+            'boxes_per_carton' => 10,
+            'cartons_count' => 3,
+            'carton_cbm' => 0.05,
+        ])->fresh();
+
+        $this->assertEquals(10, $line->cartons_count);
+        $this->assertEqualsWithDelta(0.5, $line->cbm, 0.0001);
+    }
+
+    /**
+     * EN: A carton that is not full is still a carton: 105 packets, 10 per carton, are 11 cartons.
+     * AR: الكارتونة الناقصة تنحسب كارتونة: 105 باكيت، 10 بالكارتونة، يعني 11 كارتونة.
+     */
+    public function test_a_partly_filled_carton_counts_as_a_whole_carton(): void
+    {
+        $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), [
+            'boxes_count' => 105,
+            'boxes_per_carton' => 10,
+            'carton_cbm' => 0.05,
+        ]);
+
+        $this->assertEquals(11, $line->fresh()->cartons_count);
+    }
+
+    /**
+     * EN: Given a line of 100 packets, 10 per carton (10 cartons of 0.05 CBM), when its packets become 50,
+     *     then its cartons become 5 and its CBM 0.25.
+     * AR: بند بيه 100 باكيت، 10 بالكارتونة (10 كراتين حجم الوحدة 0.05 CBM)، تصير الباكيتات 50،
+     *     فتصير الكراتين 5 والـ CBM يصير 0.25.
+     */
+    public function test_editing_the_packets_recalculates_the_cartons_and_cbm(): void
+    {
+        $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), [
+            'boxes_count' => 100,
+            'boxes_per_carton' => 10,
+            'carton_cbm' => 0.05,
+        ]);
+
+        $line->update(['boxes_count' => 50]);
+
+        $this->assertEquals(5, $line->fresh()->cartons_count);
+        $this->assertEqualsWithDelta(0.25, $line->fresh()->cbm, 0.0001);
+    }
+
+    /**
+     * EN: A general invoice line takes no space: it has no carton packing, no cartons and no carton CBM, and its CBM is zero whatever is given.
+     * AR: بند الفاتورة العامة ما ياخذ مساحة: ما إله تعبئة كارتونة ولا كراتين ولا حجم كارتونة، والـ CBM مالته صفر شنو ما انطى.
+     */
+    public function test_general_invoice_line_has_no_cbm(): void
+    {
+        $invoice = Invoice::factory()->create();
+
+        $line = InvoiceItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'specific_description_id' => SpecificDescription::factory()->create(['general_description_id' => $invoice->general_description_id])->id,
+            'price' => 500,
+            'boxes_per_carton' => 6,
+            'cartons_count' => 3,
+            'carton_cbm' => 0.5,
+        ])->fresh();
+
+        $this->assertNull($line->boxes_per_carton);
+        $this->assertNull($line->cartons_count);
+        $this->assertNull($line->carton_cbm);
+        $this->assertEquals(0, $line->cbm);
+    }
+
+    /**
      * EN: Deleting a line is a soft delete: the row stays in the table and the deletion time is saved.
      * AR: حذف البند يكون soft delete: السطر يبقى بالجدول وينحفظ وقت الحذف.
      */

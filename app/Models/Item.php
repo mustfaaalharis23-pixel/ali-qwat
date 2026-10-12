@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceStatus;
+use Carbon\CarbonImmutable;
 use Database\Factories\ItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -111,6 +112,53 @@ class Item extends BaseModel
             ->active()
             ->where('available_quantity', '>', 0)
             ->sum(DB::raw('available_quantity * cost_price'));
+    }
+
+    /**
+     * What the stock was worth at the end of that day, worked out again from the beginning: for every active item,
+     * what it still had then times what one unit of it cost then, all added up.
+     * What it had then is what came in on the purchase invoices both sides confirmed and dated up to that day,
+     * minus what was sold on the orders dated up to it. What it cost then is the unit price of the last such purchase.
+     * Nothing is read from the item's own columns, because those hold today's numbers only.
+     * An item that had no quantity then adds nothing, exactly like the value of the stock now.
+     * This is the only definition of the value of the stock at a moment.
+     */
+    public static function stockValueAt(CarbonImmutable $moment): float
+    {
+        $purchases = Batch::query()
+            ->whereHas('invoice', fn (Builder $query): Builder => $query
+                ->where('status', InvoiceStatus::Confirmed)
+                ->where('date', '<=', $moment))
+            ->orderBy('invoice_id')
+            ->orderBy('id')
+            ->get(['item_id', 'quantity', 'purchase_price']);
+
+        $boughtQuantities = [];
+        $costPrices = [];
+
+        foreach ($purchases as $batch) {
+            $boughtQuantities[$batch->item_id] = ($boughtQuantities[$batch->item_id] ?? 0.0) + (float) $batch->quantity;
+
+            if ((float) $batch->quantity > 0 && (float) $batch->purchase_price > 0) {
+                $costPrices[$batch->item_id] = round((float) $batch->purchase_price, 2);
+            }
+        }
+
+        $soldQuantities = OrderItem::query()
+            ->whereHas('order', fn (Builder $query): Builder => $query->where('date', '<=', $moment))
+            ->toBase()
+            ->selectRaw('item_id, sum(quantity) as quantity')
+            ->groupBy('item_id')
+            ->pluck('quantity', 'item_id');
+
+        return (float) static::query()
+            ->active()
+            ->pluck('id')
+            ->sum(function (int $itemId) use ($boughtQuantities, $soldQuantities, $costPrices): float {
+                $quantity = ($boughtQuantities[$itemId] ?? 0.0) - (float) ($soldQuantities[$itemId] ?? 0.0);
+
+                return $quantity > 0 ? $quantity * ($costPrices[$itemId] ?? 0.0) : 0.0;
+            });
     }
 
     /**

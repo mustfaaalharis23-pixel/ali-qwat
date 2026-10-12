@@ -2,12 +2,12 @@
 
 return [
     'groups' => [
-        'accounting' => 'الحسابات',
-        'system_administration' => 'إدارة النظام',
+        'sales' => 'المبيعات',
+        'purchases' => 'المشتريات',
         'items_management' => 'إدارة المواد',
-        'orders_and_suppliers' => 'الطلبات والموردين',
-        'orders_and_customers' => 'الطلبات والزبائن',
         'lenses' => 'العدسات',
+        'accounting' => 'الحسابات',
         'reports' => 'التقارير',
+        'system_administration' => 'إدارة النظام',
     ],
 ];

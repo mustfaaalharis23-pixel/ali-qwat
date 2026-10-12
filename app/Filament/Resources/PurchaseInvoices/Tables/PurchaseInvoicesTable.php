@@ -2,9 +2,15 @@
 
 namespace App\Filament\Resources\PurchaseInvoices\Tables;
 
+use App\Enums\InvoiceStage;
 use App\Enums\InvoiceStatus;
+use App\Filament\Resources\Containers\ContainerResource;
+use App\Filament\Resources\PurchaseInvoices\Actions\AdvanceStageAction;
 use App\Filament\Resources\PurchaseInvoices\Actions\ConfirmInvoiceAction;
+use App\Filament\Resources\PurchaseInvoices\Actions\PrintLabelAction;
+use App\Filament\Resources\PurchaseInvoices\Actions\PrintPurchaseInvoiceAction;
 use App\Filament\Resources\PurchaseInvoices\Actions\RevertConfirmationAction;
+use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
 use App\Filament\Tables\Columns\IdColumn;
 use App\Models\Invoice;
 use Filament\Actions\BulkActionGroup;
@@ -17,21 +23,36 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 
 class PurchaseInvoicesTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['container', 'category', 'splitParts:id,split_from_invoice_id']))
             ->defaultSort('date', 'desc')
             ->columns([
                 IdColumn::make('id'),
                 TextColumn::make('name')
                     ->label(__('filament/resources/invoice.fields.name'))
+                    ->description(fn (Invoice $record): ?View => PurchaseInvoiceResource::splitFacts($record))
                     ->searchable(),
                 TextColumn::make('supplier.name_ar')
                     ->label(__('filament/resources/invoice.fields.supplier_id'))
                     ->searchable(),
+                TextColumn::make('category.name')
+                    ->label(__('filament/resources/invoice.fields.invoice_category_id'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
+                TextColumn::make('container_id')
+                    ->label(__('filament/resources/invoice.fields.container_id'))
+                    ->state(fn (Invoice $record): ?string => $record->container?->displayName())
+                    ->color(fn (Invoice $record): ?string => ContainerResource::viewUrlFor($record->container) === null ? null : 'primary')
+                    ->url(fn (Invoice $record): ?string => ContainerResource::viewUrlFor($record->container))
+                    ->placeholder('—'),
                 TextColumn::make('date')
                     ->label(__('filament/resources/invoice.fields.date'))
                     ->date()
@@ -49,6 +70,9 @@ class PurchaseInvoicesTable
                     ->sortable(),
                 TextColumn::make('status')
                     ->label(__('filament/resources/invoice.fields.status'))
+                    ->badge(),
+                TextColumn::make('stage')
+                    ->label(__('filament/resources/invoice.fields.stage'))
                     ->badge(),
                 TextColumn::make('awaited_confirmation')
                     ->label(__('filament/resources/invoice.fields.awaited_confirmation'))
@@ -69,12 +93,18 @@ class PurchaseInvoicesTable
                 SelectFilter::make('status')
                     ->label(__('filament/resources/invoice.fields.status'))
                     ->options(InvoiceStatus::class),
+                SelectFilter::make('stage')
+                    ->label(__('filament/resources/invoice.fields.stage'))
+                    ->options(InvoiceStage::class),
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                AdvanceStageAction::make(),
                 ConfirmInvoiceAction::make(),
                 RevertConfirmationAction::make(),
+                PrintLabelAction::make(),
                 ViewAction::make(),
+                PrintPurchaseInvoiceAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([

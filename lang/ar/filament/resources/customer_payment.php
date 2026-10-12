@@ -8,6 +8,7 @@ return [
     'fields' => [
         'customer_id' => 'الزبون',
         'amount' => 'المبلغ',
+        'is_down_payment' => 'دفعة أولية',
         'date' => 'التاريخ',
         'image' => 'صورة الوصل',
         'notes' => 'الملاحظات',

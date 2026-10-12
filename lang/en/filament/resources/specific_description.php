@@ -13,6 +13,10 @@ return [
         'transfer_type' => 'Transfer type',
     ],
 
+    'sections' => [
+        'details' => 'Description details',
+    ],
+
     'filters' => [
         'item_descriptions' => 'Item descriptions',
     ],

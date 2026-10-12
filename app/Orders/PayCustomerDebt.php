@@ -50,13 +50,7 @@ class PayCustomerDebt
             ]);
         }
 
-        $description = SpecificDescription::forTransfer(OrderPaymentType::Postpaid);
-
-        if ($description === null) {
-            throw ValidationException::withMessages([
-                'description' => __('orders.validation.payment_description_missing'),
-            ]);
-        }
+        $description = $this->transferDescription();
 
         return DB::transaction(function () use ($actor, $customer, $amount, $date, $image, $notes, $description): CustomerPayment {
             Customer::query()->whereKey($customer->getKey())->lockForUpdate()->first();
@@ -72,25 +66,9 @@ class PayCustomerDebt
                 ]);
             }
 
-            $invoice = Invoice::create([
-                'name' => "{$description->name} - {$customer->name}",
-                'type' => $description->generalDescription->type,
-                'general_description_id' => $description->general_description_id,
-                'user_id' => $actor->id,
-                'date' => $date,
-                'images' => [],
-                'notes' => $notes,
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'specific_description_id' => $description->id,
-                'price' => $amount,
-            ]);
-
             $payment = CustomerPayment::create([
                 'customer_id' => $customer->id,
-                'invoice_id' => $invoice->id,
+                'invoice_id' => $this->withdrawalInvoice($actor, $customer, $description, $amount, $date, $notes)->id,
                 'user_id' => $actor->id,
                 'amount' => $amount,
                 'date' => $date,
@@ -99,6 +77,37 @@ class PayCustomerDebt
             ]);
 
             $this->spread($payment, $orders, $amount);
+
+            return $payment;
+        });
+    }
+
+    /**
+     * Records the down payment of a postpaid order sold just now: a payment marked as a down payment, by the seller,
+     * on the order's date, paying this order only and not the customer's older debts. The money moves the same way as any payment,
+     * through a postpaid money withdrawal invoice. It is taken with the sale itself, so it needs no payment permission.
+     *
+     * @throws ValidationException
+     */
+    public function downPayment(User $seller, Order $order, float $amount): CustomerPayment
+    {
+        $description = $this->transferDescription();
+
+        return DB::transaction(function () use ($seller, $order, $amount, $description): CustomerPayment {
+            $payment = CustomerPayment::create([
+                'customer_id' => $order->customer_id,
+                'invoice_id' => $this->withdrawalInvoice($seller, $order->customer, $description, $amount, $order->date, null)->id,
+                'user_id' => $seller->id,
+                'amount' => $amount,
+                'is_down_payment' => true,
+                'date' => $order->date,
+            ]);
+
+            CustomerPaymentOrder::create([
+                'customer_payment_id' => $payment->id,
+                'order_id' => $order->id,
+                'amount' => $amount,
+            ]);
 
             return $payment;
         });
@@ -121,6 +130,50 @@ class PayCustomerDebt
     public function plan(Customer $customer, float $amount): array
     {
         return $this->shares($this->openOrders($customer), $amount);
+    }
+
+    /**
+     * The description that postpaid money moves under.
+     *
+     * @throws ValidationException
+     */
+    private function transferDescription(): SpecificDescription
+    {
+        return SpecificDescription::forTransfer(OrderPaymentType::Postpaid)
+            ?? throw ValidationException::withMessages([
+                'description' => __('orders.validation.payment_description_missing'),
+            ]);
+    }
+
+    /**
+     * The input invoice that moves the amount from the postpaid box to the accountant's box: no cashier, no images,
+     * and one line of the amount under the postpaid transfer description.
+     */
+    private function withdrawalInvoice(
+        User $actor,
+        Customer $customer,
+        SpecificDescription $description,
+        float $amount,
+        CarbonInterface|string $date,
+        ?string $notes,
+    ): Invoice {
+        $invoice = Invoice::create([
+            'name' => "{$description->name} - {$customer->name}",
+            'type' => $description->generalDescription->type,
+            'general_description_id' => $description->general_description_id,
+            'user_id' => $actor->id,
+            'date' => $date,
+            'images' => [],
+            'notes' => $notes,
+        ]);
+
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'specific_description_id' => $description->id,
+            'price' => $amount,
+        ]);
+
+        return $invoice;
     }
 
     /**

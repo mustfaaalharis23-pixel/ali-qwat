@@ -6,7 +6,20 @@ return [
         'postpaid' => 'آجل',
     ],
 
+    'packages' => [
+        'piece' => 'قطعة',
+        'dozen' => 'درزن',
+        'packet' => 'باكيت',
+    ],
+
+    'package_counts' => [
+        'piece' => ':count قطعة',
+        'dozen' => ':count درزن',
+        'packet' => ':count باكيت',
+    ],
+
     'validation' => [
+        'quantity_not_whole_packages' => 'الكمية لازم تكون تعبئات كاملة: كل :package = :size قطعة.',
         'quantity_more_than_available' => 'الكمية المتوفرة من :item لا تكفي: الباقي :available فقط.',
         'quantity_must_be_positive' => 'الكمية لازم تكون أكبر من صفر.',
         'price_must_be_positive' => 'السعر لازم يكون أكبر من صفر.',
@@ -23,5 +36,8 @@ return [
         'payment_on_deleted_order' => 'الأوردر المحذوف ما ينضاف عليه تسديد.',
         'payment_order_cannot_change' => 'التسديد ما ينتقل لأوردر ثاني.',
         'payments_exceed_order_amount' => 'التسديدات ما تكدر تتجاوز مبلغ الأوردر.',
+        'down_payment_postpaid_only' => 'الدفعة الأولية تنأخذ ويا البيع الآجل بس.',
+        'down_payment_must_be_positive' => 'الدفعة الأولية لازم تكون أكبر من صفر.',
+        'down_payment_exceeds_order_amount' => 'الدفعة الأولية ما تكدر تكون أكثر من مبلغ الأوردر.',
     ],
 ];

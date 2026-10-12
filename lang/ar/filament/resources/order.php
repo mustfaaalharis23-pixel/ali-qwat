@@ -19,6 +19,7 @@ return [
         'total_amount' => 'المبلغ الكلي',
         'paid_amount' => 'المسدد',
         'remaining' => 'الباقي',
+        'down_payment' => 'الدفعة الأولية',
         'notes' => 'الملاحظات',
         'items' => 'المنتجات',
         'items_count' => 'عدد المنتجات',

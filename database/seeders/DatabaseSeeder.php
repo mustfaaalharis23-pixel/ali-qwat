@@ -51,6 +51,8 @@ class DatabaseSeeder extends Seeder
             DescriptionSeeder::class,
             ItemSeeder::class,
             SupplierSeeder::class,
+            ContainerSeeder::class,
+            InvoiceCategorySeeder::class,
             CustomerSeeder::class,
             InvoiceSeeder::class,
             OrderSeeder::class,

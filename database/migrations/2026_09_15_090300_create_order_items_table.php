@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->foreignId('item_id')->constrained()->restrictOnDelete();
             $table->double('quantity');
+            $table->string('package')->default('piece');
             $table->double('price');
             $table->double('total_price');
             $table->double('cost_price')->default(0);

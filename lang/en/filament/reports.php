@@ -2,15 +2,18 @@
 
 return [
     'fields' => [
-        'mode' => 'Period',
-        'date' => 'Date',
-        'from' => 'From',
-        'until' => 'Until',
+        'period' => 'Period',
     ],
-    'modes' => [
-        'day' => 'Single day',
-        'range' => 'From - until',
+
+    'period' => [
+        'placeholder' => 'Choose the period',
+        'range' => 'Date range',
+        'none' => 'No date is chosen.',
+        'single' => 'Single day:',
+        'chosen' => 'Period:',
+        'incomplete' => 'Choose the end of the period too.',
     ],
+
     'actions' => [
         'fetch' => 'Fetch data',
         'download_excel' => 'Download Excel',

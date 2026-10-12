@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // browser blocks them.
         $middleware->trustProxies(at: '*');
 
+        // The only login page is the panel's, so a guest on a print link goes there.
+        $middleware->redirectGuestsTo(fn (): string => route('filament.admin.auth.login'));
+
         $middleware->web(append: [
             SetLocale::class,
         ]);

@@ -2,12 +2,18 @@
 
 namespace App\Filament\Resources\PurchaseInvoices\Pages;
 
+use App\Filament\Resources\PurchaseInvoices\Actions\AdvanceStageAction;
 use App\Filament\Resources\PurchaseInvoices\Actions\ConfirmInvoiceAction;
+use App\Filament\Resources\PurchaseInvoices\Actions\PrintLabelAction;
+use App\Filament\Resources\PurchaseInvoices\Actions\PrintPurchaseInvoiceAction;
 use App\Filament\Resources\PurchaseInvoices\Actions\RevertConfirmationAction;
 use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\On;
 
 class ViewPurchaseInvoice extends ViewRecord
@@ -19,12 +25,33 @@ class ViewPurchaseInvoice extends ViewRecord
      */
     protected Width|string|null $maxContentWidth = Width::Full;
 
+    /**
+     * The invoice's name alone, so the heading keeps its room next to the actions.
+     */
+    public function getTitle(): string|Htmlable
+    {
+        return $this->getRecordTitle();
+    }
+
+    /**
+     * The invoice's next steps stay as buttons; printing and taking back a confirmation sit in the "More" menu,
+     * so the header stays on one line and the heading is not squeezed.
+     */
     protected function getHeaderActions(): array
     {
         return [
+            AdvanceStageAction::make(),
             ConfirmInvoiceAction::make(),
-            RevertConfirmationAction::make(),
             EditAction::make(),
+            ActionGroup::make([
+                PrintPurchaseInvoiceAction::make(),
+                PrintLabelAction::make(),
+                RevertConfirmationAction::make(),
+            ])
+                ->label(__('filament/resources/purchase_invoice.actions.more'))
+                ->icon(Heroicon::EllipsisVertical)
+                ->color('gray')
+                ->button(),
         ];
     }
 

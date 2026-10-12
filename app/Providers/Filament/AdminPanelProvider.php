@@ -8,6 +8,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -43,6 +44,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            ->navigationGroups($this->navigationGroups())
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
@@ -75,6 +77,24 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * The sidebar groups in the order they show: the daily work first (selling, buying, the items), then the money,
+     * the reports, and the system's own screens last. The lenses start folded, since they are looked at now and then.
+     * Each label is read when the sidebar is drawn, so it follows the user's language.
+     *
+     * @return array<string, NavigationGroup>
+     */
+    private function navigationGroups(): array
+    {
+        return collect(['sales', 'purchases', 'items_management', 'lenses', 'accounting', 'reports', 'system_administration'])
+            ->mapWithKeys(fn (string $group): array => [
+                $group => NavigationGroup::make()
+                    ->label(fn (): string => __("filament/navigation.groups.{$group}"))
+                    ->collapsed($group === 'lenses'),
+            ])
+            ->all();
     }
 
     /**

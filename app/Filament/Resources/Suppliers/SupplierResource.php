@@ -45,7 +45,12 @@ class SupplierResource extends Resource
 
     public static function getNavigationGroup(): string
     {
-        return __('filament/navigation.groups.accounting');
+        return __('filament/navigation.groups.purchases');
+    }
+
+    public static function getNavigationSort(): int
+    {
+        return 3;
     }
 
     public static function form(Schema $schema): Schema

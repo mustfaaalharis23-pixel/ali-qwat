@@ -12,8 +12,9 @@ class DescriptionSeeder extends Seeder
     /**
      * Fake general descriptions for local development, each with the specific descriptions under it.
      * The purchases and withdrawals descriptions are not here, because their migrations add them. Running the seeder again does not duplicate them.
+     * A capital movement description holds the money of the partners, which is neither a profit nor an expense.
      *
-     * @var array<int, array{name: string, type: InvoiceType, specific: list<string>}>
+     * @var array<int, array{name: string, type: InvoiceType, specific: list<string>, capital?: bool}>
      */
     private array $descriptions = [
         ['name' => 'رواتب', 'type' => InvoiceType::Output, 'specific' => ['رواتب الموظفين', 'رواتب العمال', 'مكافآت']],
@@ -24,7 +25,8 @@ class DescriptionSeeder extends Seeder
         ['name' => 'نثرية', 'type' => InvoiceType::Output, 'specific' => ['قرطاسية', 'ضيافة', 'تنظيف']],
         ['name' => 'عمولات', 'type' => InvoiceType::Output, 'specific' => ['عمولة مبيعات']],
         ['name' => 'مصاريف غير متوقعة', 'type' => InvoiceType::Output, 'specific' => ['مصاريف طارئة']],
-        ['name' => 'استثمار', 'type' => InvoiceType::Input, 'specific' => ['استثمار الشركاء']],
+        ['name' => 'استثمار', 'type' => InvoiceType::Input, 'specific' => ['استثمار الشركاء'], 'capital' => true],
+        ['name' => 'ارجاع رأس مال', 'type' => InvoiceType::Output, 'specific' => ['ارجاع رأس مال الشركاء'], 'capital' => true],
         ['name' => 'ايرادات خارجية', 'type' => InvoiceType::Input, 'specific' => ['بيع خردة', 'ايرادات أخرى']],
     ];
 
@@ -36,7 +38,10 @@ class DescriptionSeeder extends Seeder
         foreach ($this->descriptions as $description) {
             $general = GeneralDescription::firstOrCreate(
                 ['name' => $description['name']],
-                ['type' => $description['type']],
+                [
+                    'type' => $description['type'],
+                    'is_capital_movement' => $description['capital'] ?? false,
+                ],
             );
 
             foreach ($description['specific'] as $name) {

@@ -37,7 +37,7 @@ class InvoicePrinting extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPrinter;
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 4;
 
     public static function canAccess(): bool
     {
@@ -46,7 +46,7 @@ class InvoicePrinting extends Page implements HasTable
 
     public static function getNavigationGroup(): string
     {
-        return __('filament/navigation.groups.orders_and_customers');
+        return __('filament/navigation.groups.sales');
     }
 
     public static function getNavigationLabel(): string

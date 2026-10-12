@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\SupplierPaymentType;
 use Database\Factories\SupplierFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name_ar', 'name_zh', 'phone', 'email', 'contract', 'notes', 'payment_type'])]
+#[Fillable(['name_ar', 'name_zh', 'phone', 'email', 'contract', 'notes'])]
 class Supplier extends BaseModel
 {
     /** @use HasFactory<SupplierFactory> */
@@ -85,17 +84,5 @@ class Supplier extends BaseModel
     public function itemsCount(): int
     {
         return $this->items()->count();
-    }
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'payment_type' => SupplierPaymentType::class,
-        ];
     }
 }

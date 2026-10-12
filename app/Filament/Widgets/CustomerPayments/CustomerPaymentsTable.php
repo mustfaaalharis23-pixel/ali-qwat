@@ -69,6 +69,9 @@ class CustomerPaymentsTable extends TableWidget
                     ->badge()
                     ->color('success')
                     ->icon(Heroicon::OutlinedBanknotes)
+                    ->description(fn (CustomerPayment $record): ?string => $record->is_down_payment
+                        ? __('filament/resources/customer_payment.fields.is_down_payment')
+                        : null)
                     ->sortable(),
                 ImageColumn::make('image')
                     ->label(__('filament/resources/customer_payment.fields.image'))

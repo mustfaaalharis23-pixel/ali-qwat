@@ -80,7 +80,7 @@ class PurchasesReport extends Report
                 'label' => __('filament/reports/purchases.totals.amount'),
                 'value' => (float) collect($rows)->sum('amount'),
                 'color' => 'primary',
-                'currency' => Currency::IraqiDinar,
+                'currency' => Currency::ChineseYuan,
             ],
         ];
     }
