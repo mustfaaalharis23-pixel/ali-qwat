@@ -37,8 +37,8 @@
 |---|---|
 | `specific_description_id` | وصف المنتج، لازم يكون تحت وصف المشتريات |
 | `item_id` | ينملى تلقائياً من الوصف الخاص |
-| `boxes_count`، `box_quantity` | عدد الكراتين وسعة الكارتون |
-| `quantity` | `boxes_count × box_quantity`، ينحسب تلقائياً |
+| `boxes_count`، `sets_per_packet` | عدد الكراتين وسعة الكارتون |
+| `quantity` | `boxes_count × sets_per_packet`، ينحسب تلقائياً |
 | `price` | سعر السطر كامل، مو سعر الوحدة |
 | `produced_at`، `expires_at` | اختياريات. الصلاحية مخفية من الشاشة هسه |
 | `profit_difference` | للتأكيد، بعده ما مستخدم |

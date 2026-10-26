@@ -16,8 +16,8 @@ use Illuminate\Validation\ValidationException;
 class Checkout
 {
     /**
-     * The sale: checks the customer, the payment type, the items' prices, and the down payment, then saves the order,
-     * its items, and its down payment together, so either all of them are saved or none is.
+     * The sale: checks the customer, the payment type, the items' prices, the down payment, and the weekly payment,
+     * then saves the order, its items, and its down payment together, so either all of them are saved or none is.
      * Each item's price is its sale price from the database.
      *
      * @throws ValidationException
@@ -25,11 +25,13 @@ class Checkout
     public function handle(User $user, CheckoutData $data): Order
     {
         $this->ensureCustomerExists($data);
+        $this->ensureCustomerCanTakeAnOrder($data);
         $this->ensurePaymentTypeIsGiven($data);
 
         $items = $this->soldItems($data);
         $this->ensureItemsCanBeSold($items);
         $this->ensureDownPaymentFits($data, $items);
+        $this->ensureWeeklyPaymentFits($data, $items);
 
         return DB::transaction(function () use ($user, $data, $items): Order {
             $order = $this->createOrder($user, $data);
@@ -71,14 +73,75 @@ class Checkout
             ]);
         }
 
-        $orderAmount = array_sum(array_map(
-            fn (CheckoutLine $line): float => (float) $items->findOrFail($line->itemId)->sale_price * $line->quantity,
-            $data->lines,
-        ));
-
-        if ($data->downPayment > $orderAmount + 0.0001) {
+        if ($data->downPayment > $this->orderAmount($data, $items) + 0.0001) {
             throw ValidationException::withMessages([
                 'down_payment' => __('orders.validation.down_payment_exceeds_order_amount'),
+            ]);
+        }
+    }
+
+    /**
+     * A weekly payment is set on a postpaid sale only, it is more than zero, and it is not more than what is left
+     * of the order after the down payment.
+     *
+     * @param  Collection<int, Item>  $items
+     *
+     * @throws ValidationException
+     */
+    private function ensureWeeklyPaymentFits(CheckoutData $data, Collection $items): void
+    {
+        if ($data->weeklyPayment === null) {
+            return;
+        }
+
+        if ($data->paymentType !== OrderPaymentType::Postpaid) {
+            throw ValidationException::withMessages([
+                'weekly_payment' => __('orders.validation.weekly_payment_postpaid_only'),
+            ]);
+        }
+
+        if ($data->weeklyPayment <= 0) {
+            throw ValidationException::withMessages([
+                'weekly_payment' => __('orders.validation.weekly_payment_must_be_positive'),
+            ]);
+        }
+
+        if ($data->weeklyPayment > $this->orderAmount($data, $items) - ($data->downPayment ?? 0) + 0.0001) {
+            throw ValidationException::withMessages([
+                'weekly_payment' => __('orders.validation.weekly_payment_exceeds_remaining'),
+            ]);
+        }
+    }
+
+    /**
+     * What the order comes to: each line's dozens at its item's sale price.
+     *
+     * @param  Collection<int, Item>  $items
+     */
+    private function orderAmount(CheckoutData $data, Collection $items): float
+    {
+        return array_sum(array_map(
+            function (CheckoutLine $line) use ($items): float {
+                $item = $items->findOrFail($line->itemId);
+
+                return (float) $item->sale_price * $line->dozensFor($item);
+            },
+            $data->lines,
+        ));
+    }
+
+    /**
+     * An invoice-by-invoice customer takes a new order, cash or postpaid, only when they owe nothing.
+     *
+     * @throws ValidationException
+     */
+    private function ensureCustomerCanTakeAnOrder(CheckoutData $data): void
+    {
+        $customer = Customer::query()->findOrFail($data->customerId);
+
+        if ($customer->is_invoice_by_invoice && $customer->debt() > 0.0001) {
+            throw ValidationException::withMessages([
+                'customer_id' => __('orders.validation.invoice_by_invoice_customer_has_debt'),
             ]);
         }
     }
@@ -158,16 +221,32 @@ class Checkout
             'date' => $data->date,
             'notes' => $data->notes,
             'down_payment' => $data->downPayment,
+            'weekly_payment' => $data->weeklyPayment,
         ]);
     }
 
+    /**
+     * Sells the line's packets of the item: their pieces are the packets × the item's pieces per packet, at the item's price of a dozen.
+     * A line without packets is sold by its dozens. An item without a packet size is not sold by the packet.
+     *
+     * @throws ValidationException
+     */
     private function addLine(Order $order, Item $item, CheckoutLine $line): OrderItem
     {
+        if ($line->packets !== null && $item->pieces_per_packet === null) {
+            throw ValidationException::withMessages([
+                'packets' => __('orders.validation.item_has_no_packet', ['item' => $item->name]),
+            ]);
+        }
+
         return OrderItem::create([
             'order_id' => $order->id,
             'item_id' => $item->id,
-            'quantity' => $line->quantity,
-            'package' => $line->package,
+            'lens_power_id' => $line->lensPowerId,
+            'colors' => $line->colors,
+            ...($line->packets === null
+                ? ['quantity' => $line->quantity]
+                : ['pieces' => $line->packets * (int) $item->pieces_per_packet]),
             'price' => $item->sale_price,
         ]);
     }

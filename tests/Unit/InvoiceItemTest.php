@@ -6,9 +6,11 @@ use App\Models\GeneralDescription;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\LensPower;
 use App\Models\SpecificDescription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class InvoiceItemTest extends TestCase
@@ -29,12 +31,12 @@ class InvoiceItemTest extends TestCase
             'price' => 500,
             'quantity' => 7,
             'boxes_count' => 3,
-            'box_quantity' => 4,
+            'pieces_per_packet' => 4,
         ])->fresh();
 
         $this->assertEquals(1, $line->quantity);
         $this->assertEquals(1, $line->boxes_count);
-        $this->assertEquals(1, $line->box_quantity);
+        $this->assertEquals(1, $line->pieces_per_packet);
         $this->assertNull($line->item_id);
     }
 
@@ -86,23 +88,87 @@ class InvoiceItemTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => $descriptionWithoutItem->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'price' => 1000,
         ]);
     }
 
     /**
-     * EN: A purchase line's quantity is the number of boxes times the box quantity.
-     * AR: كمية بند الشراء = عدد الكراتين × سعة الكارتون.
+     * EN: A purchase line's quantity is in pieces: its packets × the pieces in one packet. 2 packets of 24 pieces are 48 pieces.
+     * AR: كمية بند الشراء بالقطع: عدد الباكيتات × قطع الباكيت. 2 باكيت، كل باكيت 24 قطعة، يعني 48 قطعة.
      */
-    public function test_purchase_line_quantity_is_boxes_times_box_quantity(): void
+    public function test_purchase_line_quantity_is_packets_times_pieces_per_packet(): void
     {
         $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), [
             'boxes_count' => 2,
-            'box_quantity' => 12,
+            'pieces_per_packet' => 24,
         ]);
 
-        $this->assertEquals(24, $line->fresh()->quantity);
+        $this->assertEquals(48, $line->fresh()->quantity);
+    }
+
+    /**
+     * EN: A purchase line is packed the way its item is: for an item whose packet holds 20 pieces, a line of 7 packets
+     *     typed with 24 pieces in a packet keeps 20, so it has 140 pieces.
+     * AR: بند الشراء ينعبّى مثل مادته: لمادة باكيتها بيه 20 قطعة، بند بيه 7 باكيتات انكتب بيه 24 قطعة بالباكيت
+     *     يبقى على 20، فيصير بيه 140 قطعة.
+     */
+    public function test_a_purchase_line_takes_the_packet_of_its_item(): void
+    {
+        $item = Item::factory()->create(['pieces_per_packet' => 20]);
+
+        $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), $item, [
+            'boxes_count' => 7,
+            'pieces_per_packet' => 24,
+        ])->fresh();
+
+        $this->assertEquals(20, $line->pieces_per_packet);
+        $this->assertEquals(140, $line->quantity);
+    }
+
+    /**
+     * EN: Packets and the pieces in one packet are whole numbers.
+     *     Given 2.5 packets, or a packet of 20.5 pieces, the line is refused on that field and is not saved.
+     * AR: الباكيتات وقطع الباكيت أعداد صحيحة.
+     *     إذا انكتب 2.5 باكيت، لو باكيت بيه 20.5 قطعة، البند ينرفض على هذا الحقل وما ينحفظ.
+     *
+     * @return array<string, array{string, float}>
+     */
+    public static function fractionalPacking(): array
+    {
+        return [
+            'half a packet' => ['boxes_count', 2.5],
+            'half a piece in a packet' => ['pieces_per_packet', 20.5],
+        ];
+    }
+
+    #[DataProvider('fractionalPacking')]
+    public function test_packets_and_pieces_per_packet_are_whole_numbers(string $field, float $value): void
+    {
+        try {
+            $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), [$field => $value]);
+            $this->fail('A purchase line with a fraction of a packet or of a piece was saved.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey($field, $exception->errors());
+        }
+
+        $this->assertDatabaseCount('invoice_items', 0);
+    }
+
+    /**
+     * EN: The packets of a line at one lens power are whole too: 1.5 packets at a power is refused on its packets.
+     * AR: باكيتات البند بدرجة وحدة هم أعداد صحيحة: 1.5 باكيت بدرجة ينرفض على عدد الباكيتات.
+     */
+    public function test_packets_at_a_power_are_whole_numbers(): void
+    {
+        $line = $this->purchaseLine(Invoice::factory()->purchase()->create(), Item::factory()->create(), ['boxes_count' => 3]);
+
+        $this->expectException(ValidationException::class);
+
+        $line->groups()->create([
+            'lens_power_id' => LensPower::factory()->create()->id,
+            'boxes_count' => 1.5,
+        ]);
     }
 
     /**
@@ -207,7 +273,7 @@ class InvoiceItemTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => $item->specificDescription->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'price' => 1000,
             ...$attributes,
         ]);

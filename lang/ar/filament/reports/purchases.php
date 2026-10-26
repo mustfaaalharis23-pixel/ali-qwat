@@ -10,7 +10,7 @@ return [
         'action' => 'المنتجات',
         'heading' => 'المنتجات المشتراة من :supplier',
         'item' => 'المنتج',
-        'quantity' => 'الكمية',
+        'quantity' => 'الكمية (قطعة)',
         'amount' => 'المبلغ',
         'total' => 'المجموع',
         'close' => 'إغلاق',

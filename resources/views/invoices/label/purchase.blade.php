@@ -99,6 +99,15 @@
             </div>
         </div>
 
+        @if ($powers !== [])
+            <div class="row">
+                <div class="cell">
+                    <div class="caption">{{ __('invoices.label.powers') }}</div>
+                    <div class="value">{{ implode(' · ', $powers) }}</div>
+                </div>
+            </div>
+        @endif
+
         <div class="row footer">
             <div class="cell">
                 <span class="caption">{{ __('invoices.label.date') }}</span>

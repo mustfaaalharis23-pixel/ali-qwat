@@ -10,17 +10,17 @@ For every feature, follow this order:
 4. After approval, write only the feature code. Do not change the approved tests.
 5. Run the tests again and report the result of each test. Repeat until they all pass.
 
-**Exception: frontend/UI requests** (Filament screens, forms, tables, layout, design). Do NOT write tests for them and do not explain at length. Apply the requested change directly and reply with a short confirmation only. Rule 3 (Arabic and English) still applies.
+**Exception: frontend/UI requests** (Filament screens, forms, tables, layout, design). Do NOT write tests for them and do not explain at length. Apply the requested change directly and reply with a short confirmation only. Rule 3 (Arabic, English, and Simplified Chinese) still applies.
 
 ## 2. No assumptions: decisions are discussed first
 - Do NOT assume, decide, or propose-as-settled anything that has not been discussed with the user, especially architectural decisions (data storage, database structure, packages, folder and class structure, code patterns).
 - Raise every undecided point as an open question for discussion. The decision is made together, then recorded.
 - Do not write undecided choices into plans or code, and do not research or verify on top of an option as if it was already chosen.
 
-## 3. Arabic and English everywhere in the UI
-- The system is bilingual: Arabic and English. English is the default language.
-- Every user-facing text (navigation, labels, form fields, table columns, actions, notifications, validation messages) must exist in both languages. Never hard-code text in one language.
-- Any UI/UX work must be done for both languages, including the right-to-left layout for Arabic.
+## 3. Arabic, English, and Simplified Chinese everywhere in the UI
+- The system has three languages: Arabic (`ar`), English (`en`), and Simplified Chinese (`zh_CN`). Arabic is the default language.
+- Every user-facing text (navigation, labels, form fields, table columns, actions, notifications, validation messages) must exist in all three languages (`lang/ar`, `lang/en`, `lang/zh_CN`). Never hard-code text in one language.
+- Any UI/UX work must be done for all three languages, including the right-to-left layout for Arabic.
 
 <laravel-boost-guidelines>
 === foundation rules ===

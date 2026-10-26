@@ -68,7 +68,7 @@ class InvoiceCbmTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => $cartonsCount,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'boxes_per_carton' => 1,
             'carton_cbm' => $cartonCbm,
             'price' => 1000,

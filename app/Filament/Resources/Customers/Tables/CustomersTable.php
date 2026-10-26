@@ -10,8 +10,10 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -35,11 +37,16 @@ class CustomersTable
                 TextColumn::make('payment_type')
                     ->label(__('filament/resources/customer.fields.payment_type'))
                     ->badge(),
+                IconColumn::make('is_invoice_by_invoice')
+                    ->label(__('filament/resources/customer.fields.is_invoice_by_invoice'))
+                    ->boolean(),
             ])
             ->filters([
                 SelectFilter::make('payment_type')
                     ->label(__('filament/resources/customer.fields.payment_type'))
                     ->options(CustomerPaymentType::class),
+                TernaryFilter::make('is_invoice_by_invoice')
+                    ->label(__('filament/resources/customer.fields.is_invoice_by_invoice')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

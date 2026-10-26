@@ -4,8 +4,10 @@ namespace App\Invoices;
 
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
+use App\Models\Item;
 use App\Models\Order;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
 
 /**
@@ -22,13 +24,14 @@ class InvoiceDocument
      */
     public function view(Order $order, string $format = 'a4'): View
     {
-        $order->loadMissing(['customer', 'cashier', 'items.item']);
+        $order->loadMissing(['customer', 'cashier', 'items.item', 'items.lensPower']);
 
         return view("invoices.print.{$format}", [
             'order' => $order,
             'money' => fn (float $amount): string => FormattedValue::of($amount, Currency::IraqiDinar)->number,
             'currency' => Currency::IraqiDinar->symbol(),
             'fonts' => $this->fontFaces(),
+            'picture' => fn (?Item $item): ?string => $this->picture($item),
         ]);
     }
 
@@ -56,11 +59,26 @@ class InvoiceDocument
     }
 
     /**
+     * The item's picture, written into the page itself like the font, so the PDF shows it without a link.
+     * Null when the item has no picture or its file is gone.
+     */
+    private function picture(?Item $item): ?string
+    {
+        $disk = Storage::disk('public');
+
+        if (blank($item?->image) || ! $disk->exists($item->image)) {
+            return null;
+        }
+
+        return 'data:'.$disk->mimeType($item->image).';base64,'.base64_encode($disk->get($item->image));
+    }
+
+    /**
      * The invoice's font, written into the page itself: every font file named in public/fonts/invoice/font.css
      * is replaced by its contents. So the page on the screen and the PDF use the same font without a network,
-     * and the PDF needs no file link, which the browser that makes it refuses.
+     * and the PDF needs no file link, which the browser that makes it refuses. The payment receipt uses it too.
      */
-    private function fontFaces(): string
+    public function fontFaces(): string
     {
         $directory = public_path('fonts/invoice');
 

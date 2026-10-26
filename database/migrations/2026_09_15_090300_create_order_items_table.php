@@ -15,8 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->foreignId('item_id')->constrained()->restrictOnDelete();
+            $table->foreignId('lens_power_id')->nullable()->constrained()->restrictOnDelete();
+            $table->json('colors')->nullable();
             $table->double('quantity');
-            $table->string('package')->default('piece');
+            $table->unsignedInteger('pieces')->default(0);
+            $table->string('package')->default('packet');
+            $table->unsignedInteger('package_size')->default(1);
             $table->double('price');
             $table->double('total_price');
             $table->double('cost_price')->default(0);

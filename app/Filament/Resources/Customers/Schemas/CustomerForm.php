@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Customers\Schemas;
 use App\Enums\CustomerPaymentType;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -37,6 +38,11 @@ class CustomerForm
                             ->label(__('filament/resources/customer.fields.email'))
                             ->email()
                             ->maxLength(255),
+                        Toggle::make('is_invoice_by_invoice')
+                            ->label(__('filament/resources/customer.fields.is_invoice_by_invoice'))
+                            ->helperText(__('filament/resources/customer.fields.is_invoice_by_invoice_hint'))
+                            ->default(false)
+                            ->columnSpanFull(),
                     ]),
                 Section::make(__('filament/resources/customer.fields.contract'))
                     ->icon(Heroicon::OutlinedDocumentText)

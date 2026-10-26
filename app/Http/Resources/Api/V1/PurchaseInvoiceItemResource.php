@@ -26,7 +26,7 @@ class PurchaseInvoiceItemResource extends JsonResource
             'name' => $this->item?->name,
             'image' => $this->item?->image ? Storage::disk('public')->url($this->item->image) : null,
             'boxes_count' => $this->boxes_count,
-            'box_quantity' => $this->box_quantity,
+            'pieces_per_packet' => $this->pieces_per_packet,
             'quantity' => $this->quantity,
             'boxes_per_carton' => $this->boxes_per_carton,
             'cartons_count' => $this->cartons_count,

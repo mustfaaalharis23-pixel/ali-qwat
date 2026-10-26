@@ -59,12 +59,23 @@ class OrderSeeder extends Seeder
     }
 
     /**
-     * A line of a few units of the item, never more than what is left of it, or nothing when it ran out.
+     * A line of a few packets of the item, never more than what is left of them, or nothing when it ran out.
+     * It is a few whole packets of one of the item's packet types (a power with a mix of colors), picked at random among the ones
+     * that still have packets.
      */
     private function line(Item $item): ?CheckoutLine
     {
-        $available = (int) $item->fresh()->available_quantity;
+        $type = collect($item->fresh()->packetTypesLeft())->shuffle()->first();
 
-        return $available < 1 ? null : new CheckoutLine($item->id, random_int(1, min(3, $available)));
+        if ($type === null) {
+            return null;
+        }
+
+        return new CheckoutLine(
+            $item->id,
+            lensPowerId: $type['lens_power_id'],
+            packets: random_int(1, min(3, $type['available_packets'])),
+            colors: array_map(fn (array $color): array => ['color_id' => $color['id'], 'pieces' => $color['pieces']], $type['colors']),
+        );
     }
 }

@@ -58,6 +58,8 @@ class FormattedValueTest extends TestCase
      */
     public function test_negative_money_keeps_its_minus_sign(): void
     {
+        App::setLocale('en');
+
         $this->assertSame('-2,501', FormattedValue::of(-2500.75, Currency::IraqiDinar)->number);
         $this->assertSame('-2,500.75', FormattedValue::of(-2500.75, Currency::UsDollar)->number);
     }

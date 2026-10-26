@@ -35,7 +35,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Blue,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -50,12 +50,7 @@ class AdminPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
-            ->userMenuItems([
-                Action::make('switchLocale')
-                    ->label(fn (): string => config('app.locales')[$this->otherLocale()])
-                    ->icon(Heroicon::Language)
-                    ->url(fn (): string => route('locale.switch', $this->otherLocale())),
-            ])
+            ->userMenuItems($this->localeSwitchActions())
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
                 fn (): View => view('filament.locale-switch'),
@@ -98,10 +93,20 @@ class AdminPanelProvider extends PanelProvider
     }
 
     /**
-     * The supported language that is not the current one.
+     * A user menu link for each supported language, named in its own language. The current language is hidden,
+     * which is read when the menu is drawn, so the links follow the user's language.
+     *
+     * @return array<int, Action>
      */
-    private function otherLocale(): string
+    private function localeSwitchActions(): array
     {
-        return array_key_first(array_diff_key(config('app.locales'), [app()->getLocale() => true]));
+        return collect(config('app.locales'))
+            ->map(fn (string $name, string $locale): Action => Action::make("switchLocale_{$locale}")
+                ->label($name)
+                ->icon(Heroicon::Language)
+                ->url(fn (): string => route('locale.switch', $locale))
+                ->hidden(fn (): bool => app()->getLocale() === $locale))
+            ->values()
+            ->all();
     }
 }

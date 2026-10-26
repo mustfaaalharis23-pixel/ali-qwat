@@ -11,6 +11,8 @@ return [
         'email' => 'البريد الإلكتروني',
         'contract' => 'العقد',
         'payment_type' => 'نوع الدفع',
+        'is_invoice_by_invoice' => 'فاتورة بفاتورة',
+        'is_invoice_by_invoice_hint' => 'إذا تفعّل، الزبون ما ياخذ أوردر جديد إلا لما يصير دينه صفر.',
     ],
 
     'sections' => [

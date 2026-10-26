@@ -52,7 +52,7 @@ return [
         'manufactured' => 'Manufactured',
         'received_at_warehouse' => 'Received at the warehouse',
         'on_the_way' => 'On the way',
-        'received' => 'Received',
+        'received' => 'Received in Iraq',
     ],
 
     'statuses' => [

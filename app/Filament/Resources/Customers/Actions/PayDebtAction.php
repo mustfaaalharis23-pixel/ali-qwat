@@ -29,6 +29,7 @@ use Livewire\Component;
  * Without a record, such as on the customer payments page, the form asks for the customer, from the customers that have a debt.
  * While the amount is typed, the form shows the current debt, what remains after the payment, and which orders the amount goes to.
  * It shows only to users who can create customer payments. A rule the payment breaks is shown as a notification and the form stays open.
+ * Once saved, the notification carries a button that opens the payment's receipt to print.
  */
 class PayDebtAction extends Action
 {
@@ -106,7 +107,7 @@ class PayDebtAction extends Action
             ])
             ->action(function (array $data, ?Customer $record, Action $action, Component $livewire): void {
                 try {
-                    (new PayCustomerDebt)->handle(
+                    $payment = (new PayCustomerDebt)->handle(
                         auth()->user(),
                         $this->customerOf($record, $data['customer_id'] ?? null) ?? Customer::query()->findOrFail($data['customer_id'] ?? null),
                         (float) $data['amount'],
@@ -128,6 +129,13 @@ class PayDebtAction extends Action
                 Notification::make()
                     ->title(__('filament/resources/customer.actions.pay_debt.done'))
                     ->success()
+                    ->actions([
+                        Action::make('printReceipt')
+                            ->label(__('filament/resources/customer_payment.actions.print_receipt'))
+                            ->icon(Heroicon::OutlinedPrinter)
+                            ->button()
+                            ->url(route('customer-payments.receipt', $payment), shouldOpenInNewTab: true),
+                    ])
                     ->send();
             });
     }

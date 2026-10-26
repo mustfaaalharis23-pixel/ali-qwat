@@ -44,6 +44,12 @@ class OrdersTable
                     ->numeric()
                     ->placeholder('-')
                     ->sortable(),
+                TextColumn::make('weekly_payment')
+                    ->label(__('filament/resources/order.fields.weekly_payment'))
+                    ->numeric()
+                    ->placeholder('-')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('remaining')
                     ->label(__('filament/resources/order.fields.remaining'))
                     ->numeric()

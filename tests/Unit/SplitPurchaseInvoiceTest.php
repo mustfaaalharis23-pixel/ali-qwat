@@ -5,10 +5,12 @@ namespace Tests\Unit;
 use App\Enums\InvoiceStage;
 use App\Enums\InvoiceStatus;
 use App\Invoices\SplitPurchaseInvoice;
+use App\Models\Color;
 use App\Models\Container;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\LensPower;
 use App\Models\Payoff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -179,21 +181,125 @@ class SplitPurchaseInvoiceTest extends TestCase
     }
 
     /**
-     * EN: Splitting only moves goods between the two invoices: the item's incoming quantity stays 1000,
-     *     and the shipped line has its own stock batch of 400.
-     * AR: التقسيم بس ينقل البضاعة بين الفاتورتين: القادم مال المادة يبقى 1000،
-     *     والبند المشحون إله دفعة مخزون (batch) خاصة بيه بـ 400.
+     * EN: Splitting only moves goods between the two invoices: given 100 packets of 12 pieces (1200 pieces), the item's incoming quantity
+     *     stays 100 dozens, and the shipped line has its own stock batch of 480 pieces.
+     * AR: التقسيم بس ينقل البضاعة بين الفاتورتين: 100 باكيت، كل باكيت 12 قطعة (1200 قطعة)، فالقادم مال المادة يبقى 100 درزن،
+     *     والبند المشحون إله دفعة مخزون (batch) خاصة بيه بـ 480 قطعة.
      */
     public function test_the_incoming_quantity_of_the_item_does_not_change(): void
     {
         $invoice = $this->purchaseInvoice();
-        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 10, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
-        $this->assertEquals(1000, $line->item->fresh()->incoming_quantity);
+        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 12, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $this->assertEquals(100, $line->item->fresh()->incoming_quantity);
 
         $part = $this->split($invoice, [$line->id => 4]);
 
-        $this->assertEquals(1000, $line->item->fresh()->incoming_quantity);
-        $this->assertEquals(400, $part->items()->sole()->batch->quantity);
+        $this->assertEquals(100, $line->item->fresh()->incoming_quantity);
+        $this->assertEquals(480, $part->items()->sole()->batches()->sole()->quantity);
+    }
+
+    /**
+     * EN: Given a line of 100 packets of 12, all of power 1.50, 4 of its 10 cartons (40 packets) go to the container.
+     *     Then the shipped line has its 40 packets at power 1.50, with a stock batch of 1.50 (480 pieces),
+     *     and the original line keeps its other 60 packets at power 1.50.
+     * AR: بند بيه 100 باكيت، كل باكيت 12 قطعة، وكلهن درجة 1.50، و4 كراتين من 10 (40 باكيت) تروح للحاوية.
+     *     فالبند المشحون باكيتاته الـ 40 بدرجة 1.50، ودفعته بدرجة 1.50 (480 قطعة)،
+     *     والبند الأصلي تبقى باكيتاته الـ 60 الباقية بدرجة 1.50.
+     */
+    public function test_the_shipped_part_keeps_the_power_of_its_line(): void
+    {
+        $power = LensPower::factory()->create(['value' => 1.5]);
+        $invoice = $this->purchaseInvoice();
+        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 12, boxesPerCarton: 10, cartonCbm: 0.2, unitCost: 1);
+        $line->groups()->create(['lens_power_id' => $power->id, 'boxes_count' => 100]);
+
+        $part = $this->split($invoice, [$line->id => 4]);
+
+        $shippedLine = $part->items()->sole();
+        $this->assertEquals([$power->id => 40], $shippedLine->groups()->pluck('boxes_count', 'lens_power_id')->all());
+        $this->assertEquals([$power->id => 480], $shippedLine->batches()->pluck('quantity', 'lens_power_id')->all());
+        $this->assertEquals([$power->id => 60], $line->groups()->pluck('boxes_count', 'lens_power_id')->all());
+    }
+
+    /**
+     * EN: Given a line of 30 packets of 10 in 3 cartons, spread over two powers: 10 packets of 1.00 and 20 of 1.50,
+     *     and another line that stays. All 3 cartons of the spread line go.
+     *     Then the shipped line keeps both powers with their packets (10 of 1.00 and 20 of 1.50),
+     *     with a stock batch for each (100 pieces of 1.00 and 200 of 1.50).
+     * AR: بند بيه 30 باكيت، كل باكيت 10 قطع، بـ 3 كراتين، وموزع على درجتين: 10 باكيتات 1.00 و20 باكيت 1.50،
+     *     وبند ثاني يبقى. كل الكراتين الثلاثة مال البند الموزع تروح.
+     *     فالبند المشحون يبقى بدرجتيه وباكيتاتهن (10 باكيتات 1.00 و20 باكيت 1.50)،
+     *     وإله دفعة لكل درجة (100 قطعة 1.00 و200 قطعة 1.50).
+     */
+    public function test_a_line_spread_over_several_powers_goes_whole_with_all_its_powers(): void
+    {
+        $lowPower = LensPower::factory()->create(['value' => 1]);
+        $highPower = LensPower::factory()->create(['value' => 1.5]);
+        $invoice = $this->purchaseInvoice();
+        $line = $this->addLine($invoice, boxesCount: 30, boxQuantity: 10, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $line->groups()->createMany([
+            ['lens_power_id' => $lowPower->id, 'boxes_count' => 10],
+            ['lens_power_id' => $highPower->id, 'boxes_count' => 20],
+        ]);
+        $kept = $this->addLine($invoice, boxesCount: 10, boxQuantity: 1, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+
+        $part = $this->split($invoice, [$line->id => 3, $kept->id => 0]);
+
+        $shippedLine = $part->items()->sole();
+        $this->assertEquals([$lowPower->id => 10, $highPower->id => 20], $shippedLine->groups()->pluck('boxes_count', 'lens_power_id')->all());
+        $this->assertEquals([$lowPower->id => 100, $highPower->id => 200], $shippedLine->batches()->pluck('quantity', 'lens_power_id')->all());
+    }
+
+    /**
+     * EN: Given a line of 30 packets in 3 cartons, spread over two powers: 10 packets of 1.00 and 20 of 1.50.
+     *     Only 1 of its 3 cartons is asked to go. Which powers are in that carton is not known,
+     *     so the split is refused and the invoice stays as it was: for now such a line goes whole or not at all.
+     * AR: بند بيه 30 باكيت بـ 3 كراتين، موزع على درجتين: 10 باكيتات 1.00 و20 باكيت 1.50.
+     *     ينطلب كارتونة وحدة بس من الثلاثة تروح. ما معروف ياهي الدرجات اللي بيها،
+     *     فالتقسيم ينرفض والفاتورة تبقى مثل ما هي: هسه هيج بند يروح كامل أو ما يروح.
+     */
+    public function test_part_of_a_line_spread_over_several_powers_cannot_be_shipped(): void
+    {
+        $invoice = $this->purchaseInvoice();
+        $line = $this->addLine($invoice, boxesCount: 30, boxQuantity: 10, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $line->groups()->createMany([
+            ['lens_power_id' => LensPower::factory()->create(['value' => 1])->id, 'boxes_count' => 10],
+            ['lens_power_id' => LensPower::factory()->create(['value' => 1.5])->id, 'boxes_count' => 20],
+        ]);
+
+        $this->assertRefusedAndUnchanged($invoice, fn () => $this->split($invoice->fresh(), [$line->id => 1]));
+    }
+
+    /**
+     * EN: Given a line of 100 packets of 24 pieces whose packet holds 10 red pieces and 14 blue, 4 of its 10 cartons (40 packets) go.
+     *     Then the shipped line has the same colors in a packet (10 red and 14 blue), and its stock batch has 400 red pieces
+     *     and 560 blue; the original line keeps its 60 packets with the same colors.
+     * AR: بند بيه 100 باكيت، كل باكيت 24 قطعة، وكل باكيت بيه 10 قطع أحمر و14 أزرق، و4 كراتين من 10 (40 باكيت) تروح.
+     *     فالبند المشحون بيه نفس ألوان الباكيت (10 أحمر و14 أزرق)، ودفعته بيها 400 قطعة أحمر و560 أزرق؛
+     *     والبند الأصلي تبقى بيه 60 باكيت بنفس الألوان.
+     */
+    public function test_the_shipped_part_keeps_the_colors_of_its_line(): void
+    {
+        $invoice = $this->purchaseInvoice();
+        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 24, boxesPerCarton: 10, cartonCbm: 0.2, unitCost: 1);
+        $line->colors()->createMany([
+            ['color_id' => Color::factory()->create(['name' => 'Red'])->id, 'pieces' => 10],
+            ['color_id' => Color::factory()->create(['name' => 'Blue'])->id, 'pieces' => 14],
+        ]);
+
+        $part = $this->split($invoice, [$line->id => 4]);
+
+        $shippedLine = $part->items()->sole();
+        $this->assertEquals(40, $shippedLine->boxes_count);
+        $this->assertEquals(['Red' => 10, 'Blue' => 14], $shippedLine->colors()->with('color')->get()->pluck('pieces', 'color.name')->all());
+        $this->assertEquals(
+            ['Red' => 400, 'Blue' => 560],
+            $shippedLine->batches()->sole()->colors()->with('color')->get()->pluck('pieces', 'color.name')->all(),
+        );
+
+        $line->refresh();
+        $this->assertEquals(60, $line->boxes_count);
+        $this->assertEquals(['Red' => 10, 'Blue' => 14], $line->colors()->with('color')->get()->pluck('pieces', 'color.name')->all());
     }
 
     /**
@@ -310,7 +416,7 @@ class SplitPurchaseInvoiceTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => $boxesCount,
-            'box_quantity' => $boxQuantity,
+            'pieces_per_packet' => $boxQuantity,
             'boxes_per_carton' => $boxesPerCarton,
             'carton_cbm' => $cartonCbm,
             'price' => $boxesCount * $boxQuantity * $unitCost,

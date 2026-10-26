@@ -24,7 +24,7 @@ return new class extends Migration
             $table->double('price_iqd')->nullable();
             $table->double('quantity');
             $table->double('boxes_count')->nullable();
-            $table->double('box_quantity')->nullable();
+            $table->double('pieces_per_packet')->nullable();
             $table->double('boxes_per_carton')->nullable();
             $table->double('cartons_count')->nullable();
             $table->double('carton_cbm')->nullable();

@@ -78,7 +78,7 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'ar'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
@@ -88,12 +88,15 @@ return [
     |--------------------------------------------------------------------------
     |
     | The languages users can switch between, each named in its own language.
+    | The default language comes first: the API falls back to the first one
+    | when the app asks for no language or for one that is not here.
     |
     */
 
     'locales' => [
-        'en' => 'English',
         'ar' => 'العربية',
+        'en' => 'English',
+        'zh_CN' => '简体中文',
     ],
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

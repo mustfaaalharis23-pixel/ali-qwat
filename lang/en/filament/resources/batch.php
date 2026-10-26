@@ -6,10 +6,12 @@ return [
 
     'fields' => [
         'item_id' => 'Item',
+        'lens_power_id' => 'Power',
+        'colors' => 'Colors',
         'invoice_id' => 'Invoice',
         'date' => 'Date',
-        'quantity' => 'Quantity',
-        'purchase_price' => 'Unit price',
+        'quantity' => 'Quantity (pieces)',
+        'purchase_price' => 'Price per piece',
         'status' => 'Status',
     ],
 ];

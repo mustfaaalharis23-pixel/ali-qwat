@@ -46,8 +46,8 @@ return [
 
     'cards_info' => [
         'stock_value' => [
-            'explanation' => 'What the stock is worth right now: for every active item that still has a quantity, its available quantity times what one unit of it last cost, all added up. An item that ran out adds nothing, and an inactive or deleted item is not counted. A quantity that was bought and did not arrive yet is not counted either, because it is not in the stock. It is the value now, so it has no range.',
-            'example' => 'Two items have stock: 108 units at a cost of 12,000 and 45 units at a cost of 13,000. The stock value = 1,296,000 + 585,000 = 1,881,000 IQD.',
+            'explanation' => 'What the stock is worth right now: for every active item that still has a quantity, its available dozens times what one dozen of it last cost, all added up. An item that ran out adds nothing, and an inactive or deleted item is not counted. A quantity that was bought and did not arrive yet is not counted either, because it is not in the stock. It is the value now, so it has no range.',
+            'example' => 'Two items have stock: 108 dozens at a cost of 12,000 a dozen and 45 dozens at 13,000. The stock value = 1,296,000 + 585,000 = 1,881,000 IQD.',
         ],
         'cash_sales_box' => [
             'explanation' => 'The money in the cash sales box now that is not transferred to the accountant\'s box yet: all the cash sales from the orders of every cashier, minus everything transferred from the cash. An order counts with its final amount after any discount. Deleted orders and invoices are not counted. It is the balance as of today, so it has no range.',

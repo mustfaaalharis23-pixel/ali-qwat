@@ -44,7 +44,7 @@ class AccountantBalanceTest extends TestCase
             'invoice_id' => $purchase->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'price' => 5000,
         ]);
         Payoff::factory()->create(['invoice_id' => $purchase->id, 'amount' => 200]);

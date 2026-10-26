@@ -7,9 +7,11 @@ use App\Filament\Forms\Components\MoneyInput;
 use App\Metrics\Currency;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 
 class ContainerForm
@@ -19,10 +21,18 @@ class ContainerForm
      */
     private const int DAYS_TO_ARRIVAL = 60;
 
+    /**
+     * The container's own price of one CBM is a note only, so a box on top says how the container is really worked out.
+     */
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
+                Callout::make(__('filament/resources/container.how_it_works.heading'))
+                    ->description(__('filament/resources/container.how_it_works.description'))
+                    ->icon(Heroicon::OutlinedInformationCircle)
+                    ->info()
+                    ->columnSpanFull(),
                 TextInput::make('id')
                     ->label(__('filament/resources/container.fields.id'))
                     ->disabled()

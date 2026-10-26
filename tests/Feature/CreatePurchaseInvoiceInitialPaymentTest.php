@@ -48,7 +48,7 @@ class CreatePurchaseInvoiceInitialPaymentTest extends TestCase
                 'items' => [[
                     'specific_description_id' => Item::factory()->create()->specificDescription->id,
                     'boxes_count' => 12,
-                    'box_quantity' => 24,
+                    'pieces_per_packet' => 24,
                     'boxes_per_carton' => 1,
                     'carton_cbm' => 0.12,
                     'unit_cost' => 3500,

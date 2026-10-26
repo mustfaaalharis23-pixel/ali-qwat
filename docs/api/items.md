@@ -31,23 +31,57 @@ Authorization: Bearer <التوكن>
   "data": [
     {
       "id": 3,
-      "name": "Blue Chair",
+      "name": "Reading glasses",
       "description": null,
       "image": "http://localhost:8000/storage/items/8bfa92c5.jpg",
-      "sale_price": 1500,
-      "available_quantity": 12,
+      "sale_price": 15000,
+      "pieces_per_packet": 20,
+      "available_quantity": 18.33,
       "incoming_quantity": 0,
-      "is_out_of_stock": false
+      "is_out_of_stock": false,
+      "powers": [
+        { "id": 5, "value": "1.00", "available_quantity": 13.33 },
+        { "id": 6, "value": "1.50", "available_quantity": 5 }
+      ],
+      "packet_types": [
+        {
+          "lens_power_id": 5,
+          "colors": [
+            { "id": 2, "name": "أحمر", "pieces": 10 },
+            { "id": 3, "name": "أزرق", "pieces": 10 }
+          ],
+          "available_packets": 3,
+          "available_quantity": 5
+        },
+        {
+          "lens_power_id": 5,
+          "colors": [{ "id": 4, "name": "أسود", "pieces": 20 }],
+          "available_packets": 5,
+          "available_quantity": 8.33
+        },
+        {
+          "lens_power_id": 6,
+          "colors": [
+            { "id": 2, "name": "أحمر", "pieces": 10 },
+            { "id": 3, "name": "أزرق", "pieces": 10 }
+          ],
+          "available_packets": 3,
+          "available_quantity": 5
+        }
+      ]
     },
     {
       "id": 4,
-      "name": "Red Table",
+      "name": "Sunglasses",
       "description": null,
       "image": "http://localhost:8000/storage/items/bd1491aa.jpg",
       "sale_price": 9000,
+      "pieces_per_packet": 24,
       "available_quantity": 0,
       "incoming_quantity": 40,
-      "is_out_of_stock": true
+      "is_out_of_stock": true,
+      "powers": [],
+      "packet_types": []
     }
   ],
   "links": { "next": null },
@@ -68,19 +102,54 @@ Authorization: Bearer <التوكن>
 
 ### الكميات — الأهم بهذي الشاشة
 
+المخزون ينحسب **بالقطعة** ويطلع هنا **بالدرزن** (الدرزن = 12 قطعة). والسعر **للدرزن**. المادة تنباع **بالباكيت الكامل بس**.
+
 | الحقل | معناه |
 |---|---|
-| `available_quantity` | الكمية الموجودة بالمخزن الحين (وصلت وانأكدت من الطرفين، ناقص المبيع) |
-| `incoming_quantity` | الكمية **القادمة**: بضاعة انأكدت من المستورد وبعدها ما وصلت |
+| `sale_price` | سعر بيع الدرزن الواحد |
+| `pieces_per_packet` | كم قطعة بباكيت هاي المادة: 20 أو 24. `null` يعني المادة ما تنباع — شوف [packages.md](packages.md) |
+| `available_quantity` | الموجود بالمخزن الحين **بالدرزن** (وصل وانأكد من الطرفين، ناقص المبيع). ممكن بيه كسر، مثل 18.33 |
+| `incoming_quantity` | **القادم** بالدرزن: بضاعة انأكدت من المستورد وبعدها ما وصلت |
 | `is_out_of_stock` | `true` يعني الكمية المتوفرة صفر |
 
 **شلون تعرضها بالتطبيق:**
 
-- `is_out_of_stock: false` → اعرضها عادي مع كميتها.
-- `is_out_of_stock: true` و `incoming_quantity > 0` → علّمها "خلصت" واكتب ويّاها: **قادم 40**.
+- `is_out_of_stock: false` → اعرضها عادي مع كميتها: **18.33 درزن**.
+- `is_out_of_stock: true` و `incoming_quantity > 0` → علّمها "خلصت" واكتب ويّاها: **قادم 40 درزن**.
 - `is_out_of_stock: true` و `incoming_quantity = 0` → علّمها "خلصت" بلا أي وعد.
 
 > `sale_price` هو السعر اللي ينباع بيه فعلاً — السيرفر يعتمد سعره هو وقت البيع، مو السعر اللي يدزّه التطبيق.
+
+### الدرجات (`powers`)
+
+نظارات القراءة تنباع **بدرجة** (مثل 1.50). `powers` هي الدرجات اللي تكدر تبيع منها هسه، ويا الباقي من كل وحدة:
+
+| الحقل | معناه |
+|---|---|
+| `id` | رقم الدرجة. هذا اللي تدزّه ويا البند بـ `lens_power_id` ([orders.md](orders.md#البيع-الچيك-اوت)) |
+| `value` | الدرجة مثل ما تنكتب: `"1.50"`. نص، لا تحوّله رقم |
+| `available_quantity` | الباقي من هاي الدرجة **بالدرزن** |
+
+- مرتبة من الأصغر. الدرجة اللي خلصت ما تطلع.
+- **`powers: []`** → مادة بلا درجات (مثل الشمسية): تنباع بلا `lens_power_id`.
+- **`powers` بيها درجات** → البائع **لازم** يختار درجة.
+- نادراً تطلع بالقائمة درجة `id: null` (قطع انشترت بلا درجة لنفس المادة): بيعها يكون بلا `lens_power_id`.
+
+### أنواع الباكيت (`packet_types`)
+
+الباكيت ممكن يجي بيه **أكثر من لون**، وكل لون بعدد **قطع** (مثلاً باكيت 20 قطعة: 10 أحمر و10 أزرق). نفس الدرجة ممكن تجي **بأكثر من تشكيلة ألوان**. البائع **يختار الدرجة، وبعدها التشكيلة**، والباكيت يطلع بألوانه مثل ما هو. `packet_types` هي اللي يگدر يختار منها هسه:
+
+| الحقل | معناه |
+|---|---|
+| `lens_power_id` | درجة هذا النوع (نفس `id` بـ `powers`)، أو `null` للي بلا درجة |
+| `colors` | ألوان **الباكيت الواحد**: `[{ id, name, pieces }]`، و`pieces` قطع اللون بالباكيت. فارغة `[]` لباكيت بلا ألوان |
+| `available_packets` | الباكيتات **الكاملة** الباقية من هذا النوع. هذا الحد الأعلى للبيع |
+| `available_quantity` | نفس الباقي **بالدرزن**، للعرض |
+
+- مرتبة من الدرجة الأصغر (اللي بلا درجة بالأخير)، وبكل درجة التشكيلة الأقدم أول.
+- النوع اللي ما باقي منه باكيت كامل ما يطلع.
+- مادة بلا درجات وبلا ألوان إلها نوع واحد: `lens_power_id: null` و`colors: []`.
+- **بعد ما يختار الدرجة**، اعرض الأنواع اللي `lens_power_id` مالتها = الدرجة. إذا بيها ألوان، البائع **لازم** يختار وحدة، ودز `colors` مالتها ويا البند مثل ما هي ([orders.md](orders.md#البيع-الچيك-اوت)).
 
 ### الأخطاء
 

@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\OrderPaymentType;
-use App\Enums\Package;
+use App\Models\Item;
 use App\Orders\Checkout\CheckoutData;
 use App\Orders\Checkout\CheckoutLine;
 use Closure;
@@ -15,7 +15,8 @@ class CheckoutRequest extends FormRequest
 {
     /**
      * The shape of the sale only. The sale rules themselves (the customer, the prices, and what can be sold)
-     * belong to the checkout and are not repeated here.
+     * belong to the checkout and are not repeated here. A line is whole packets, at a lens power and in the colors
+     * of one packet when the item has them.
      *
      * @return array<string, mixed>
      */
@@ -28,30 +29,38 @@ class CheckoutRequest extends FormRequest
             'down_payment' => ['nullable', 'numeric'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer', 'exists:items,id'],
-            'lines.*.quantity' => ['required', 'numeric', 'gt:0', $this->wholePackages()],
-            'lines.*.package' => ['nullable', Rule::enum(Package::class)],
+            'lines.*.packets' => ['required', 'integer', 'gt:0', $this->itemWithAPacket()],
+            'lines.*.lens_power_id' => ['nullable', 'integer', 'exists:lens_powers,id'],
+            'lines.*.colors' => ['nullable', 'array'],
+            'lines.*.colors.*.color_id' => ['required', 'integer', 'exists:colors,id'],
+            'lines.*.colors.*.pieces' => ['required', 'integer', 'gt:0'],
         ];
     }
 
     /**
-     * The quantity is in pieces, and it makes whole packages of the line's package: 24 with a dozen, never 25.
-     * A line without a package is a piece. A wrong package or quantity is rejected by its own rule, so it is not checked here.
+     * An item is sold by the whole packet only, so an item without a packet size cannot be sold.
      */
-    private function wholePackages(): Closure
+    private function itemWithAPacket(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            $package = $this->input(Str::replaceLast('.quantity', '.package', $attribute));
-            $package = $package === null ? Package::Piece : Package::tryFrom((string) $package);
+            $item = $this->itemOf(Str::beforeLast($attribute, '.packets'));
 
-            if ($package === null || ! is_numeric($value) || $package->holdsWhole((float) $value)) {
+            if ($item === null || $item->pieces_per_packet !== null) {
                 return;
             }
 
-            $fail(__('orders.validation.quantity_not_whole_packages', [
-                'package' => $package->getLabel(),
-                'size' => $package->size(),
-            ]));
+            $fail(__('orders.validation.item_has_no_packet', ['item' => $item->name]));
         };
+    }
+
+    /**
+     * The item of the line at the given path, or null when it is not an item.
+     */
+    private function itemOf(string $line): ?Item
+    {
+        $itemId = $this->input("{$line}.item_id");
+
+        return is_numeric($itemId) ? Item::query()->find((int) $itemId) : null;
     }
 
     /**
@@ -66,8 +75,12 @@ class CheckoutRequest extends FormRequest
             lines: array_values(array_map(
                 fn (array $line): CheckoutLine => new CheckoutLine(
                     (int) $line['item_id'],
-                    (float) $line['quantity'],
-                    Package::tryFrom((string) ($line['package'] ?? '')) ?? Package::Piece,
+                    lensPowerId: isset($line['lens_power_id']) ? (int) $line['lens_power_id'] : null,
+                    packets: (int) $line['packets'],
+                    colors: array_map(fn (array $color): array => [
+                        'color_id' => (int) $color['color_id'],
+                        'pieces' => (float) $color['pieces'],
+                    ], $line['colors'] ?? []),
                 ),
                 $this->array('lines'),
             )),

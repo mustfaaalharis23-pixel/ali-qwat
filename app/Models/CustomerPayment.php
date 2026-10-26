@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\OrderPaymentType;
 use Database\Factories\CustomerPaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -73,6 +75,39 @@ class CustomerPayment extends BaseModel
     public function allocations(): HasMany
     {
         return $this->hasMany(CustomerPaymentOrder::class);
+    }
+
+    /**
+     * What the customer owed just before this payment, read the same way as the account statement: the customer's postpaid orders
+     * up to this payment's date, orders of the same date included, minus the payments before it. On the same date, payments
+     * follow the order they were recorded in. Deleted orders and deleted payments are not counted.
+     */
+    public function balanceBefore(): float
+    {
+        $date = $this->date->toDateString();
+
+        $owed = (float) Order::query()
+            ->where('customer_id', $this->customer_id)
+            ->where('payment_type', OrderPaymentType::Postpaid)
+            ->whereDate('date', '<=', $date)
+            ->sum('total_amount');
+
+        $paid = (float) static::query()
+            ->where('customer_id', $this->customer_id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereDate('date', '<', $date)
+                ->orWhere(fn (Builder $query): Builder => $query->whereDate('date', $date)->where($this->getKeyName(), '<', $this->getKey())))
+            ->sum('amount');
+
+        return $owed - $paid;
+    }
+
+    /**
+     * What the customer still owed right after this payment.
+     */
+    public function balanceAfter(): float
+    {
+        return $this->balanceBefore() - (float) $this->amount;
     }
 
     /**

@@ -19,13 +19,13 @@ return [
 
     'items_with_a_low_margin' => [
         'label' => 'Items with a margin under :percentage%',
-        'explanation' => 'The active items that earn something on a sale, but less than :percentage% of their sale price: the sale price minus the cost price, out of the sale price. The cost price is what one unit cost on the last purchase both sides confirmed. An item sold at a loss is not here, it has its own lens, and an item without a sale price is not priced yet. Deleted items are not shown.',
-        'guidance' => 'Open the lens and use "Fix the price" on each item: write the new sale price, the profit margin you want on one unit, or the margin as a percentage, and the rest is worked out from the cost. When every item earns :percentage% or more, the card shows 0 and stops blinking.',
+        'explanation' => 'The active items that earn something on a sale, but less than :percentage% of their sale price: the sale price minus the cost price, out of the sale price. The prices are for a dozen, and the cost price is what one dozen cost on the last purchase both sides confirmed. An item sold at a loss is not here, it has its own lens, and an item without a sale price is not priced yet. Deleted items are not shown.',
+        'guidance' => 'Open the lens and use "Fix the price" on each item: write the new sale price, the profit margin you want on one dozen, or the margin as a percentage, and the rest is worked out from the cost. When every item earns :percentage% or more, the card shows 0 and stops blinking.',
     ],
 
     'items_sold_at_a_loss' => [
         'label' => 'Items sold at a loss',
-        'explanation' => 'The active items whose sale price is under their cost price, which is what one unit of them cost on the last purchase both sides confirmed. Every unit sold of them loses the difference. Deleted items are not shown.',
+        'explanation' => 'The active items whose sale price is under their cost price, which is what one dozen of them cost on the last purchase both sides confirmed. Every dozen sold of them loses the difference. Deleted items are not shown.',
         'guidance' => 'Open the lens and use "Fix the price" on each item: write the new sale price, or write the profit margin you want and the sale price is worked out from the cost. When no item sells under its cost, the card shows 0 and stops blinking.',
     ],
 
@@ -37,7 +37,7 @@ return [
 
     'items_without_sales' => [
         'label' => 'Items without any sales',
-        'explanation' => 'The active items that were never sold: not one unit of them appears on any order. An item that was never bought is here too, because nothing was sold of it, and an item whose only order was deleted comes back here. Deleted items are not shown.',
+        'explanation' => 'The active items that were never sold: not one packet of them appears on any order. An item that was never bought is here too, because nothing was sold of it, and an item whose only order was deleted comes back here. Deleted items are not shown.',
         'guidance' => 'Open the lens and look at each item: give it a sale price if it has none, ask why it does not move, or deactivate it if it is out of the range. When every item has at least one sale, the card shows 0 and stops blinking.',
     ],
 ];

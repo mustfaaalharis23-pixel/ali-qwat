@@ -198,7 +198,7 @@ class DistributeSupplierPayoffTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'price' => $price,
         ]);
 

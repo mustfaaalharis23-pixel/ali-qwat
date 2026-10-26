@@ -50,9 +50,9 @@ return [
     'stages' => [
         'in_production' => 'قيد التصنيع',
         'manufactured' => 'تم التصنيع',
-        'received_at_warehouse' => 'تم الاستلام من المخزن',
+        'received_at_warehouse' => 'تم الاستلام في المخزن',
         'on_the_way' => 'في الطريق',
-        'received' => 'تم الاستلام',
+        'received' => 'تم الاستلام في العراق',
     ],
 
     'statuses' => [

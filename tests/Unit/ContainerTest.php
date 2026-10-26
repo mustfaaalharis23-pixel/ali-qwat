@@ -32,7 +32,7 @@ class ContainerTest extends TestCase
      *     البند الثاني نقله 150 $، يعني 1.25 $ للقطعة.
      *     الفاتورة اللي مو بحاوية نقلها 200 $ من سعرها هي، وما تنحسب بالحاوية.
      */
-    public function test_transport_cost_of_a_container_its_invoices_and_each_piece(): void
+    public function test_transport_cost_of_a_container_its_invoices_and_each_set(): void
     {
         $container = Container::factory()->create(['cbm_price' => 120]);
 
@@ -104,7 +104,7 @@ class ContainerTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => $boxesCount,
-            'box_quantity' => $boxQuantity,
+            'pieces_per_packet' => $boxQuantity,
             'boxes_per_carton' => $boxesPerCarton,
             'carton_cbm' => $cartonCbm,
             'price' => 1000,

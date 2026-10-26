@@ -7,20 +7,24 @@ return [
     ],
 
     'packages' => [
-        'piece' => 'Piece',
-        'dozen' => 'Dozen',
         'packet' => 'Packet',
     ],
 
     'package_counts' => [
-        'piece' => ':count piece|:count pieces',
-        'dozen' => ':count dozen|:count dozen',
         'packet' => ':count packet|:count packets',
     ],
 
+    'dozens' => ':count dozens',
+
     'validation' => [
-        'quantity_not_whole_packages' => 'The quantity must make whole packages: one :package is :size pieces.',
+        'quantity_not_whole_packets' => 'An item is sold by the whole packet only: one packet is :size pieces.',
+        'quantity_must_be_whole_pieces' => 'The quantity must be whole pieces: there is no half a piece.',
+        'item_has_no_packet' => ':item has no packet size, so it cannot be sold.',
         'quantity_more_than_available' => 'There is not enough of :item: only :available left.',
+        'quantity_more_than_left_of_power' => 'There is not enough of :item at power :power: only :available left.',
+        'choose_a_power' => ':item is sold at a lens power, so choose the power.',
+        'quantity_more_than_left_of_packet_type' => 'There is not enough of :item at this power and these colors: only :available packets left.',
+        'choose_the_colors' => ':item is sold in mixes of colors, so choose the colors of the packets.',
         'quantity_must_be_positive' => 'The quantity must be more than zero.',
         'price_must_be_positive' => 'The price must be more than zero.',
         'last_item_cannot_be_deleted' => 'The last item of an order cannot be deleted.',
@@ -39,5 +43,9 @@ return [
         'down_payment_postpaid_only' => 'A down payment can only be taken with a postpaid sale.',
         'down_payment_must_be_positive' => 'The down payment must be more than zero.',
         'down_payment_exceeds_order_amount' => 'The down payment cannot be more than the order amount.',
+        'weekly_payment_postpaid_only' => 'A weekly payment can only be set on a postpaid sale.',
+        'weekly_payment_must_be_positive' => 'The weekly payment must be more than zero.',
+        'weekly_payment_exceeds_remaining' => 'The weekly payment cannot be more than what is left after the down payment.',
+        'invoice_by_invoice_customer_has_debt' => 'This customer works invoice by invoice and still owes money; they cannot take a new order until their debt is zero.',
     ],
 ];

@@ -4,7 +4,9 @@ namespace App\Invoices;
 
 use App\Metrics\FormattedValue;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Picqer\Barcode\BarcodeGeneratorSVG;
 use Spatie\Browsershot\Browsershot;
 
@@ -37,11 +39,12 @@ class PurchaseLabelDocument
     }
 
     /**
-     * The label as a page.
+     * The label as a page. Every carton of the invoice carries the same label, so it lists the lens powers of all its lines,
+     * from the lowest, when it has any.
      */
     public function view(Invoice $invoice): View
     {
-        $invoice->loadMissing(['supplier', 'category', 'items']);
+        $invoice->loadMissing(['supplier', 'category', 'items.groups.lensPower']);
 
         return view('invoices.label.purchase', [
             'invoice' => $invoice,
@@ -49,6 +52,13 @@ class PurchaseLabelDocument
             'barcode' => $this->barcode(self::number($invoice)),
             'cartons' => FormattedValue::of((float) $invoice->items->sum('cartons_count'))->number,
             'cbm' => FormattedValue::of($invoice->cbm)->number,
+            'powers' => $invoice->items
+                ->flatMap(fn (InvoiceItem $line): Collection => $line->groups->pluck('lensPower.value'))
+                ->filter()
+                ->unique()
+                ->sortBy(fn (string $value): float => (float) $value)
+                ->values()
+                ->all(),
         ]);
     }
 

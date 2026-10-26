@@ -13,17 +13,17 @@ class ItemSeeder extends Seeder
     /**
      * Fake eyewear products for local development, each with a drawn image.
      *
-     * @var array<int, array{name: string, description: string, shape: string, frame: array{int, int, int}, lens: array{int, int, int}, background: array{int, int, int}, is_active: bool, sale_price: float}>
+     * @var array<int, array{name: string, description: string, shape: string, frame: array{int, int, int}, lens: array{int, int, int}, background: array{int, int, int}, is_active: bool, sale_price: float, pieces_per_packet: ?int}>
      */
     private array $products = [
-        ['name' => 'Classic Round Glasses', 'description' => 'Round metal frame, light and comfortable for daily use.', 'shape' => 'round', 'frame' => [40, 40, 40], 'lens' => [220, 235, 245], 'background' => [245, 240, 230], 'is_active' => true, 'sale_price' => 25000],
-        ['name' => 'Square Black Frame', 'description' => 'Bold square acetate frame in matte black.', 'shape' => 'square', 'frame' => [20, 20, 20], 'lens' => [230, 240, 250], 'background' => [236, 242, 248], 'is_active' => true, 'sale_price' => 30000],
-        ['name' => 'Aviator Sunglasses', 'description' => 'Gold aviator frame with dark green lenses and UV400 protection.', 'shape' => 'aviator', 'frame' => [190, 150, 60], 'lens' => [40, 80, 60], 'background' => [250, 244, 225], 'is_active' => true, 'sale_price' => 45000],
-        ['name' => 'Cat Eye Tortoise', 'description' => 'Vintage cat eye frame with a tortoise shell pattern.', 'shape' => 'cateye', 'frame' => [120, 70, 30], 'lens' => [245, 230, 215], 'background' => [248, 236, 228], 'is_active' => true, 'sale_price' => 35000],
-        ['name' => 'Blue Light Blocking Glasses', 'description' => 'Protects the eyes from screen light. Transparent frame.', 'shape' => 'square', 'frame' => [90, 140, 200], 'lens' => [210, 230, 255], 'background' => [232, 240, 252], 'is_active' => true, 'sale_price' => 20000],
-        ['name' => 'Kids Red Glasses', 'description' => 'Flexible and durable frame for children.', 'shape' => 'round', 'frame' => [210, 40, 50], 'lens' => [240, 240, 245], 'background' => [252, 234, 234], 'is_active' => true, 'sale_price' => 15000],
-        ['name' => 'Sport Wrap Sunglasses', 'description' => 'Wide lenses for running and cycling.', 'shape' => 'aviator', 'frame' => [30, 30, 30], 'lens' => [200, 90, 30], 'background' => [238, 238, 238], 'is_active' => false, 'sale_price' => 40000],
-        ['name' => 'Rimless Titanium Glasses', 'description' => null, 'shape' => 'rimless', 'frame' => [150, 150, 160], 'lens' => [235, 245, 250], 'background' => [244, 246, 248], 'is_active' => true, 'sale_price' => 60000],
+        ['name' => 'Classic Round Glasses', 'description' => 'Round metal frame, light and comfortable for daily use.', 'shape' => 'round', 'frame' => [40, 40, 40], 'lens' => [220, 235, 245], 'background' => [245, 240, 230], 'is_active' => true, 'sale_price' => 25000, 'pieces_per_packet' => 24],
+        ['name' => 'Square Black Frame', 'description' => 'Bold square acetate frame in matte black.', 'shape' => 'square', 'frame' => [20, 20, 20], 'lens' => [230, 240, 250], 'background' => [236, 242, 248], 'is_active' => true, 'sale_price' => 30000, 'pieces_per_packet' => 20],
+        ['name' => 'Aviator Sunglasses', 'description' => 'Gold aviator frame with dark green lenses and UV400 protection.', 'shape' => 'aviator', 'frame' => [190, 150, 60], 'lens' => [40, 80, 60], 'background' => [250, 244, 225], 'is_active' => true, 'sale_price' => 45000, 'pieces_per_packet' => 20],
+        ['name' => 'Cat Eye Tortoise', 'description' => 'Vintage cat eye frame with a tortoise shell pattern.', 'shape' => 'cateye', 'frame' => [120, 70, 30], 'lens' => [245, 230, 215], 'background' => [248, 236, 228], 'is_active' => true, 'sale_price' => 35000, 'pieces_per_packet' => 24],
+        ['name' => 'Blue Light Blocking Glasses', 'description' => 'Protects the eyes from screen light. Transparent frame.', 'shape' => 'square', 'frame' => [90, 140, 200], 'lens' => [210, 230, 255], 'background' => [232, 240, 252], 'is_active' => true, 'sale_price' => 20000, 'pieces_per_packet' => 24],
+        ['name' => 'Kids Red Glasses', 'description' => 'Flexible and durable frame for children.', 'shape' => 'round', 'frame' => [210, 40, 50], 'lens' => [240, 240, 245], 'background' => [252, 234, 234], 'is_active' => true, 'sale_price' => 15000, 'pieces_per_packet' => 20],
+        ['name' => 'Sport Wrap Sunglasses', 'description' => 'Wide lenses for running and cycling.', 'shape' => 'aviator', 'frame' => [30, 30, 30], 'lens' => [200, 90, 30], 'background' => [238, 238, 238], 'is_active' => false, 'sale_price' => 40000, 'pieces_per_packet' => 20],
+        ['name' => 'Rimless Titanium Glasses', 'description' => null, 'shape' => 'rimless', 'frame' => [150, 150, 160], 'lens' => [235, 245, 250], 'background' => [244, 246, 248], 'is_active' => true, 'sale_price' => 60000, 'pieces_per_packet' => 24],
     ];
 
     /**
@@ -42,6 +42,7 @@ class ItemSeeder extends Seeder
                 'image' => $path,
                 'is_active' => $product['is_active'],
                 'sale_price' => $product['sale_price'],
+                'pieces_per_packet' => $product['pieces_per_packet'],
             ]);
         }
     }

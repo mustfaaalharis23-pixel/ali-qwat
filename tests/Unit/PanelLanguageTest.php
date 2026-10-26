@@ -6,6 +6,7 @@ use App\Http\Middleware\SetLocale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PanelLanguageTest extends TestCase
@@ -13,28 +14,43 @@ class PanelLanguageTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * EN: By default, the login page is in English and left-to-right.
-     * AR: صفحة الدخول بشكل افتراضي بالإنكليزي ومن اليسار لليمين.
+     * EN: By default, the login page is in Arabic and right-to-left.
+     * AR: صفحة الدخول بشكل افتراضي بالعربي ومن اليمين لليسار.
      */
-    public function test_login_page_is_english_and_left_to_right_by_default(): void
+    public function test_login_page_is_arabic_and_right_to_left_by_default(): void
     {
         $this->get('/admin/login')
             ->assertOk()
-            ->assertSee('lang="en"', false)
-            ->assertSee('dir="ltr"', false);
+            ->assertSee('lang="ar"', false)
+            ->assertSee('dir="rtl"', false);
     }
 
     /**
-     * EN: After choosing Arabic, the login page is in Arabic and right-to-left.
-     * AR: بعد اختيار العربي، صفحة الدخول بالعربي ومن اليمين لليسار.
+     * EN: The left-to-right languages and how each one is written in the page's lang attribute.
+     * AR: اللغات اللي من اليسار لليمين وشلون تنكتب كل وحدة بخاصية lang مال الصفحة.
+     *
+     * @return array<string, array{string, string}>
      */
-    public function test_login_page_is_arabic_and_right_to_left_after_choosing_arabic(): void
+    public static function leftToRightLanguages(): array
     {
-        $this->withSession(['locale' => 'ar'])
+        return [
+            'English' => ['en', 'en'],
+            'Simplified Chinese' => ['zh_CN', 'zh-CN'],
+        ];
+    }
+
+    /**
+     * EN: After choosing English or Chinese, the login page is in that language and left-to-right.
+     * AR: بعد اختيار الإنكليزي أو الصيني، صفحة الدخول بهاي اللغة ومن اليسار لليمين.
+     */
+    #[DataProvider('leftToRightLanguages')]
+    public function test_login_page_is_left_to_right_after_choosing_a_left_to_right_language(string $locale, string $langAttribute): void
+    {
+        $this->withSession(['locale' => $locale])
             ->get('/admin/login')
             ->assertOk()
-            ->assertSee('lang="ar"', false)
-            ->assertSee('dir="rtl"', false);
+            ->assertSee("lang=\"{$langAttribute}\"", false)
+            ->assertSee('dir="ltr"', false);
     }
 
     /**
@@ -47,52 +63,56 @@ class PanelLanguageTest extends TestCase
     }
 
     /**
-     * EN: The English login page has a link, named "العربية", to switch to Arabic.
-     * AR: صفحة الدخول بالإنكليزي بيها رابط اسمه "العربية" للتحويل للعربي.
+     * EN: Each language, with the other two languages it offers to switch to, each named in its own language.
+     * AR: كل لغة، ويا اللغتين الثانيات اللي تعرض التحويل الهن، كل وحدة باسمها بلغتها.
+     *
+     * @return array<string, array{string, array<string, string>}>
      */
-    public function test_english_login_page_has_a_link_to_switch_to_arabic(): void
+    public static function languagesAndTheirSwitchLinks(): array
     {
-        $this->get('/admin/login')
-            ->assertSee(route('locale.switch', 'ar'), false)
-            ->assertSee('العربية');
+        return [
+            'Arabic' => ['ar', ['en' => 'English', 'zh_CN' => '简体中文']],
+            'English' => ['en', ['ar' => 'العربية', 'zh_CN' => '简体中文']],
+            'Simplified Chinese' => ['zh_CN', ['ar' => 'العربية', 'en' => 'English']],
+        ];
     }
 
     /**
-     * EN: The Arabic login page has a link, named "English", to switch to English.
-     * AR: صفحة الدخول بالعربي بيها رابط اسمه "English" للتحويل للإنكليزي.
+     * EN: The login page in each language has a link to switch to each of the other two languages, and no link to its own.
+     * AR: صفحة الدخول بكل لغة بيها رابط للتحويل لكل وحدة من اللغتين الثانيات، وما بيها رابط للغتها نفسها.
+     *
+     * @param  array<string, string>  $otherLanguages
      */
-    public function test_arabic_login_page_has_a_link_to_switch_to_english(): void
+    #[DataProvider('languagesAndTheirSwitchLinks')]
+    public function test_login_page_has_links_to_switch_to_the_other_languages(string $locale, array $otherLanguages): void
     {
-        $this->withSession(['locale' => 'ar'])
-            ->get('/admin/login')
-            ->assertSee(route('locale.switch', 'en'), false)
-            ->assertSee('English');
+        $response = $this->withSession(['locale' => $locale])->get('/admin/login');
+
+        foreach ($otherLanguages as $otherLocale => $name) {
+            $response->assertSee(route('locale.switch', $otherLocale), false)->assertSee($name);
+        }
+
+        $response->assertDontSee(route('locale.switch', $locale), false);
     }
 
     /**
-     * EN: Inside the panel in English, the user menu has a link, named "العربية", to switch to Arabic.
-     * AR: داخل اللوحة بالإنكليزي، قائمة اليوزر بيها رابط اسمه "العربية" للتحويل للعربي.
+     * EN: Inside the panel, in each language, the user menu has a link to switch to each of the other two languages, and no link to its own.
+     * AR: داخل اللوحة، بكل لغة، قائمة اليوزر بيها رابط للتحويل لكل وحدة من اللغتين الثانيات، وما بيها رابط للغتها نفسها.
+     *
+     * @param  array<string, string>  $otherLanguages
      */
-    public function test_english_panel_has_a_link_to_switch_to_arabic(): void
+    #[DataProvider('languagesAndTheirSwitchLinks')]
+    public function test_panel_has_links_to_switch_to_the_other_languages(string $locale, array $otherLanguages): void
     {
-        $this->actingAs(User::factory()->create(['is_active' => true]))
+        $response = $this->actingAs(User::factory()->create(['is_active' => true]))
+            ->withSession(['locale' => $locale])
             ->get('/admin')
-            ->assertOk()
-            ->assertSee(route('locale.switch', 'ar'), false)
-            ->assertSee('العربية');
-    }
+            ->assertOk();
 
-    /**
-     * EN: Inside the panel in Arabic, the user menu has a link, named "English", to switch to English.
-     * AR: داخل اللوحة بالعربي، قائمة اليوزر بيها رابط اسمه "English" للتحويل للإنكليزي.
-     */
-    public function test_arabic_panel_has_a_link_to_switch_to_english(): void
-    {
-        $this->actingAs(User::factory()->create(['is_active' => true]))
-            ->withSession(['locale' => 'ar'])
-            ->get('/admin')
-            ->assertOk()
-            ->assertSee(route('locale.switch', 'en'), false)
-            ->assertSee('English');
+        foreach ($otherLanguages as $otherLocale => $name) {
+            $response->assertSee(route('locale.switch', $otherLocale), false)->assertSee($name);
+        }
+
+        $response->assertDontSee(route('locale.switch', $locale), false);
     }
 }

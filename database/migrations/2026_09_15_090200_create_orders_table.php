@@ -22,6 +22,7 @@ return new class extends Migration
             $table->double('paid_amount')->default(0);
             $table->double('remaining')->default(0);
             $table->double('down_payment')->nullable();
+            $table->double('weekly_payment')->nullable();
             $table->double('total_cost')->default(0);
             $table->double('profit')->default(0);
             $table->date('date');

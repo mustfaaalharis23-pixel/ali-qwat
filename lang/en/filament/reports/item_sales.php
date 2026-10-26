@@ -9,7 +9,7 @@ return [
     ],
     'columns' => [
         'item' => 'Item',
-        'quantity' => 'Sold quantity',
+        'quantity' => 'Sold quantity (dozens)',
         'amount' => 'Sales amount',
     ],
     'totals' => [

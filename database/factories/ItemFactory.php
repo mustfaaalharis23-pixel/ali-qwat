@@ -26,18 +26,22 @@ class ItemFactory extends Factory
     }
 
     /**
-     * Indicate that the item has stock: a purchase invoice both sides confirmed, of this quantity at this unit cost.
-     * It is the only way stock enters, so every test that sells an item uses it, and the item's cost comes from it.
+     * Indicate that the item has stock: a purchase invoice both sides confirmed, of these dozens at this cost of one dozen,
+     * bought in the item's packets, or as one packet of all their pieces for an item without a packet size.
+     * It is the only way stock enters, so every test that sells an item uses it, and the item's cost of a dozen comes from it.
      */
-    public function stocked(float $quantity = 1000, float $unitCost = 100): static
+    public function stocked(float $dozens = 1000, float $dozenCost = 100): static
     {
-        return $this->afterCreating(function (Item $item) use ($quantity, $unitCost): void {
+        return $this->afterCreating(function (Item $item) use ($dozens, $dozenCost): void {
+            $pieces = $dozens * Item::PIECES_IN_A_DOZEN;
+            $piecesPerPacket = $item->pieces_per_packet ?? $pieces;
+
             InvoiceItem::factory()->create([
                 'invoice_id' => Invoice::factory()->purchase()->confirmed()->create()->id,
                 'specific_description_id' => $item->specificDescription->id,
-                'boxes_count' => 1,
-                'box_quantity' => $quantity,
-                'price' => $quantity * $unitCost,
+                'boxes_count' => $pieces / $piecesPerPacket,
+                'pieces_per_packet' => $piecesPerPacket,
+                'price' => $dozens * $dozenCost,
             ]);
         });
     }

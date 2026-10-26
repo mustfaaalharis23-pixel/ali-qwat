@@ -52,7 +52,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): OrderResource
     {
-        return new OrderResource($order->load(['customer', 'items.item'])->loadCount('items'));
+        return new OrderResource($order->load(['customer', 'items.item', 'items.lensPower'])->loadCount('items'));
     }
 
     /**

@@ -25,6 +25,7 @@ use Illuminate\Validation\ValidationException;
     'date',
     'notes',
     'down_payment',
+    'weekly_payment',
 ])]
 class Order extends BaseModel
 {
@@ -207,6 +208,7 @@ class Order extends BaseModel
             'paid_amount' => 'float',
             'remaining' => 'float',
             'down_payment' => 'float',
+            'weekly_payment' => 'float',
             'total_cost' => 'float',
             'profit' => 'float',
         ];

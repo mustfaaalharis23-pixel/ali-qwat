@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Batch;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceItemGroup;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -18,8 +19,9 @@ use Illuminate\Database\Eloquent\Model;
  * and any event missed before do not matter.
  *
  * The cases, all of them:
- *   purchase line saved, deleted, restored, or force deleted — its batch is the stock coming in
+ *   purchase line saved, deleted, restored, or force deleted — its batches are the stock coming in
  *   a line moved to another item — the item it left and the item it went to
+ *   a group of a line saved, deleted, or restored — the line's batches follow its groups
  *   invoice saved (confirmed by a side, or a confirmation taken back), deleted, restored, or force deleted
  *   sold line saved, deleted, restored, or force deleted, and a sold line moved to another item
  *   order deleted, restored, or force deleted — everything sold on it comes back or goes out again
@@ -71,6 +73,7 @@ class StockObserver
     {
         $ids = match (true) {
             $model instanceof InvoiceItem, $model instanceof OrderItem => [$model->item_id, $model->getOriginal('item_id')],
+            $model instanceof InvoiceItemGroup => [InvoiceItem::withTrashed()->find($model->invoice_item_id)?->item_id],
             $model instanceof Invoice => Batch::withTrashed()->where('invoice_id', $model->id)->pluck('item_id')->all(),
             $model instanceof Order => OrderItem::withTrashed()->where('order_id', $model->id)->pluck('item_id')->all(),
             default => [],

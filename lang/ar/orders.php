@@ -7,20 +7,24 @@ return [
     ],
 
     'packages' => [
-        'piece' => 'قطعة',
-        'dozen' => 'درزن',
         'packet' => 'باكيت',
     ],
 
     'package_counts' => [
-        'piece' => ':count قطعة',
-        'dozen' => ':count درزن',
         'packet' => ':count باكيت',
     ],
 
+    'dozens' => ':count درزن',
+
     'validation' => [
-        'quantity_not_whole_packages' => 'الكمية لازم تكون تعبئات كاملة: كل :package = :size قطعة.',
+        'quantity_not_whole_packets' => 'البيع بالباكيت الكامل بس: كل باكيت :size قطعة.',
+        'quantity_must_be_whole_pieces' => 'الكمية لازم تكون قطع كاملة، ما بيها نص قطعة.',
+        'item_has_no_packet' => ':item ما إله تعبئة باكيت، فما ينباع.',
         'quantity_more_than_available' => 'الكمية المتوفرة من :item لا تكفي: الباقي :available فقط.',
+        'quantity_more_than_left_of_power' => 'الباقي من :item بدرجة :power ما يكفي: بس :available.',
+        'choose_a_power' => ':item ينباع بدرجة، فاختار الدرجة.',
+        'quantity_more_than_left_of_packet_type' => 'الباقي من :item بهاي الدرجة والألوان ما يكفي: بس :available باكيت.',
+        'choose_the_colors' => ':item ينباع بتشكيلات ألوان، فاختار ألوان الباكيت.',
         'quantity_must_be_positive' => 'الكمية لازم تكون أكبر من صفر.',
         'price_must_be_positive' => 'السعر لازم يكون أكبر من صفر.',
         'last_item_cannot_be_deleted' => 'آخر بند بالأوردر ما ينحذف.',
@@ -39,5 +43,9 @@ return [
         'down_payment_postpaid_only' => 'الدفعة الأولية تنأخذ ويا البيع الآجل بس.',
         'down_payment_must_be_positive' => 'الدفعة الأولية لازم تكون أكبر من صفر.',
         'down_payment_exceeds_order_amount' => 'الدفعة الأولية ما تكدر تكون أكثر من مبلغ الأوردر.',
+        'weekly_payment_postpaid_only' => 'الدفعة الأسبوعية تنحط ويا البيع الآجل بس.',
+        'weekly_payment_must_be_positive' => 'الدفعة الأسبوعية لازم تكون أكبر من صفر.',
+        'weekly_payment_exceeds_remaining' => 'الدفعة الأسبوعية ما تكدر تكون أكثر من الباقي بعد الدفعة الأولية.',
+        'invoice_by_invoice_customer_has_debt' => 'هذا الزبون يشتغل فاتورة بفاتورة وبعده عليه دين؛ ما ياخذ أوردر جديد إلا لما يصير دينه صفر.',
     ],
 ];

@@ -5,10 +5,12 @@ namespace Tests\Unit;
 use App\Enums\InvoiceStatus;
 use App\Invoices\MergeSplitPart;
 use App\Invoices\SplitPurchaseInvoice;
+use App\Models\Color;
 use App\Models\Container;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\LensPower;
 use App\Models\Payoff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -162,21 +164,140 @@ class MergeSplitPartTest extends TestCase
     }
 
     /**
-     * EN: Merging only moves goods back between the two invoices: the item's incoming quantity stays 1000,
-     *     and the original line's stock batch is 1000 again.
-     * AR: الدمج بس يرجّع البضاعة بين الفاتورتين: القادم مال المادة يبقى 1000،
-     *     ودفعة المخزون (batch) مال البند الأصلي ترجع 1000.
+     * EN: Merging only moves goods back between the two invoices: given 100 packets of 12 pieces (1200 pieces),
+     *     the item's incoming quantity stays 100 dozens, and the original line's stock batch is 1200 pieces again.
+     * AR: الدمج بس يرجّع البضاعة بين الفاتورتين: 100 باكيت، كل باكيت 12 قطعة (1200 قطعة)،
+     *     فالقادم مال المادة يبقى 100 درزن، ودفعة المخزون (batch) مال البند الأصلي ترجع 1200 قطعة.
      */
     public function test_the_incoming_quantity_of_the_item_does_not_change(): void
     {
         $invoice = $this->purchaseInvoice();
-        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 10, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 12, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
         $part = $this->split($invoice, [$line->id => 4]);
 
         $this->merge($part);
 
-        $this->assertEquals(1000, $line->item->fresh()->incoming_quantity);
-        $this->assertEquals(1000, $line->fresh()->batch->quantity);
+        $this->assertEquals(100, $line->item->fresh()->incoming_quantity);
+        $this->assertEquals(1200, $line->batches()->sole()->quantity);
+    }
+
+    /**
+     * EN: Given one item bought on two lines of the same invoice, packed the same way at the same cost:
+     *     100 packets all of power 1.00, and 100 packets all of power 1.50. 4 cartons of the 1.50 line are split off, then merged back.
+     *     Then the part goes back into the 1.50 line, which is whole again (100 packets, all of 1.50),
+     *     and the 1.00 line is untouched (100 packets).
+     * AR: مادة وحدة انشترت ببندين بنفس الفاتورة، بنفس التعبئة ونفس الكلفة:
+     *     100 باكيت كلهن درجة 1.00، و100 باكيت كلهن درجة 1.50. 4 كراتين من بند 1.50 تنفصل، وبعدين ترجع.
+     *     فالجزء يرجع لبند 1.50، ويرجع كامل (100 باكيت، كلهن 1.50)،
+     *     وبند 1.00 ما يتغيّر (100 باكيت).
+     */
+    public function test_a_part_goes_back_into_the_line_of_its_power(): void
+    {
+        $item = Item::factory()->create();
+        $higherPower = LensPower::factory()->create(['value' => 1.5]);
+        $invoice = $this->purchaseInvoice();
+        $lowerLine = $this->addLineOf($invoice, $item, LensPower::factory()->create(['value' => 1]), boxesCount: 100);
+        $higherLine = $this->addLineOf($invoice, $item, $higherPower, boxesCount: 100);
+        $part = $this->split($invoice, [$higherLine->id => 4]);
+
+        $this->merge($part);
+
+        $this->assertEquals([$lowerLine->id, $higherLine->id], $invoice->items()->orderBy('id')->pluck('id')->all());
+        $this->assertEquals(100, $lowerLine->fresh()->boxes_count);
+        $this->assertEquals(100, $higherLine->fresh()->boxes_count);
+        $this->assertEquals([$higherPower->id => 100], $higherLine->groups()->pluck('boxes_count', 'lens_power_id')->all());
+    }
+
+    /**
+     * EN: Given a line of 30 packets of 10 spread over two powers (10 packets of 1.00 and 20 of 1.50), whose 3 cartons all go,
+     *     so it leaves the original, and another line that stays. The part is merged back.
+     *     Then the line comes back to the original as a new line with both powers and their packets,
+     *     and a stock batch for each (100 pieces of 1.00 and 200 of 1.50).
+     * AR: بند بيه 30 باكيت، كل باكيت 10 قطع، موزع على درجتين (10 باكيتات 1.00 و20 باكيت 1.50)، وكل كراتينه الثلاثة تروح،
+     *     فيطلع من الأصلية، وبند ثاني يبقى. الجزء يرجع للأصلية.
+     *     فالبند يرجع للأصلية كبند جديد بدرجتيه وباكيتاتهن،
+     *     وإله دفعة لكل درجة (100 قطعة 1.00 و200 قطعة 1.50).
+     */
+    public function test_a_line_shipped_whole_comes_back_with_its_powers(): void
+    {
+        $lowPower = LensPower::factory()->create(['value' => 1]);
+        $highPower = LensPower::factory()->create(['value' => 1.5]);
+        $invoice = $this->purchaseInvoice();
+        $shipped = $this->addLine($invoice, boxesCount: 30, boxQuantity: 10, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $shipped->groups()->createMany([
+            ['lens_power_id' => $lowPower->id, 'boxes_count' => 10],
+            ['lens_power_id' => $highPower->id, 'boxes_count' => 20],
+        ]);
+        $kept = $this->addLine($invoice, boxesCount: 10, boxQuantity: 1, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $part = $this->split($invoice, [$shipped->id => 3, $kept->id => 0]);
+
+        $this->merge($part);
+
+        $cameBack = $invoice->items()->where('item_id', $shipped->item_id)->sole();
+        $this->assertEquals([$lowPower->id => 10, $highPower->id => 20], $cameBack->groups()->pluck('boxes_count', 'lens_power_id')->all());
+        $this->assertEquals([$lowPower->id => 100, $highPower->id => 200], $cameBack->batches()->pluck('quantity', 'lens_power_id')->all());
+    }
+
+    /**
+     * EN: Given a line of 100 packets of 24 pieces whose packet holds 10 red pieces and 14 blue.
+     *     4 of its 10 cartons are split off, then merged back.
+     *     Then the part goes back into the same line: 100 packets with the same colors in a packet,
+     *     and its stock batch has 1000 red pieces and 1400 blue again.
+     * AR: بند بيه 100 باكيت، كل باكيت 24 قطعة، وكل باكيت بيه 10 قطع أحمر و14 أزرق.
+     *     4 كراتين من 10 تنفصل، وبعدين ترجع.
+     *     فالجزء يرجع لنفس البند: 100 باكيت بنفس ألوان الباكيت،
+     *     ودفعته ترجع بيها 1000 قطعة أحمر و1400 أزرق.
+     */
+    public function test_a_part_goes_back_into_the_line_of_its_colors(): void
+    {
+        $invoice = $this->purchaseInvoice();
+        $line = $this->addLine($invoice, boxesCount: 100, boxQuantity: 24, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $line->colors()->createMany([
+            ['color_id' => Color::factory()->create(['name' => 'Red'])->id, 'pieces' => 10],
+            ['color_id' => Color::factory()->create(['name' => 'Blue'])->id, 'pieces' => 14],
+        ]);
+        $part = $this->split($invoice, [$line->id => 4]);
+
+        $this->merge($part);
+
+        $cameBack = $invoice->items()->sole();
+        $this->assertEquals(100, $cameBack->boxes_count);
+        $this->assertEquals(['Red' => 10, 'Blue' => 14], $cameBack->colors()->with('color')->get()->pluck('pieces', 'color.name')->all());
+        $this->assertEquals(
+            ['Red' => 1000, 'Blue' => 1400],
+            $cameBack->batches()->sole()->colors()->with('color')->get()->pluck('pieces', 'color.name')->all(),
+        );
+    }
+
+    /**
+     * EN: Given a line of 30 packets of 24 pieces in 3 cartons whose packet holds 10 red pieces and 14 blue, spread over two powers:
+     *     10 packets of 1.00 and 20 packets of 1.50. All its cartons go, and the part is merged back.
+     *     Then the line comes back to the original with its colors and both powers, each with its packets.
+     * AR: بند بيه 30 باكيت، كل باكيت 24 قطعة، بـ 3 كراتين، وكل باكيت بيه 10 قطع أحمر و14 أزرق، متوزع على درجتين:
+     *     10 باكيتات 1.00 و20 باكيت 1.50. كل كراتينه تروح، والجزء يرجع.
+     *     فالبند يرجع للأصلية بألوانه وبالدرجتين، وكل درجة بباكيتاتها.
+     */
+    public function test_a_line_shipped_whole_comes_back_with_its_colors_and_powers(): void
+    {
+        $invoice = $this->purchaseInvoice();
+        $shipped = $this->addLine($invoice, boxesCount: 30, boxQuantity: 24, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $shipped->colors()->createMany([
+            ['color_id' => Color::factory()->create(['name' => 'Red'])->id, 'pieces' => 10],
+            ['color_id' => Color::factory()->create(['name' => 'Blue'])->id, 'pieces' => 14],
+        ]);
+        $shipped->groups()->create(['lens_power_id' => LensPower::factory()->create(['value' => 1])->id, 'boxes_count' => 10]);
+        $shipped->groups()->create(['lens_power_id' => LensPower::factory()->create(['value' => 1.5])->id, 'boxes_count' => 20]);
+        $kept = $this->addLine($invoice, boxesCount: 10, boxQuantity: 1, boxesPerCarton: 10, cartonCbm: 1, unitCost: 1);
+        $part = $this->split($invoice, [$shipped->id => 3, $kept->id => 0]);
+
+        $this->merge($part);
+
+        $cameBack = $invoice->items()->where('item_id', $shipped->item_id)->sole();
+        $this->assertEquals(['Red' => 10, 'Blue' => 14], $cameBack->colors()->with('color')->get()->pluck('pieces', 'color.name')->all());
+        $this->assertEquals(
+            ['1.00' => 10, '1.50' => 20],
+            $cameBack->groups()->with('lensPower')->orderBy('id')->get()->mapWithKeys(fn ($group): array => [$group->lensPower->value => $group->boxes_count])->all(),
+        );
     }
 
     /**
@@ -327,11 +448,34 @@ class MergeSplitPartTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => $boxesCount,
-            'box_quantity' => $boxQuantity,
+            'pieces_per_packet' => $boxQuantity,
             'boxes_per_carton' => $boxesPerCarton,
             'carton_cbm' => $cartonCbm,
             'price' => $boxesCount * $boxQuantity * $unitCost,
         ]);
+    }
+
+    /**
+     * EN: Adds a purchase line of the given item with all its packets at the given power: packets of 10 pieces, 10 packets per carton,
+     *     1 CBM per carton, and 1 per piece.
+     * AR: يضيف بند شراء للمادة المحددة وكل باكيتاته بالدرجة المحددة: باكيتات بيها 10 قطع، و10 باكيت بالكارتونة،
+     *     والكارتونة 1 CBM، والقطعة بـ 1.
+     */
+    private function addLineOf(Invoice $invoice, Item $item, LensPower $power, float $boxesCount): InvoiceItem
+    {
+        $line = InvoiceItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'specific_description_id' => $item->specificDescription->id,
+            'boxes_count' => $boxesCount,
+            'pieces_per_packet' => 10,
+            'boxes_per_carton' => 10,
+            'carton_cbm' => 1,
+            'price' => $boxesCount * 10,
+        ]);
+
+        $line->groups()->create(['lens_power_id' => $power->id, 'boxes_count' => $boxesCount]);
+
+        return $line;
     }
 
     /**

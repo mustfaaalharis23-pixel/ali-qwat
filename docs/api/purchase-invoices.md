@@ -32,9 +32,9 @@ Authorization: Bearer <التوكن>
 |---|---|
 | `in_production` | قيد التصنيع |
 | `manufactured` | تم التصنيع |
-| `received_at_warehouse` | تم الاستلام من المخزن |
+| `received_at_warehouse` | تم الاستلام في المخزن |
 | `on_the_way` | في الطريق |
-| `received` | تم الاستلام |
+| `received` | تم الاستلام في العراق |
 
 ### الجواب — `200`
 
@@ -106,7 +106,7 @@ Authorization: Bearer <التوكن>
         "name": "Classic Round Glasses",
         "image": "http://host/storage/items/frames.jpg",
         "boxes_count": 10,
-        "box_quantity": 12,
+        "pieces_per_packet": 12,
         "quantity": 120,
         "boxes_per_carton": 4,
         "cartons_count": 3,
@@ -124,7 +124,7 @@ Authorization: Bearer <التوكن>
 | `cbm` | الحجم الكلي للفاتورة |
 | `items[].name` · `image` | اسم المادة ورابط صورتها (`null` إذا ما عدها صورة) |
 | `items[].boxes_count` | عدد الباكيتات |
-| `items[].box_quantity` | القطع بالباكيت الواحد |
+| `items[].pieces_per_packet` | القطع بالباكيت الواحد |
 | `items[].quantity` | القطع = الباكيتات × القطع بالباكيت |
 | `items[].boxes_per_carton` | الباكيتات بالكارتونة الوحدة |
 | `items[].cartons_count` | الكراتين = الباكيتات ÷ الباكيتات بالكارتونة، والكارتونة الناقصة تنحسب وحدة |

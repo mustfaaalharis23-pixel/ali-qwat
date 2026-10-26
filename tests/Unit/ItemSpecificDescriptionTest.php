@@ -101,7 +101,7 @@ class ItemSpecificDescriptionTest extends TestCase
             'invoice_id' => Invoice::factory()->purchase()->create()->id,
             'specific_description_id' => $item->specificDescription->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 10,
             'price' => 1000,
         ]);
 

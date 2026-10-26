@@ -6,22 +6,25 @@ use App\Enums\InvoiceStatus;
 use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
 use App\Filament\Tables\Columns\IdColumn;
 use App\Models\Batch;
+use App\Models\BatchColor;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Number;
 
 class BatchesTable
 {
     /**
      * The batches table. It has no actions: a batch is written with its purchase line, never by hand.
      * Inside an item's own batches tab the item column is hidden, because it is always the same item.
+     * The lens power column and filter show what came in of each power, and the colors column the pieces of each color in the batch.
      */
     public static function configure(Table $table, bool $showItem = true): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['item', 'invoice']))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['item', 'invoice', 'lensPower', 'colors.color']))
             ->defaultSort('id', 'desc')
             ->columns([
                 IdColumn::make('id'),
@@ -29,6 +32,21 @@ class BatchesTable
                     ->label(__('filament/resources/batch.fields.item_id'))
                     ->searchable()
                     ->visible($showItem),
+                TextColumn::make('lensPower.value')
+                    ->label(__('filament/resources/batch.fields.lens_power_id'))
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('—'),
+                TextColumn::make('colors')
+                    ->label(__('filament/resources/batch.fields.colors'))
+                    ->state(fn (Batch $record): ?string => $record->colors->isEmpty() ? null : $record->colors
+                        ->map(fn (BatchColor $color): string => __('filament/resources/invoice_item.group.color', [
+                            'color' => $color->color?->name,
+                            'pieces' => Number::format($color->pieces, maxPrecision: 2, locale: app()->getLocale()),
+                        ]))
+                        ->implode(__('filament/resources/invoice_item.group.separator')))
+                    ->placeholder('—')
+                    ->wrap(),
                 TextColumn::make('invoice_id')
                     ->label(__('filament/resources/batch.fields.invoice_id'))
                     ->searchable()
@@ -57,6 +75,9 @@ class BatchesTable
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'], fn (Builder $query, string $status): Builder => $query
                             ->whereHas('invoice', fn (Builder $query): Builder => $query->where('status', $status)))),
+                SelectFilter::make('lens_power_id')
+                    ->label(__('filament/resources/batch.fields.lens_power_id'))
+                    ->relationship('lensPower', 'value', fn (Builder $query): Builder => $query->orderBy('value')),
                 TrashedFilter::make(),
             ]);
     }

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('image');
             $table->boolean('is_active')->default(true);
             $table->double('sale_price')->default(0);
+            $table->unsignedInteger('pieces_per_packet')->nullable();
             $table->double('cost_price')->default(0);
             $table->double('last_cost_price')->default(0);
             $table->double('available_quantity')->default(0);

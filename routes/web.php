@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DownloadPurchaseLabelController;
 use App\Http\Controllers\PrintInvoiceController;
+use App\Http\Controllers\PrintPaymentReceiptController;
 use App\Http\Controllers\PrintPurchaseInvoiceController;
 use App\Http\Controllers\SwitchLocaleController;
 use App\Http\Middleware\SetLocale;
@@ -21,6 +22,13 @@ Route::get('/invoices/{order}/print/{format}', PrintInvoiceController::class)
     ->middleware(['auth', SetLocale::class])
     ->whereIn('format', ['a4', 'pos'])
     ->name('invoices.print');
+
+/**
+ * The receipt of one customer payment, for the small thermal printer.
+ */
+Route::get('/customer-payments/{payment}/receipt', PrintPaymentReceiptController::class)
+    ->middleware(['auth', SetLocale::class])
+    ->name('customer-payments.receipt');
 
 /**
  * The checking sheet of one purchase invoice, for the employee who receives and counts the goods.

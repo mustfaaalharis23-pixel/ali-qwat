@@ -6,10 +6,12 @@ return [
 
     'fields' => [
         'item_id' => 'المنتج',
+        'lens_power_id' => 'الدرجة',
+        'colors' => 'الألوان',
         'invoice_id' => 'الفاتورة',
         'date' => 'التاريخ',
-        'quantity' => 'الكمية',
-        'purchase_price' => 'سعر الوحدة',
+        'quantity' => 'الكمية (قطعة)',
+        'purchase_price' => 'سعر القطعة',
         'status' => 'الحالة',
     ],
 ];

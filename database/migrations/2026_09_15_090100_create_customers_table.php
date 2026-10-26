@@ -10,6 +10,7 @@ return new class extends Migration
      * Run the migrations.
      *
      * The name and payment type are required, and the payment type has no default. The phone, email, and contract file path are optional.
+     * An invoice-by-invoice customer takes no new order while they still owe anything; a customer is not one unless set.
      */
     public function up(): void
     {
@@ -20,6 +21,7 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('contract')->nullable();
             $table->string('payment_type');
+            $table->boolean('is_invoice_by_invoice')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });

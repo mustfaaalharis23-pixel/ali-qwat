@@ -5,10 +5,12 @@ namespace Database\Seeders;
 use App\Enums\InvoiceConfirmation;
 use App\Enums\InvoiceType;
 use App\Invoices\ConfirmPurchaseInvoice;
+use App\Models\Color;
 use App\Models\GeneralDescription;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\LensPower;
 use App\Models\Payoff;
 use App\Models\Supplier;
 use App\Models\User;
@@ -45,14 +47,19 @@ class InvoiceSeeder extends Seeder
         $supplier = Supplier::query()->firstOrFail();
         $items = Item::query()->with('specificDescription')->take(4)->get();
 
+        // The first item is reading glasses in packets of 24 pieces: one line of 60 packets, each holding 12 red pieces and 12 black,
+        // spread over two powers. Enough packets are bought that stock is still left after the seeded orders.
         $olderPurchase = $this->purchaseInvoice($user, $supplier, $lastMonth->addDays(14), [
-            [$items[0], 10, 12, 1440000],
-            [$items[1], 5, 20, 1500000],
+            [$items[0], 60, 12000, ['أحمر' => 12, 'أسود' => 12], [
+                ['power' => '1.00', 'packets' => 36],
+                ['power' => '1.50', 'packets' => 24],
+            ]],
+            [$items[1], 30, 15000],
         ]);
 
         $newerPurchase = $this->purchaseInvoice($user, $supplier, $thisMonth->addDays(5), [
-            [$items[2], 4, 10, 800000],
-            [$items[3], 2, 25, 650000],
+            [$items[2], 24, 20000],
+            [$items[3], 12, 13000],
         ]);
 
         // Both are in the stock, and a third one is on its way: the importer confirmed it and the receiver did not.
@@ -60,12 +67,14 @@ class InvoiceSeeder extends Seeder
         $this->confirm($user, $newerPurchase, InvoiceConfirmation::Receiver);
 
         $this->confirm($user, $this->purchaseInvoice($user, $supplier, $thisMonth->addDays(7), [
-            [$items[0], 5, 12, 780000],
+            [$items[0], 5, 13000, ['أحمر' => 8, 'أزرق' => 8, 'بني' => 8], [
+                ['power' => '1.50', 'packets' => 5],
+            ]],
         ]), InvoiceConfirmation::Importer);
 
         Payoff::create([
             'invoice_id' => $olderPurchase->id,
-            'amount' => 1000000,
+            'amount' => 200000,
             'date' => $thisMonth->addDays(6),
         ]);
     }
@@ -110,10 +119,13 @@ class InvoiceSeeder extends Seeder
     }
 
     /**
-     * Creates a purchase invoice with one line per item: [item, boxes, box quantity, price].
+     * Creates a purchase invoice with one line per item: [item, packets, cost of a dozen, the pieces of each color in one of its
+     * packets keyed by the color's name when it has colors, and the powers its packets are spread over when it has any, each with
+     * its packets].
+     * The line is packed in its item's packet, and its price is its pieces × the cost of a piece (the dozen's ÷ 12).
      * Every carton holds one packet, and every carton is 0.05 CBM, about 50 × 40 × 25 cm. One CBM is shipped at $120.
      *
-     * @param  list<array{Item, int, int, float}>  $lines
+     * @param  list<array{0: Item, 1: int, 2: float, 3?: array<string, int>, 4?: list<array{power: string, packets: int}>}>  $lines
      */
     private function purchaseInvoice(User $user, Supplier $supplier, CarbonImmutable $date, array $lines): Invoice
     {
@@ -128,16 +140,28 @@ class InvoiceSeeder extends Seeder
             'images' => [self::IMAGE],
         ]);
 
-        foreach ($lines as [$item, $boxesCount, $boxQuantity, $price]) {
-            InvoiceItem::create([
+        foreach ($lines as $line) {
+            [$item, $boxesCount, $dozenCost] = $line;
+            $invoiceItem = InvoiceItem::create([
                 'invoice_id' => $invoice->id,
                 'specific_description_id' => $item->specificDescription->id,
                 'boxes_count' => $boxesCount,
-                'box_quantity' => $boxQuantity,
+                'pieces_per_packet' => $item->pieces_per_packet,
                 'boxes_per_carton' => 1,
                 'carton_cbm' => 0.05,
-                'price' => $price,
+                'price' => $boxesCount * $item->pieces_per_packet * $dozenCost / Item::PIECES_IN_A_DOZEN,
             ]);
+
+            foreach ($line[3] ?? [] as $name => $pieces) {
+                $invoiceItem->colors()->create(['color_id' => Color::query()->where('name', $name)->value('id'), 'pieces' => $pieces]);
+            }
+
+            foreach ($line[4] ?? [] as ['power' => $power, 'packets' => $packets]) {
+                $invoiceItem->groups()->create([
+                    'lens_power_id' => LensPower::query()->where('value', $power)->value('id'),
+                    'boxes_count' => $packets,
+                ]);
+            }
         }
 
         return $invoice->fresh();

@@ -18,9 +18,16 @@ return [
 
     'hints' => [
         'international_number' => 'Four letters then seven digits, as written on the container.',
-        'cbm_price' => 'A note only: each invoice in the container is costed at its own price per CBM.',
+        'cbm_price' => 'The container\'s price, a note only: it is not used in any calculation. Each invoice in the container is costed at its own price per CBM.',
         'expected_arrival_date' => 'Filled automatically :days days after the loading date. You can change it.',
     ],
+
+    'how_it_works' => [
+        'heading' => 'How the container is calculated',
+        'description' => 'The container\'s CBM = the sum of its invoices\' CBM. Its transport cost = the sum of its invoices\' transport, each invoice at its CBM × its own price per CBM, not the container\'s price. Once an invoice first enters a container, its price per CBM is locked for good.',
+    ],
+
+    'invoices_description' => 'Each invoice\'s transport = its CBM × its own price per CBM (the column). The container\'s price per CBM is a note only.',
 
     'actions' => [
         'add_invoices' => 'Add invoices',
@@ -36,14 +43,14 @@ return [
             'line' => [
                 'cartons' => ':value cartons',
                 'packets_per_carton' => ':value packets per carton',
-                'pieces_per_packet' => ':value units per packet',
-                'pieces' => ':value units on the line',
+                'pieces_per_packet' => ':value pieces per packet',
+                'pieces' => ':value pieces on the line',
             ],
             'preview' => [
                 'nothing' => 'Nothing goes in; the whole line stays on the original',
-                'goes' => 'Into the container: :cartons cartons · :packets packets · :pieces units',
-                'stays' => 'Stays on the original: :cartons cartons · :packets packets · :pieces units',
-                'all' => 'The whole line goes into the container: :cartons cartons · :packets packets · :pieces units; nothing stays on the original',
+                'goes' => 'Into the container: :cartons cartons · :packets packets · :pieces pieces',
+                'stays' => 'Stays on the original: :cartons cartons · :packets packets · :pieces pieces',
+                'all' => 'The whole line goes into the container: :cartons cartons · :packets packets · :pieces pieces; nothing stays on the original',
                 'too_many' => 'More than the line has; it has only :count cartons',
             ],
         ],

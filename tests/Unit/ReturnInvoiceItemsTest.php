@@ -169,7 +169,7 @@ class ReturnInvoiceItemsTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => 2,
-            'box_quantity' => 12,
+            'pieces_per_packet' => 12,
             'price' => 2400,
         ]);
     }

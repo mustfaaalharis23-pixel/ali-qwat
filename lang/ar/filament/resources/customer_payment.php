@@ -26,6 +26,10 @@ return [
         'receipt' => 'الوصل',
     ],
 
+    'actions' => [
+        'print_receipt' => 'طباعة السند',
+    ],
+
     'filters' => [
         'from' => 'من',
         'until' => 'إلى',

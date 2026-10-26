@@ -3,8 +3,8 @@
     one colour, so it is pure black on white with no greys and no fills, and the order of importance is carried by
     size, weight, and rules alone, in type heavy enough for the print head. It reads the way a receipt reads: the
     details as label and value lines, every sold line as its name with its quantity by its price under it and its
-    total at the end. A line reads as it was sold: its quantity in its package (4 packets) by the price
-    of one package, with the pieces under it when it is not a piece. Then come the sums, with the net total between a single and a double rule as in a ledger.
+    total at the end. A line reads in dozens: its quantity in dozens by the price of one dozen, its power and the
+    colors of its packet under its name, and the whole packets it left in under the math. Then come the sums, with the net total between a single and a double rule as in a ledger.
     Every amount is one left-to-right run lined up on its last digit. Notes print only when the order has them.
     A down payment, when the order has one, sits in a box right above the signatures, so whoever signs sees what was paid.
     It carries no cost and no profit, because it is handed to the customer.
@@ -31,8 +31,8 @@
         :root {
             --ink: #000000;
             --paper: #ffffff;
-            --desk: #e7e5e4;
-            --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+            --desk: #e2e8f0;
+            --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, 'PingFang SC', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
         }
 
         *,
@@ -251,21 +251,33 @@
             overflow-wrap: anywhere;
         }
 
+        .item-power {
+            grid-column: 2 / 4;
+            grid-row: 2;
+            font-size: 11px;
+            overflow-wrap: anywhere;
+        }
+
+        .item-power-value {
+            margin-inline-end: 6px;
+            font-weight: 700;
+        }
+
         .item-math {
             grid-column: 2;
-            grid-row: 2;
+            grid-row: 3;
             font-size: 12px;
         }
 
         .item-total {
             grid-column: 3;
-            grid-row: 2;
+            grid-row: 3;
             font-weight: 700;
         }
 
-        .item-pieces {
+        .item-sets {
             grid-column: 2;
-            grid-row: 3;
+            grid-row: 4;
             font-size: 11px;
         }
 
@@ -527,11 +539,19 @@
             <div class="item">
                 <span class="item-index">{{ $loop->iteration }}</span>
                 <span class="item-name"><bdi>{{ $line->item?->name }}</bdi></span>
-                <span class="item-math"><bdi>{{ $line->package->describe((float) $line->quantity) }}</bdi> × {{ $money((float) $line->price * $line->package->size()) }}</span>
-                <span class="item-total money">{{ $money((float) $line->total_price) }}</span>
-                @if ($line->package !== \App\Enums\Package::Piece)
-                    <span class="item-pieces"><bdi>{{ \App\Enums\Package::Piece->describe((float) $line->quantity) }}</bdi></span>
+                @if ($line->lensPower || $line->colors)
+                    <span class="item-power">
+                        @if ($line->lensPower)
+                            <span class="item-power-value"><bdi>{{ __('invoices.print.power', ['value' => $line->lensPower->value]) }}</bdi></span>
+                        @endif
+                        @foreach ($line->colorsWithNames() as $color)
+                            <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
+                        @endforeach
+                    </span>
                 @endif
+                <span class="item-math"><bdi>{{ trans('orders.dozens', ['count' => \Illuminate\Support\Number::format((float) $line->quantity, maxPrecision: 2, locale: app()->getLocale())]) }}</bdi> × {{ $money((float) $line->price) }}</span>
+                <span class="item-total money">{{ $money((float) $line->total_price) }}</span>
+                <span class="item-sets"><bdi>{{ $line->package->describe((float) $line->pieces, $line->package_size) }}</bdi></span>
             </div>
         @endforeach
 

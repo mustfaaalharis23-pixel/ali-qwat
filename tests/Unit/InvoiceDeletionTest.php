@@ -69,8 +69,8 @@ class InvoiceDeletionTest extends TestCase
     }
 
     /**
-     * EN: Creates a purchase line for the item: one box of 10 for 1000, unless other values are given.
-     * AR: ينشئ بند شراء للمادة: كارتون واحد بيه 10 بسعر 1000، إلا إذا انطت قيم ثانية.
+     * EN: Creates a purchase line for the item: one packet of 120 pieces (10 dozens) for 1000, unless other values are given.
+     * AR: ينشئ بند شراء للمادة: باكيت واحد بيه 120 قطعة (10 درازن) بسعر 1000، إلا إذا انطت قيم ثانية.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -80,7 +80,7 @@ class InvoiceDeletionTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => $item->specificDescription->id,
             'boxes_count' => 1,
-            'box_quantity' => 10,
+            'pieces_per_packet' => 120,
             'price' => 1000,
             ...$attributes,
         ]);

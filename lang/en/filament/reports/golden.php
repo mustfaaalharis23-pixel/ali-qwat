@@ -17,7 +17,7 @@ return [
     'columns' => [
         'item' => 'Item',
         'lists' => 'In the lists',
-        'quantity' => 'Sold quantity',
+        'quantity' => 'Sold quantity (dozens)',
         'amount' => 'Sales amount',
         'sales_share' => 'Share of the sales',
         'profit' => 'Profit',

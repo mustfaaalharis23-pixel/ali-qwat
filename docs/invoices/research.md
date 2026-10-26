@@ -148,9 +148,9 @@ flowchart LR
 | `general_description_id` | bigint | نسخة من وصف الفاتورة العام |
 | `item_id` | bigint null | يُملأ تلقائياً من `specific_description.item_id` في `savingHandler` |
 | `price` | double | **السعر الإجمالي للسطر** (ليس سعر الوحدة). كلفة الوحدة = `price / quantity` |
-| `quantity` | integer* | = `boxes_count × box_quantity`. *الـ migration يقول `double` لكن العمود في قاعدة dev من نوع `integer` |
-| `boxes_count`, `box_quantity` | double | عدد الكراتين وسعة الكارتون |
-| `free_quantity`, `free_boxes_count`, `free_box_quantity` | double | الكمية المجانية |
+| `quantity` | integer* | = `boxes_count × sets_per_packet`. *الـ migration يقول `double` لكن العمود في قاعدة dev من نوع `integer` |
+| `boxes_count`, `sets_per_packet` | double | عدد الكراتين وسعة الكارتون |
+| `free_quantity`, `free_boxes_count`, `free_sets_per_packet` | double | الكمية المجانية |
 | `free_by_invoice_item_id` | bigint null | بند مجاني ← البند الأصلي |
 | `is_gift` | bool | هدية: لا تدخل في `amount` |
 | `produced_at`, `expires_at` | ts | الإنتاج والصلاحية (تُنسخ للـ Batch) |
@@ -371,7 +371,7 @@ stateDiagram-v2
   - وُجد وصف ممنوع (`blocked_reason`).
   - أو وُجد بند **كلفة وحدته أعلى من سعر بيعه** (`invalidItems`).
 - لكل بند:
-  - عادي: `quantity = boxes_count × box_quantity` و`free_quantity = free_boxes_count × free_box_quantity`.
+  - عادي: `quantity = boxes_count × sets_per_packet` و`free_quantity = free_boxes_count × free_sets_per_packet`.
   - تالف: `boxes_count` سالب، والكمية سالبة، والمجاني والهدية تُصفَّر.
 - ترسل `{general_description, type, items[], is_general:false, paid_amount, amount = total (بلا هدايا), supplier_id}`.
 - تحذف مسودة `localStorage`.

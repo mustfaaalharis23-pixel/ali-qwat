@@ -9,6 +9,7 @@ use App\Invoices\SplitPurchaseInvoice;
 use App\Models\Container;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceItemGroup;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
@@ -65,6 +66,7 @@ class InvoicesRelationManager extends RelationManager
             ->recordTitle(fn (Invoice $record): string => "#{$record->id} · {$record->name} · {$record->supplier?->name_ar}")
             ->modelLabel(__('filament/resources/purchase_invoice.label'))
             ->pluralModelLabel(__('filament/resources/purchase_invoice.plural_label'))
+            ->description(__('filament/resources/container.invoices_description'))
             ->defaultSort('date', 'desc')
             ->columns([
                 IdColumn::make('id')
@@ -206,7 +208,7 @@ class InvoicesRelationManager extends RelationManager
 
         return InvoiceItem::query()
             ->where('invoice_id', $invoiceId)
-            ->with(['specificDescription', 'item'])
+            ->with(['specificDescription', 'item', 'groups.lensPower', 'colors.color'])
             ->get()
             ->map(fn (InvoiceItem $line): Section => Section::make()
                 ->compact()
@@ -241,7 +243,9 @@ class InvoicesRelationManager extends RelationManager
     }
 
     /**
-     * How the line is packed, as chips under its name: its cartons, the packets in a carton, the units in a packet, and its units.
+     * How the line is packed, as chips under its name: its groups (power and packets) and the colors of a packet when it has any,
+     * its cartons, the packets in a carton, the pieces in a packet, and its pieces. The groups and the colors come first, so two
+     * lines of the same item are told apart.
      *
      * @return list<array{text: string, tooltip: null, color: string, icon: Heroicon}>
      */
@@ -250,16 +254,34 @@ class InvoicesRelationManager extends RelationManager
         $facts = [
             ['cartons', $line->cartons_count, 'info', Heroicon::OutlinedCube],
             ['packets_per_carton', $line->boxes_per_carton, 'gray', Heroicon::OutlinedSquares2x2],
-            ['pieces_per_packet', $line->box_quantity, 'gray', Heroicon::OutlinedSquaresPlus],
+            ['pieces_per_packet', $line->pieces_per_packet, 'gray', Heroicon::OutlinedSquaresPlus],
             ['pieces', $line->quantity, 'gray', Heroicon::OutlinedHashtag],
         ];
 
-        return array_map(fn (array $fact): array => [
+        $chips = array_map(fn (array $fact): array => [
             'text' => __("filament/resources/container.actions.add_part_of_invoice.line.{$fact[0]}", ['value' => $this->number($fact[1])]),
             'tooltip' => null,
             'color' => $fact[2],
             'icon' => $fact[3],
         ], $facts);
+
+        $groups = $line->groups
+            ->map(fn (InvoiceItemGroup $group): array => [
+                'text' => $group->description(),
+                'tooltip' => null,
+                'color' => 'primary',
+                'icon' => Heroicon::OutlinedEye,
+            ])
+            ->all();
+
+        $colors = $line->colorsDescription() === null ? [] : [[
+            'text' => $line->colorsDescription(),
+            'tooltip' => null,
+            'color' => 'gray',
+            'icon' => Heroicon::OutlinedSwatch,
+        ]];
+
+        return [...$groups, ...$colors, ...$chips];
     }
 
     /**
@@ -291,7 +313,7 @@ class InvoicesRelationManager extends RelationManager
             $amounts = fn (float $cartons, float $packets): array => [
                 'cartons' => $this->number($cartons),
                 'packets' => $this->number($packets),
-                'pieces' => $this->number($packets * (float) $line->box_quantity),
+                'pieces' => $this->number($packets * (float) $line->pieces_per_packet),
             ];
 
             $facts = $cartons === $lineCartons

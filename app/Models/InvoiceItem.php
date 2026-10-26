@@ -11,8 +11,10 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Number;
 use Illuminate\Validation\ValidationException;
 
 #[ObservedBy(StockObserver::class)]
@@ -23,7 +25,7 @@ use Illuminate\Validation\ValidationException;
     'unit_cost',
     'quantity',
     'boxes_count',
-    'box_quantity',
+    'pieces_per_packet',
     'boxes_per_carton',
     'cartons_count',
     'carton_cbm',
@@ -37,7 +39,8 @@ class InvoiceItem extends BaseModel
     /**
      * Every line follows its invoice's rules before it is saved, wherever it is saved from.
      * A purchase line cannot be deleted when that would leave the invoice's amount below its paid amount.
-     * Saving or deleting a line recalculates its invoice's amounts, and writes or deletes its batch with it.
+     * Saving or deleting a line recalculates its invoice's amounts, and writes or deletes its batches with it.
+     * Removing a line for good removes its batches, its groups, and its colors with it, without writing its batches again.
      */
     protected static function booted(): void
     {
@@ -55,18 +58,21 @@ class InvoiceItem extends BaseModel
 
         static::saved(function (InvoiceItem $line): void {
             Invoice::withTrashed()->find($line->invoice_id)?->recalculateAmounts();
-            $line->syncBatch();
+            $line->syncBatches();
         });
 
         static::forceDeleting(function (InvoiceItem $line): void {
-            $line->batch()->withTrashed()->first()?->forceDeleteQuietly();
+            $line->batches()->withTrashed()->get()->each(fn (Batch $batch) => $batch->forceDeleteWithColors());
+
+            $line->groups()->withTrashed()->get()->each(fn (InvoiceItemGroup $group): ?bool => $group->forceDeleteQuietly());
+            $line->colors()->withTrashed()->get()->each(fn (InvoiceItemColor $color): ?bool => $color->forceDeleteQuietly());
         });
 
         static::deleted(function (InvoiceItem $line): void {
             Invoice::withTrashed()->find($line->invoice_id)?->recalculateAmounts();
 
             if (! $line->isForceDeleting()) {
-                $line->batch()->first()?->deleteQuietly();
+                $line->batches()->get()->each(fn (Batch $batch): ?bool => $batch->deleteQuietly());
             }
         });
     }
@@ -122,20 +128,60 @@ class InvoiceItem extends BaseModel
     }
 
     /**
-     * The stock batch of this line. A general invoice line has none.
+     * The groups the packets of this line are bought in: each one some packets at one lens power (or without one).
+     * A line without any is bought without a power, such as sunglasses, and a general invoice line never has any.
      *
-     * @return HasOne<Batch, $this>
+     * @return HasMany<InvoiceItemGroup, $this>
      */
-    public function batch(): HasOne
+    public function groups(): HasMany
     {
-        return $this->hasOne(Batch::class);
+        return $this->hasMany(InvoiceItemGroup::class);
+    }
+
+    /**
+     * The colors in one packet of this line, in pieces, chosen once for all its packets whatever their power.
+     * A line without any is bought without colors.
+     *
+     * @return HasMany<InvoiceItemColor, $this>
+     */
+    public function colors(): HasMany
+    {
+        return $this->hasMany(InvoiceItemColor::class);
+    }
+
+    /**
+     * The line's colors in one packet as one short text for the screens, such as "Red 10 pcs, Blue 14 pcs", or null without colors.
+     */
+    public function colorsDescription(): ?string
+    {
+        $colors = $this->colors
+            ->map(fn (InvoiceItemColor $color): string => __('filament/resources/invoice_item.group.color', [
+                'color' => $color->color?->name,
+                'pieces' => Number::format((float) $color->pieces, maxPrecision: 2, locale: app()->getLocale()),
+            ]))
+            ->implode(__('filament/resources/invoice_item.group.separator'));
+
+        return $colors === '' ? null : $colors;
+    }
+
+    /**
+     * The stock batches of this line: one for each of its groups, or one without a power when it has none, each with the line's colors.
+     * A general invoice line has none.
+     *
+     * @return HasMany<Batch, $this>
+     */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(Batch::class);
     }
 
     /**
      * The description must be under the invoice's general description, and the line takes the description's item.
      * A general invoice line is one unit in one box that takes no space. A purchase line needs an item description,
-     * its quantity is packets (boxes) × packet quantity, its cartons are its packets ÷ the packets one carton holds,
-     * with a partly filled carton counted as a whole one, and its CBM is cartons × the CBM of one carton.
+     * it is packed the way its item is (the item's pieces in a packet, when the item has a packet size),
+     * its packets and the pieces in one packet are whole numbers, its quantity in pieces is packets (boxes) × pieces per packet,
+     * its cartons are its packets ÷ the packets one carton holds, with a partly filled carton counted as a whole one,
+     * and its CBM is cartons × the CBM of one carton.
      *
      * @throws ValidationException
      */
@@ -155,7 +201,7 @@ class InvoiceItem extends BaseModel
         if (! $invoice->isPurchase()) {
             $this->quantity = 1;
             $this->boxes_count = 1;
-            $this->box_quantity = 1;
+            $this->pieces_per_packet = 1;
             $this->boxes_per_carton = null;
             $this->cartons_count = null;
             $this->carton_cbm = null;
@@ -180,8 +226,17 @@ class InvoiceItem extends BaseModel
             ]);
         }
 
-        if ($this->boxes_count !== null && $this->box_quantity !== null) {
-            $this->quantity = $this->boxes_count * $this->box_quantity;
+        $itemPacket = Item::withTrashed()->find($description->item_id)?->pieces_per_packet;
+
+        if ($itemPacket !== null) {
+            $this->pieces_per_packet = $itemPacket;
+        }
+
+        $this->ensureIsWhole('boxes_count', $this->boxes_count);
+        $this->ensureIsWhole('pieces_per_packet', $this->pieces_per_packet);
+
+        if ($this->boxes_count !== null && $this->pieces_per_packet !== null) {
+            $this->quantity = $this->boxes_count * $this->pieces_per_packet;
         }
 
         $this->cartons_count = $this->boxes_count !== null && $this->boxes_per_carton > 0
@@ -196,7 +251,7 @@ class InvoiceItem extends BaseModel
 
     /**
      * The purchase line's saved costs, for building the item's final cost:
-     * the unit cost in yuan as typed (its price ÷ its pieces when it was not given), the unit cost and the price in US dollars
+     * the unit cost of one piece in yuan as typed (its price ÷ its pieces when it was not given), the unit cost and the price in US dollars
      * through the invoice's exchange rate (none without a rate), and the transport cost in US dollars
      * (its CBM × the invoice's price of one CBM, none without that price) and the transport of one piece.
      * Each dollar cost is also saved in Iraqi dinars through the invoice's dinar rate (none without it), and the final cost
@@ -236,30 +291,91 @@ class InvoiceItem extends BaseModel
     }
 
     /**
-     * A purchase line has one batch, which is written with it: the same quantity, and the unit price the line was bought at:
-     * the final cost of one piece in Iraqi dinars, or, for a line without one, its price over its quantity, both without their sign.
-     * The batch is a copy of the line, so it is saved without an audit. A general invoice line gets no batch.
+     * A purchase line's batches are written with it, from the beginning: a batch for each of its groups, holding the group's
+     * packets × the pieces in a packet at the group's lens power; or, for a line without groups, one batch without a power holding
+     * all its pieces. Every batch holds its packets × the pieces of each of the line's colors in a packet, because the colors are
+     * chosen once for all the line's packets.
+     * Every batch has the unit price the line was bought at: the final cost of one piece in Iraqi dinars, or, for a line without one,
+     * its price over its quantity, both without their sign. The batch of a group the line no longer has is removed for good,
+     * because a batch is only a copy of the line as it is now.
+     * The batches are a copy of the line, so they are saved without an audit. A general invoice line and a deleted line get no batches.
      */
-    protected function syncBatch(): void
+    public function syncBatches(): void
     {
-        if (! Invoice::withTrashed()->find($this->invoice_id)?->isPurchase()) {
+        if ($this->trashed() || ! Invoice::withTrashed()->find($this->invoice_id)?->isPurchase()) {
             return;
         }
 
-        $quantity = (float) $this->quantity;
-        $batch = $this->batch()->withTrashed()->first() ?? new Batch;
+        $piecesInAPacketByColor = $this->colors()->get()
+            ->groupBy('color_id')
+            ->map(fn (Collection $colors): float => (float) $colors->sum('pieces'));
+        $piecesByColor = fn (float $packets): array => $piecesInAPacketByColor->map(fn (float $pieces): float => $pieces * $packets)->all();
 
-        $batch->fill([
-            'invoice_id' => $this->invoice_id,
-            'invoice_item_id' => $this->id,
-            'item_id' => $this->item_id,
-            'quantity' => $quantity,
-            'purchase_price' => match (true) {
-                $this->final_unit_cost_iqd !== null => abs($this->final_unit_cost_iqd),
-                $quantity == 0.0 => 0.0,
-                default => abs((float) $this->price) / abs($quantity),
-            },
-        ])->saveQuietly();
+        $stockByGroup = $this->groups()->get()->mapWithKeys(fn (InvoiceItemGroup $group): array => [$group->id => [
+            'lens_power_id' => $group->lens_power_id,
+            'pieces' => (float) $group->boxes_count * (float) $this->pieces_per_packet,
+            'pieces_by_color' => $piecesByColor((float) $group->boxes_count),
+        ]]);
+
+        if ($stockByGroup->isEmpty()) {
+            $stockByGroup = collect(['' => [
+                'lens_power_id' => null,
+                'pieces' => (float) $this->quantity,
+                'pieces_by_color' => $piecesByColor((float) $this->boxes_count),
+            ]]);
+        }
+
+        $batches = $this->batches()->withTrashed()->get()->keyBy(fn (Batch $batch): string => (string) $batch->invoice_item_group_id);
+
+        foreach ($stockByGroup as $groupId => $stock) {
+            $batch = $batches->pull((string) $groupId) ?? new Batch;
+
+            $batch->fill([
+                'invoice_id' => $this->invoice_id,
+                'invoice_item_id' => $this->id,
+                'invoice_item_group_id' => $groupId === '' ? null : (int) $groupId,
+                'item_id' => $this->item_id,
+                'lens_power_id' => $stock['lens_power_id'],
+                'quantity' => $stock['pieces'],
+                'purchase_price' => $this->unitPurchasePrice(),
+            ]);
+
+            $batch->trashed() ? $batch->restoreQuietly() : $batch->saveQuietly();
+            $batch->syncColors($stock['pieces_by_color']);
+        }
+
+        $batches->each(fn (Batch $batch) => $batch->forceDeleteWithColors());
+    }
+
+    /**
+     * The price one piece of this line was bought at: its final cost in Iraqi dinars, or, without one, its price over its quantity,
+     * both without their sign. Zero for a line without a quantity.
+     */
+    protected function unitPurchasePrice(): float
+    {
+        $quantity = (float) $this->quantity;
+
+        return match (true) {
+            $this->final_unit_cost_iqd !== null => abs($this->final_unit_cost_iqd),
+            $quantity == 0.0 => 0.0,
+            default => abs((float) $this->price) / abs($quantity),
+        };
+    }
+
+    /**
+     * Packets and pieces are counted whole: there is no half a packet and no half a piece. An empty value is left to the other rules.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureIsWhole(string $field, mixed $value): void
+    {
+        if ($value === null || abs((float) $value - round((float) $value)) < 0.0001) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $field => __('invoices.validation.must_be_whole', ['attribute' => __("filament/resources/invoice_item.fields.{$field}")]),
+        ]);
     }
 
     /**
@@ -303,7 +419,7 @@ class InvoiceItem extends BaseModel
             'transport_cost_per_piece_usd' => 'float',
             'quantity' => 'float',
             'boxes_count' => 'float',
-            'box_quantity' => 'float',
+            'pieces_per_packet' => 'float',
             'boxes_per_carton' => 'float',
             'cartons_count' => 'float',
             'carton_cbm' => 'float',

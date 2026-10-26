@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'phone', 'email', 'contract', 'payment_type'])]
+#[Fillable(['name', 'phone', 'email', 'contract', 'payment_type', 'is_invoice_by_invoice'])]
 class Customer extends BaseModel
 {
     /** @use HasFactory<CustomerFactory> */
@@ -164,6 +164,7 @@ class Customer extends BaseModel
     {
         return [
             'payment_type' => CustomerPaymentType::class,
+            'is_invoice_by_invoice' => 'boolean',
         ];
     }
 }

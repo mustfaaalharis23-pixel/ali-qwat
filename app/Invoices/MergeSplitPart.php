@@ -5,13 +5,15 @@ namespace App\Invoices;
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceItemColor;
+use App\Models\InvoiceItemGroup;
 use App\Models\Payoff;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Undoes a split: merges a part split off a purchase invoice back into its original.
- * Each line of the part goes back into the original line of the same item and packing, or becomes a new line when none matches.
+ * Each line of the part goes back into the original line of the same item, groups (powers and colors), and packing, or becomes a new line when none matches.
  * All the part's payoffs go back to the original as they are, and the part is removed for good, which takes it out of its container.
  * The supplier's debt and the incoming stock do not change.
  */
@@ -27,9 +29,9 @@ class MergeSplitPart
         $original = $this->ensureThePartCanBeMerged($part);
 
         return DB::transaction(function () use ($part, $original): Invoice {
-            $originalLines = $original->items()->get();
+            $originalLines = $original->items()->with(['groups', 'colors'])->get();
 
-            foreach ($part->items()->get() as $partLine) {
+            foreach ($part->items()->with(['groups', 'colors'])->get() as $partLine) {
                 $this->moveLineBack($partLine, $original, $originalLines->first(fn (InvoiceItem $line): bool => $this->isSameLine($line, $partLine)));
             }
 
@@ -46,8 +48,9 @@ class MergeSplitPart
     }
 
     /**
-     * Adds the part's line back to the matching original line: its packets and its price.
-     * With no matching line, the part's line is added to the original as a new line with all its details.
+     * Adds the part's line back to the matching original line: its packets and its price, and the packets of each of its groups
+     * to the original group of the same power. With no matching line, the part's line is added to the original as a new line
+     * with all its details, colors, and groups.
      */
     protected function moveLineBack(InvoiceItem $partLine, Invoice $original, ?InvoiceItem $originalLine): void
     {
@@ -57,33 +60,85 @@ class MergeSplitPart
                 'price' => $originalLine->price + $partLine->price,
             ]);
 
+            $originalGroups = $originalLine->groups;
+
+            foreach ($partLine->groups as $partGroup) {
+                $key = $originalGroups->search(fn (InvoiceItemGroup $group): bool => $this->groupKeyOf($group) === $this->groupKeyOf($partGroup));
+                $group = $originalGroups->pull($key);
+                $group->update(['boxes_count' => $group->boxes_count + $partGroup->boxes_count]);
+            }
+
             return;
         }
 
-        $original->items()->create([
+        $line = $original->items()->create([
             'specific_description_id' => $partLine->specific_description_id,
             'boxes_count' => $partLine->boxes_count,
-            'box_quantity' => $partLine->box_quantity,
+            'pieces_per_packet' => $partLine->pieces_per_packet,
             'boxes_per_carton' => $partLine->boxes_per_carton,
             'carton_cbm' => $partLine->carton_cbm,
             'produced_at' => $partLine->produced_at,
             'price' => $partLine->price,
             'unit_cost' => $partLine->unit_cost,
         ]);
+
+        $line->colors()->createMany($partLine->colors->map(fn (InvoiceItemColor $color): array => [
+            'color_id' => $color->color_id,
+            'pieces' => $color->pieces,
+        ])->all());
+
+        foreach ($partLine->groups as $partGroup) {
+            $line->groups()->create([
+                'lens_power_id' => $partGroup->lens_power_id,
+                'boxes_count' => $partGroup->boxes_count,
+            ]);
+        }
     }
 
     /**
-     * Two lines are the same line when they are of the same description, packed the same way, at the same unit cost,
-     * and produced on the same date, as a line and the part split off it are.
+     * Two lines are the same line when they are of the same description, colors in a packet, and powers, packed the same way,
+     * at the same unit cost, and produced on the same date, as a line and the part split off it are.
+     * So one item bought at two powers on two lines stays two lines.
      */
     protected function isSameLine(InvoiceItem $line, InvoiceItem $partLine): bool
     {
         return $line->specific_description_id === $partLine->specific_description_id
-            && $this->sameNumber($line->box_quantity, $partLine->box_quantity)
+            && $this->colorsKeyOf($line) === $this->colorsKeyOf($partLine)
+            && $this->groupKeysOf($line) === $this->groupKeysOf($partLine)
+            && $this->sameNumber($line->pieces_per_packet, $partLine->pieces_per_packet)
             && $this->sameNumber($line->boxes_per_carton, $partLine->boxes_per_carton)
             && $this->sameNumber($line->carton_cbm, $partLine->carton_cbm)
             && $this->sameNumber($line->unit_cost, $partLine->unit_cost)
             && $line->produced_at?->toDateString() === $partLine->produced_at?->toDateString();
+    }
+
+    /**
+     * The groups of a line as keys, sorted, to compare two lines by. The packets are not in the keys, because a part has fewer.
+     *
+     * @return list<string>
+     */
+    protected function groupKeysOf(InvoiceItem $line): array
+    {
+        return $line->groups->map(fn (InvoiceItemGroup $group): string => $this->groupKeyOf($group))->sort()->values()->all();
+    }
+
+    /**
+     * A group as a key: its lens power, or 0 without one.
+     */
+    protected function groupKeyOf(InvoiceItemGroup $group): string
+    {
+        return (string) (int) $group->lens_power_id;
+    }
+
+    /**
+     * The colors of a line as a key: the pieces of each of its colors in a packet, sorted, such as "5:10,7:14".
+     */
+    protected function colorsKeyOf(InvoiceItem $line): string
+    {
+        return $line->colors
+            ->map(fn (InvoiceItemColor $color): string => (int) $color->color_id.':'.(float) $color->pieces)
+            ->sort()
+            ->implode(',');
     }
 
     /**

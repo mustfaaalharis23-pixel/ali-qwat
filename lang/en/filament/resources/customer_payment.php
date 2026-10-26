@@ -26,6 +26,10 @@ return [
         'receipt' => 'Receipt',
     ],
 
+    'actions' => [
+        'print_receipt' => 'Print receipt',
+    ],
+
     'filters' => [
         'from' => 'From',
         'until' => 'Until',

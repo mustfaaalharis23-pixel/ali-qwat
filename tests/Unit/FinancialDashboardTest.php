@@ -55,6 +55,7 @@ class FinancialDashboardTest extends TestCase
     public function test_sidebar_shows_the_link_to_a_user_with_the_permission(): void
     {
         $this->actingAs($this->userWithPermission())
+            ->withSession(['locale' => 'en'])
             ->get('/admin')
             ->assertOk()
             ->assertSee('Financial dashboard');
@@ -67,6 +68,7 @@ class FinancialDashboardTest extends TestCase
     public function test_sidebar_hides_the_link_from_a_user_without_the_permission(): void
     {
         $this->actingAs(User::factory()->create(['is_active' => true]))
+            ->withSession(['locale' => 'en'])
             ->get('/admin')
             ->assertOk()
             ->assertDontSee('Financial dashboard');

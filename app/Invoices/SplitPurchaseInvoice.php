@@ -6,13 +6,17 @@ use App\Enums\InvoiceStatus;
 use App\Models\Container;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceItemColor;
+use App\Models\InvoiceItemGroup;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Ships part of a purchase invoice in a container by splitting it in two.
- * The chosen cartons of each line become a new invoice in the container, and the original keeps what is left.
+ * The chosen cartons of each line become a new invoice in the container, with the line's item, groups (powers and colors), and packing,
+ * and the original keeps what is left. A line of several groups goes whole or not at all, because which groups
+ * are in which carton is not known; a line of one group keeps its power and colors on both sides.
  * The payoffs stay on the original up to its new amount, and the rest moves to the new part, newest payoff first,
  * so the supplier's debt and the incoming stock do not change.
  */
@@ -49,16 +53,26 @@ class SplitPurchaseInvoice
                 $price = round($line->price * $packets / $line->boxes_count, 2);
                 $shipped[$line->id] = ['packets' => $packets, 'price' => $price];
 
-                $part->items()->create([
+                $shippedLine = $part->items()->create([
                     'specific_description_id' => $line->specific_description_id,
                     'boxes_count' => $packets,
-                    'box_quantity' => $line->box_quantity,
+                    'pieces_per_packet' => $line->pieces_per_packet,
                     'boxes_per_carton' => $line->boxes_per_carton,
                     'carton_cbm' => $line->carton_cbm,
                     'produced_at' => $line->produced_at,
                     'price' => $price,
                     'unit_cost' => $line->unit_cost,
                 ]);
+
+                // The shipped packets keep the line's colors, which are the same in every packet.
+                $shippedLine->colors()->createMany($line->colors()->get()->map(fn (InvoiceItemColor $color): array => [
+                    'color_id' => $color->color_id,
+                    'pieces' => $color->pieces,
+                ])->all());
+
+                foreach ($this->groupsShipped($line, $packets) as $group) {
+                    $shippedLine->groups()->create($group);
+                }
             }
 
             $invoice->refresh();
@@ -77,6 +91,10 @@ class SplitPurchaseInvoice
                     'boxes_count' => $line->boxes_count - $packets,
                     'price' => $line->price - $price,
                 ]);
+
+                $line->groups()->get()->each(fn (InvoiceItemGroup $group): bool => $group->update([
+                    'boxes_count' => $group->boxes_count - $packets,
+                ]));
             }
 
             return $part;
@@ -142,6 +160,24 @@ class SplitPurchaseInvoice
     }
 
     /**
+     * The groups of the packets that go of a line: all its groups as they are when the whole line goes, or its one group with
+     * the packets that go when only part of it does. A line without groups sends none.
+     *
+     * @return list<array{lens_power_id: ?int, boxes_count: float}>
+     */
+    protected function groupsShipped(InvoiceItem $line, float $packets): array
+    {
+        $whole = $packets >= $line->boxes_count;
+
+        return $line->groups()->get()
+            ->map(fn (InvoiceItemGroup $group): array => [
+                'lens_power_id' => $group->lens_power_id,
+                'boxes_count' => $whole ? $group->boxes_count : $packets,
+            ])
+            ->all();
+    }
+
+    /**
      * The packets in the given cartons of a line: every carton is full, except that all the line's cartons carry all its packets,
      * because its last carton may be only partly filled. The split window uses it too, to show what goes before the split is made.
      */
@@ -173,7 +209,7 @@ class SplitPurchaseInvoice
     }
 
     /**
-     * Every given line is on the invoice, with between zero and its own cartons.
+     * Every given line is on the invoice, with between zero and its own cartons, and a line of several groups sends none or all of them.
      * Some cartons must go, but not all the cartons of every line: that is the whole invoice, which is added as it is.
      *
      * @param  Collection<int, InvoiceItem>  $lines
@@ -195,6 +231,12 @@ class SplitPurchaseInvoice
             if ($cartons < 0 || $cartons > (int) $line->cartons_count) {
                 throw ValidationException::withMessages([
                     'cartons' => __('invoices.validation.split_cartons_out_of_range'),
+                ]);
+            }
+
+            if ($cartons > 0 && $cartons < (int) $line->cartons_count && $line->groups()->count() > 1) {
+                throw ValidationException::withMessages([
+                    'cartons' => __('invoices.validation.split_line_of_several_groups_goes_whole'),
                 ]);
             }
         }

@@ -11,14 +11,14 @@ use Tests\TestCase;
 class SetLocaleTest extends TestCase
 {
     /**
-     * EN: When no language has been chosen, English is used.
-     * AR: إذا ما انختارت لغة، يستخدم الإنكليزي.
+     * EN: When no language has been chosen, Arabic is used.
+     * AR: إذا ما انختارت لغة، يستخدم العربي.
      */
-    public function test_english_is_used_when_no_language_is_chosen(): void
+    public function test_arabic_is_used_when_no_language_is_chosen(): void
     {
         $this->handleRequestWithSession([]);
 
-        $this->assertSame('en', App::getLocale());
+        $this->assertSame('ar', App::getLocale());
     }
 
     /**
@@ -27,20 +27,20 @@ class SetLocaleTest extends TestCase
      */
     public function test_language_saved_in_the_session_is_used(): void
     {
-        $this->handleRequestWithSession(['locale' => 'ar']);
+        $this->handleRequestWithSession(['locale' => 'zh_CN']);
 
-        $this->assertSame('ar', App::getLocale());
+        $this->assertSame('zh_CN', App::getLocale());
     }
 
     /**
-     * EN: An unsupported language in the session is ignored, and English is used.
-     * AR: لغة مو مدعومة بالـ session تنهمل، ويستخدم الإنكليزي.
+     * EN: An unsupported language in the session is ignored, and Arabic is used.
+     * AR: لغة مو مدعومة بالـ session تنهمل، ويستخدم العربي.
      */
     public function test_unsupported_language_in_the_session_is_ignored(): void
     {
         $this->handleRequestWithSession(['locale' => 'fr']);
 
-        $this->assertSame('en', App::getLocale());
+        $this->assertSame('ar', App::getLocale());
     }
 
     /**

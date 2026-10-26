@@ -11,6 +11,8 @@ return [
         'email' => 'Email',
         'contract' => 'Contract',
         'payment_type' => 'Payment type',
+        'is_invoice_by_invoice' => 'Invoice by invoice',
+        'is_invoice_by_invoice_hint' => 'When on, the customer cannot take a new order until their debt is zero.',
     ],
 
     'sections' => [

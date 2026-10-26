@@ -59,7 +59,7 @@ class AuditTest extends TestCase
         $this->assertEqualsCanonicalizing(
             [
                 'id', 'name', 'image', 'description', 'is_active', 'supplier_id',
-                'sale_price', 'cost_price', 'last_cost_price', 'available_quantity', 'incoming_quantity',
+                'sale_price', 'pieces_per_packet', 'cost_price', 'last_cost_price', 'available_quantity', 'incoming_quantity',
                 'created_at', 'updated_at', 'deleted_at',
             ],
             array_keys($audit->attribute_changes['attributes']),

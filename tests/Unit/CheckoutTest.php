@@ -3,8 +3,12 @@
 namespace Tests\Unit;
 
 use App\Enums\OrderPaymentType;
+use App\Models\Color;
 use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\LensPower;
 use App\Models\User;
 use App\Orders\Checkout\Checkout;
 use App\Orders\Checkout\CheckoutData;
@@ -167,6 +171,63 @@ class CheckoutTest extends TestCase
         $item = Item::factory()->stocked(5)->create(['sale_price' => 1000]);
 
         $this->assertCheckoutIsRejected($this->checkoutData(lines: [new CheckoutLine($item->id, quantity: 6)]));
+    }
+
+    /**
+     * EN: Given an item in packets of 20 pieces bought at power 1.50, 2 packets of it are sold at that power.
+     *     The sold line keeps power 1.50, and it is 40 pieces.
+     * AR: مادة باكيتها 20 قطعة انشترت بدرجة 1.50، وانباع منها 2 باكيت بنفس الدرجة.
+     *     البند المبيع يحفظ الدرجة 1.50، وبيه 40 قطعة.
+     */
+    public function test_checkout_saves_the_power_of_each_line(): void
+    {
+        $item = Item::factory()->create(['sale_price' => 1000, 'pieces_per_packet' => 20]);
+        $power = LensPower::factory()->create(['value' => 1.5]);
+        InvoiceItem::factory()->create([
+            'invoice_id' => Invoice::factory()->purchase()->confirmed()->create()->id,
+            'specific_description_id' => $item->specificDescription->id,
+            'boxes_count' => 10,
+            'pieces_per_packet' => 20,
+            'price' => 1000,
+        ])->groups()->create(['lens_power_id' => $power->id, 'boxes_count' => 10]);
+
+        $order = (new Checkout)->handle(User::factory()->create(), $this->checkoutData(lines: [
+            new CheckoutLine($item->id, packets: 2, lensPowerId: $power->id),
+        ]));
+
+        $this->assertSame($power->id, $order->items()->sole()->lens_power_id);
+        $this->assertEquals(40, $order->items()->sole()->pieces);
+    }
+
+    /**
+     * EN: Given an item in packets of 20 pieces bought at power 1.50, each packet holding 10 red pieces and 10 blue,
+     *     2 packets of it are sold at that power in those colors. The sold line keeps the colors of its packets.
+     * AR: مادة باكيتها 20 قطعة انشترت بدرجة 1.50، وكل باكيت بيه 10 قطع أحمر و10 أزرق،
+     *     وانباع منها 2 باكيت بنفس الدرجة وبهاي الألوان. البند المبيع يحفظ ألوان باكيتاته.
+     */
+    public function test_checkout_saves_the_colors_of_each_line(): void
+    {
+        $item = Item::factory()->create(['sale_price' => 1000, 'pieces_per_packet' => 20]);
+        $power = LensPower::factory()->create(['value' => 1.5]);
+        $colors = [
+            ['color_id' => Color::factory()->create(['name' => 'Red'])->id, 'pieces' => 10],
+            ['color_id' => Color::factory()->create(['name' => 'Blue'])->id, 'pieces' => 10],
+        ];
+        $line = InvoiceItem::factory()->create([
+            'invoice_id' => Invoice::factory()->purchase()->confirmed()->create()->id,
+            'specific_description_id' => $item->specificDescription->id,
+            'boxes_count' => 5,
+            'pieces_per_packet' => 20,
+            'price' => 1000,
+        ]);
+        $line->colors()->createMany($colors);
+        $line->groups()->create(['lens_power_id' => $power->id, 'boxes_count' => 5]);
+
+        $order = (new Checkout)->handle(User::factory()->create(), $this->checkoutData(lines: [
+            new CheckoutLine($item->id, packets: 2, lensPowerId: $power->id, colors: $colors),
+        ]));
+
+        $this->assertEquals($colors, $order->items()->sole()->colors);
     }
 
     /**

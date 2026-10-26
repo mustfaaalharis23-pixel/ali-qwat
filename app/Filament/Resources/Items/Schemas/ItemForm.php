@@ -17,7 +17,7 @@ use Illuminate\Support\Number;
 class ItemForm
 {
     /**
-     * The sale price is entered here. The cost price, the profit margin, and the quantities are read only,
+     * The sale price of one set and the sets in the item's packet are entered here. The cost price, the profit margin, and the quantities are read only,
      * because only the system writes them: they are never changed from this screen.
      * The cost price and the profit margin show only to a user who has the item.view_cost_price permission.
      */
@@ -47,6 +47,15 @@ class ItemForm
                             ->disk('public')
                             ->directory('items')
                             ->required(),
+                        // Empty for an item that is not sold by the packet.
+                        // A packet holds 20 or 24 pieces, and an item's packet never changes.
+                        Select::make('pieces_per_packet')
+                            ->label(__('filament/resources/item.fields.pieces_per_packet'))
+                            ->helperText(__('filament/resources/item.hints.pieces_per_packet'))
+                            ->options(collect(Item::PACKET_SIZES)->mapWithKeys(fn (int $size): array => [
+                                $size => __('filament/resources/item.packet_size', ['pieces' => $size]),
+                            ])->all())
+                            ->required(),
                         Textarea::make('description')
                             ->label(__('filament/resources/item.fields.description'))
                             ->rows(4),
@@ -67,6 +76,7 @@ class ItemForm
                             ->required(),
                         MoneyInput::make('cost_price')
                             ->label(__('filament/resources/item.fields.cost_price'))
+                            ->helperText(__('filament/resources/item.hints.cost_price'))
                             ->default(0)
                             ->disabled()
                             ->dehydrated(false)

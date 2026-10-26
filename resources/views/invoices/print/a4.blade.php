@@ -1,11 +1,12 @@
 {{--
-    The full page invoice of one order. The type carries the order of importance, and amber is the brand: a bar across
+    The full page invoice of one order. The type carries the order of importance, and blue is the brand: a bar across
     the top, the square full stop of the wordmark, the band behind the head of the table, and the panel of the net total.
-    Amber is never used for text, only the dark amber-800 for small eyebrows, so the page reads the same printed in
+    Blue is never used for text, only the dark blue-800 for small eyebrows, so the page reads the same printed in
     black and white, where the rules, the weights, and the sizes carry it all.
     Every amount is one left-to-right run with its currency, lined up on its last digit in both languages.
-    Every line reads as it was sold: its quantity in its package (4 packets), the pieces under it when it is not a piece,
-    and the price of one package, so the quantity by the price makes the line's total.
+    The details of the order (date and time, payment, cashier, item count) sit in a small two-column block beside the
+    customer. Every line shows a small picture of its item, and reads in dozens: its quantity in dozens with the whole
+    packets it left in under it, and the price of one dozen, so the quantity by the price makes the line's total.
     A long order runs over pages: the head of the table repeats on every page, a line is never cut in two, and the
     totals stay together. A down payment, when the order has one, sits right above the customer's signature, so whoever
     signs sees what was paid. It is the customer's invoice, so it never carries what the items cost us, the profit,
@@ -33,27 +34,27 @@
             @bottom-center {
                 content: "#{{ $order->id }} · " counter(page) "/" counter(pages);
                 direction: ltr;
-                color: #57534e;
+                color: #475569;
                 font-family: 'IBM Plex Sans Arabic', sans-serif;
                 font-size: 8pt;
             }
         }
 
         :root {
-            --ink: #1c1917;
-            --text: #44403c;
-            --label: #57534e;
-            --hair: #d6d3d1;
-            --amber: #f59e0b;
-            --amber-wash: #fef3c7;
-            --amber-text: #92400e;
-            --amber-deep: #78350f;
+            --ink: #0f172a;
+            --text: #334155;
+            --label: #475569;
+            --hair: #cbd5e1;
+            --brand: #2563eb;
+            --brand-wash: #dbeafe;
+            --brand-text: #1e40af;
+            --brand-deep: #1e3a8a;
             --paper: #ffffff;
-            --desk: #f5f5f4;
+            --desk: #f1f5f9;
             --end-column: 40%;
             --gutter: 10mm;
             --cell: 8px;
-            --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+            --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, 'PingFang SC', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
         }
 
         *,
@@ -122,13 +123,13 @@
         }
 
         .eyebrow {
-            color: var(--amber-text);
+            color: var(--brand-text);
         }
 
         .brand-bar {
             height: 4px;
             margin-bottom: 7mm;
-            background: var(--amber);
+            background: var(--brand);
         }
 
         .masthead {
@@ -159,12 +160,12 @@
             width: .22em;
             height: .22em;
             margin-inline-start: .1em;
-            background: var(--amber);
+            background: var(--brand);
         }
 
         .wordmark-line {
             margin-top: 2px;
-            color: var(--amber-text);
+            color: var(--brand-text);
             font-size: 11.5px;
             font-weight: 500;
             line-height: 1.4;
@@ -232,38 +233,28 @@
 
         .facts {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px 16px;
+            padding-top: 7px;
             border-top: 1px solid var(--ink);
-            font-size: 12px;
-            line-height: 1.5;
-        }
-
-        .facts:lang(ar) {
-            font-size: 12.5px;
-            line-height: 1.6;
-        }
-
-        .fact {
-            display: contents;
-        }
-
-        .facts dt,
-        .facts dd {
-            padding-block: 6px;
-            border-bottom: 1px solid var(--hair);
+            line-height: 1.4;
         }
 
         .facts dt {
-            padding-inline-end: 16px;
             color: var(--label);
-            white-space: nowrap;
+            font-size: 10.5px;
         }
 
         .facts dd {
             color: var(--ink);
-            font-weight: 500;
-            text-align: end;
+            font-size: 12px;
+            font-weight: 600;
             overflow-wrap: anywhere;
+        }
+
+        .facts .time {
+            color: var(--label);
+            font-weight: 500;
         }
 
         .lines {
@@ -307,8 +298,8 @@
         .lines th {
             padding-block: 8px;
             border-bottom: 1px solid var(--ink);
-            background: var(--amber-wash);
-            color: var(--amber-deep);
+            background: var(--brand-wash);
+            color: var(--brand-deep);
             font-size: 11px;
             font-weight: 500;
             line-height: 1.4;
@@ -330,11 +321,28 @@
             padding-block: 8px;
             border-bottom: 1px solid var(--hair);
             line-height: 1.5;
-            vertical-align: baseline;
+            vertical-align: middle;
         }
 
         .lines td:lang(ar) {
             line-height: 1.65;
+        }
+
+        .item-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .picture {
+            display: block;
+            flex-shrink: 0;
+            width: 14mm;
+            height: 14mm;
+            border: 1px solid var(--hair);
+            border-radius: 4px;
+            background: var(--desk);
+            object-fit: cover;
         }
 
         .lines td.index {
@@ -348,11 +356,18 @@
             overflow-wrap: anywhere;
         }
 
-        .lines td.quantity .pieces {
+        .lines td.quantity .sets {
             display: block;
             color: var(--label);
             font-size: 11px;
             font-weight: 400;
+        }
+
+        .lines td.item .power {
+            display: block;
+            color: var(--label);
+            font-size: 11px;
+            font-weight: 600;
         }
 
         .lines td.amount {
@@ -418,8 +433,8 @@
             inset-inline: -3mm;
             border-top: 1px solid var(--ink);
             border-bottom: 3px double var(--ink);
-            border-inline-start: 4px solid var(--amber);
-            background: var(--amber-wash);
+            border-inline-start: 4px solid var(--brand);
+            background: var(--brand-wash);
         }
 
         .total.net .total-label {
@@ -454,7 +469,7 @@
             margin-bottom: 4mm;
             padding: 8px 3mm;
             border: 1px solid var(--ink);
-            border-inline-start: 4px solid var(--amber);
+            border-inline-start: 4px solid var(--brand);
         }
 
         .down-payment-label {
@@ -542,7 +557,7 @@
             content: '';
             width: 7px;
             height: 7px;
-            background: var(--amber);
+            background: var(--brand);
         }
 
         .print-button:hover {
@@ -550,7 +565,7 @@
         }
 
         .print-button:focus-visible {
-            outline: 2px solid var(--amber);
+            outline: 2px solid var(--brand);
             outline-offset: 3px;
         }
 
@@ -662,13 +677,12 @@
             @if ($order->date)
                 <div class="fact">
                     <dt>{{ __('invoices.print.date') }}</dt>
-                    <dd><span dir="ltr">{{ $order->date->format('Y-m-d') }}</span></dd>
-                </div>
-            @endif
-            @if ($order->created_at)
-                <div class="fact">
-                    <dt>{{ __('invoices.print.time') }}</dt>
-                    <dd>{{ $order->created_at->translatedFormat('h:i A') }}</dd>
+                    <dd>
+                        <span dir="ltr">{{ $order->date->format('Y-m-d') }}</span>
+                        @if ($order->created_at)
+                            <span class="time">· {{ $order->created_at->translatedFormat('h:i A') }}</span>
+                        @endif
+                    </dd>
                 </div>
             @endif
             @if ($order->payment_type)
@@ -711,14 +725,33 @@
             @foreach ($order->items as $line)
                 <tr>
                     <td class="index">{{ $loop->iteration }}</td>
-                    <td class="item"><bdi>{{ $line->item?->name }}</bdi></td>
-                    <td class="money quantity">
-                        <bdi>{{ $line->package->describe((float) $line->quantity) }}</bdi>
-                        @if ($line->package !== \App\Enums\Package::Piece)
-                            <span class="pieces"><bdi>{{ \App\Enums\Package::Piece->describe((float) $line->quantity) }}</bdi></span>
-                        @endif
+                    <td class="item">
+                        <div class="item-row">
+                            @if ($source = $picture($line->item))
+                                <img class="picture" src="{{ $source }}" alt="">
+                            @else
+                                <span class="picture"></span>
+                            @endif
+                            <div>
+                                <bdi>{{ $line->item?->name }}</bdi>
+                                @if ($line->lensPower)
+                                    <span class="power"><bdi>{{ __('invoices.print.power', ['value' => $line->lensPower->value]) }}</bdi></span>
+                                @endif
+                                @if ($line->colors)
+                                    <span class="power">
+                                        @foreach ($line->colorsWithNames() as $color)
+                                            <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
+                                        @endforeach
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
                     </td>
-                    <td class="money">{{ $money((float) $line->price * $line->package->size()) }}</td>
+                    <td class="money quantity">
+                        <bdi>{{ trans('orders.dozens', ['count' => \Illuminate\Support\Number::format((float) $line->quantity, maxPrecision: 2, locale: app()->getLocale())]) }}</bdi>
+                        <span class="sets"><bdi>{{ $line->package->describe((float) $line->pieces, $line->package_size) }}</bdi></span>
+                    </td>
+                    <td class="money">{{ $money((float) $line->price) }}</td>
                     <td class="money amount">{{ $money((float) $line->total_price) }}</td>
                 </tr>
             @endforeach

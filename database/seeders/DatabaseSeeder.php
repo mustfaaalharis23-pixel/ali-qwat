@@ -53,6 +53,8 @@ class DatabaseSeeder extends Seeder
             SupplierSeeder::class,
             ContainerSeeder::class,
             InvoiceCategorySeeder::class,
+            LensPowerSeeder::class,
+            ColorSeeder::class,
             CustomerSeeder::class,
             InvoiceSeeder::class,
             OrderSeeder::class,

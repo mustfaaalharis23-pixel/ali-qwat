@@ -72,7 +72,7 @@
 - **`invoice_items`:**
   - `invoice_id`، `specific_description_id`، `item_id` (nullable).
   - `price`: سعر السطر كامل، مو سعر الوحدة.
-  - `quantity` (`double`)، `boxes_count` و `box_quantity` (nullable).
+  - `quantity` (`double`)، `boxes_count` و `sets_per_packet` (nullable).
   - `produced_at` و `expires_at` (nullable)، `profit_difference`.
 - **`batches`:** `invoice_id`، `invoice_item_id`، `item_id`، `quantity`، `purchase_price` (سعر الوحدة)، `expires_at`.
 - **`payoffs`:** `invoice_id`، `amount`، `date`، `image` (nullable). علامة الكاش (`is_cash`) ألغاها صاحب المشروع (2026-09-15).
@@ -93,7 +93,7 @@
    - `item_id` ينملى من الوصف الخاص.
    - الوصف الخاص لازم يكون تحت الوصف العام مال الفاتورة. بفاتورة الشراء لازم يكون وصف مادة.
    - **بالعامة:** الكمية `1`، والكراتين `1 × 1`.
-   - **بالشراء:** الكمية = `boxes_count × box_quantity`.
+   - **بالشراء:** الكمية = `boxes_count × sets_per_packet`.
 4. **المبالغ:** `amount` = مجموع أسعار البنود، وينعاد حسابه ويا كل تغيير بالبنود.
    - **فاتورة شراء عادية:** `paid_amount` = مجموع التسديدات، و `remaining = amount − paid_amount`.
    - **الفاتورة العامة والإرجاع:** `paid_amount = amount` و `remaining = 0`.

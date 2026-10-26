@@ -226,22 +226,22 @@ class PurchaseLineCostsTest extends TestCase
     }
 
     /**
-     * EN: The item's cost is the final dinar cost of a piece on its confirmed purchase: 1,275 dinars.
-     *     Changing the invoice's dinar rate from 170 to 160 saves the costs again: 800 + 400 = 1,200 dinars.
-     * AR: كلفة المادة هي الكلفة النهائية للقطعة بالدينار بفاتورة شرائها المؤكدة: 1,275 دينار.
-     *     تغيير سعر الدينار بالفاتورة من 170 لـ 160 يحفظ الكلف من جديد: 800 + 400 = 1,200 دينار.
+     * EN: The item's cost is for a dozen: the final dinar cost of a piece on its confirmed purchase × 12, so 1,275 × 12 = 15,300 dinars.
+     *     Changing the invoice's dinar rate from 170 to 160 saves the costs again: a piece is 800 + 400 = 1,200 dinars, a dozen 14,400.
+     * AR: كلفة المادة للدرزن: الكلفة النهائية للقطعة بالدينار بفاتورة شرائها المؤكدة × 12، يعني 1,275 × 12 = 15,300 دينار.
+     *     تغيير سعر الدينار بالفاتورة من 170 لـ 160 يحفظ الكلف من جديد: القطعة تصير 800 + 400 = 1,200 دينار، والدرزن 14,400.
      */
     public function test_item_cost_is_the_final_dinar_cost_and_follows_the_dinar_rate(): void
     {
         $invoice = Invoice::factory()->purchase()->confirmed()->create(['exchange_rate' => 7, 'cbm_price' => 120, 'dinar_rate' => 170]);
         $line = $this->addLine($invoice, pieces: 240, unitCost: 3.5, cartons: 10, cartonCbm: 0.05);
 
-        $this->assertEqualsWithDelta(1275, $line->item->fresh()->cost_price, 0.0001);
+        $this->assertEqualsWithDelta(15300, $line->item->fresh()->cost_price, 0.0001);
 
         $invoice->fresh()->update(['dinar_rate' => 160]);
 
         $this->assertEqualsWithDelta(1200, $line->fresh()->final_unit_cost_iqd, 0.0001);
-        $this->assertEqualsWithDelta(1200, $line->item->fresh()->cost_price, 0.0001);
+        $this->assertEqualsWithDelta(14400, $line->item->fresh()->cost_price, 0.0001);
     }
 
     /**
@@ -271,7 +271,7 @@ class PurchaseLineCostsTest extends TestCase
 
     /**
      * A line of the given pieces, as one packet in each of the given cartons, each carton of the given CBM.
-     * It is saved with its unit cost in yuan and its price (pieces × unit cost), or with only a price.
+     * It is saved with its unit cost of a piece in yuan and its price (pieces × unit cost), or with only a price.
      */
     private function addLine(
         Invoice $invoice,
@@ -285,7 +285,7 @@ class PurchaseLineCostsTest extends TestCase
             'invoice_id' => $invoice->id,
             'specific_description_id' => Item::factory()->create()->specificDescription->id,
             'boxes_count' => $cartons,
-            'box_quantity' => $pieces / $cartons,
+            'pieces_per_packet' => $pieces / $cartons,
             'boxes_per_carton' => 1,
             'carton_cbm' => $cartonCbm,
             'unit_cost' => $unitCost,

@@ -3,14 +3,17 @@
 namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Models\Item;
+use App\Models\OrderItem;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Number;
 
 class OrderInfolist
 {
@@ -83,6 +86,10 @@ class OrderInfolist
                             ->label(__('filament/resources/order.fields.down_payment'))
                             ->numeric()
                             ->placeholder('-'),
+                        TextEntry::make('weekly_payment')
+                            ->label(__('filament/resources/order.fields.weekly_payment'))
+                            ->numeric()
+                            ->placeholder('-'),
                         TextEntry::make('total_cost')
                             ->label(__('filament/resources/order.fields.total_cost'))
                             ->numeric()
@@ -102,7 +109,9 @@ class OrderInfolist
     }
 
     /**
-     * The order's lines as a table. What each line cost us and earned shows only to a user who can see the cost.
+     * The order's lines as a table, with the lens power a line was sold at and the colors of its packets as badges under its item,
+     * and its dozens with the packets and pieces they are under them.
+     * What each line cost us and earned shows only to a user who can see the cost.
      */
     private static function linesEntry(): RepeatableEntry
     {
@@ -117,8 +126,19 @@ class OrderInfolist
                 self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.profit')) : null,
             ])))
             ->schema(array_values(array_filter([
-                TextEntry::make('item.name'),
-                TextEntry::make('quantity')->numeric(),
+                TextEntry::make('item.name')
+                    ->belowContent(fn (OrderItem $record): array => array_values(array_filter([
+                        $record->lensPower === null ? null : Text::make(
+                            __('filament/resources/purchase_invoice.lines_below.power', ['value' => $record->lensPower->value]),
+                        )->badge()->color('info'),
+                        $record->colors === null ? null : Text::make($record->colorsText())->badge()->color('gray'),
+                    ]))),
+                TextEntry::make('quantity')
+                    ->numeric(maxDecimalPlaces: 2)
+                    ->belowContent(fn (OrderItem $record): Text => Text::make(__('filament/resources/order.packets_and_pieces', [
+                        'packets' => Number::format($record->packets(), maxPrecision: 2, locale: app()->getLocale()),
+                        'pieces' => Number::format((float) $record->pieces, locale: app()->getLocale()),
+                    ]))->size(TextSize::ExtraSmall)->color('gray')),
                 TextEntry::make('price')->numeric(),
                 TextEntry::make('total_price')->numeric(),
                 self::canSeeTheCost() ? TextEntry::make('cost_price')->numeric() : null,

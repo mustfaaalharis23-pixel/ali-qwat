@@ -10,7 +10,7 @@ return [
         'action' => 'Items',
         'heading' => 'Items bought from :supplier',
         'item' => 'Item',
-        'quantity' => 'Quantity',
+        'quantity' => 'Quantity (pieces)',
         'amount' => 'Amount',
         'total' => 'Total',
         'close' => 'Close',

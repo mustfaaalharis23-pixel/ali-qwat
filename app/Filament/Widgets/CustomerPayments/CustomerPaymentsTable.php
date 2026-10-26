@@ -27,7 +27,8 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\On;
 
 /**
- * The payments tab of the customer payments page: every payment, with its details in a modal. A payment is never edited, only deleted.
+ * The payments tab of the customer payments page: every payment, with its details in a modal and its receipt to print.
+ * A payment is never edited, only deleted, and a deleted payment has no receipt.
  */
 class CustomerPaymentsTable extends TableWidget
 {
@@ -107,6 +108,13 @@ class CustomerPaymentsTable extends TableWidget
                 ViewAction::make()
                     ->modalHeading(__('filament/resources/customer_payment.sections.details'))
                     ->schema(fn (Schema $schema): Schema => CustomerPaymentInfolist::configure($schema)),
+                Action::make('printReceipt')
+                    ->label(__('filament/resources/customer_payment.actions.print_receipt'))
+                    ->icon(Heroicon::OutlinedPrinter)
+                    ->color('gray')
+                    ->url(fn (CustomerPayment $record): string => route('customer-payments.receipt', $record))
+                    ->openUrlInNewTab()
+                    ->hidden(fn (CustomerPayment $record): bool => $record->trashed()),
                 Action::make('statement')
                     ->label(__('filament/resources/customer.actions.statement'))
                     ->icon(Heroicon::OutlinedDocumentText)

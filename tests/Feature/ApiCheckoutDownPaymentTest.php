@@ -43,8 +43,10 @@ class ApiCheckoutDownPaymentTest extends TestCase
     }
 
     /**
-     * EN: A valid sale body of one stocked item worth 1000, with the given payment type and down payment.
-     * AR: جسم بيعة صحيح ببند واحد لمادة عندها مخزون قيمتها 1000، بطريقة الدفع والدفعة الأولية المحددة.
+     * EN: A valid sale body of one packet of a stocked item (24 pieces, 2 dozens at 1000 a dozen, so worth 2000),
+     *     with the given payment type and down payment.
+     * AR: جسم بيعة صحيح بباكيت واحد لمادة عندها مخزون (24 قطعة، يعني 2 درزن، الدرزن بـ 1000، فقيمته 2000)،
+     *     بطريقة الدفع والدفعة الأولية المحددة.
      *
      * @return array<string, mixed>
      */
@@ -55,7 +57,7 @@ class ApiCheckoutDownPaymentTest extends TestCase
             'payment_type' => $paymentType,
             'down_payment' => $downPayment,
             'lines' => [
-                ['item_id' => Item::factory()->stocked()->create(['sale_price' => 1000])->id, 'quantity' => 1],
+                ['item_id' => Item::factory()->stocked()->create(['sale_price' => 1000, 'pieces_per_packet' => 24])->id, 'packets' => 1],
             ],
         ];
     }

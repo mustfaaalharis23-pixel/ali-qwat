@@ -16,7 +16,7 @@ abstract class SupplierPieChart extends ChartWidget
      *
      * @var list<string>
      */
-    private const COLORS = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6'];
+    private const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
     private const OTHERS_COLOR = '#9ca3af';
 

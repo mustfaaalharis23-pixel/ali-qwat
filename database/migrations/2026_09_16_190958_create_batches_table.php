@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('invoice_id')->constrained()->restrictOnDelete();
             $table->foreignId('invoice_item_id')->constrained()->restrictOnDelete();
+            $table->foreignId('invoice_item_group_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('item_id')->constrained()->restrictOnDelete();
+            $table->foreignId('lens_power_id')->nullable()->constrained()->restrictOnDelete();
             $table->double('quantity');
             $table->double('purchase_price');
             $table->timestamps();
