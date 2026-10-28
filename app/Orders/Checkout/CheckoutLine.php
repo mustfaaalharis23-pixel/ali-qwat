@@ -7,8 +7,8 @@ use App\Models\Item;
 /**
  * One sold line of a checkout: the item, the whole packets sold of it (or, for an item without a packet size, its dozens),
  * the lens power it was sold at (null for an item sold without a power), and the colors in one of its packets
- * (empty for an item sold without colors), and the discount: one amount off the line's total (zero for none). There is no price
- * here on purpose: the price is always taken from the item's sale price of a dozen in the database.
+ * (empty for an item sold without colors). There is no price here on purpose: the price is always taken from the item's
+ * sale price of a dozen in the database. There is no discount here either: the discount is on the whole order.
  */
 final readonly class CheckoutLine
 {
@@ -21,7 +21,6 @@ final readonly class CheckoutLine
         public ?int $lensPowerId = null,
         public ?int $packets = null,
         public array $colors = [],
-        public float $discount = 0,
     ) {}
 
     /**

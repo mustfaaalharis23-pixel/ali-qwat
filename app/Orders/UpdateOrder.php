@@ -20,8 +20,8 @@ class UpdateOrder
     /**
      * Edits a saved order: its customer, payment type, date, notes, weekly payment, and lines. A line is matched to the saved one
      * of the same item, power, and colors, which keeps the price it was sold at; a new line takes its item's sale price of now, and
-     * a line that is not sent anymore is deleted, so its pieces go back to the stock. Every line takes the discount it is sent with.
-     * The stock and discount rules of a sale apply to every line.
+     * a line that is not sent anymore is deleted, so its pieces go back to the stock. The stock rules of a sale apply to every line,
+     * and the order's discount is spread again over its lines as they are after the edit.
      * An order with payments on it (its down payment too) keeps its customer and its payment type, and never drops below what was paid.
      * Either everything is saved or nothing is.
      *
@@ -74,6 +74,7 @@ class UpdateOrder
             $savedLines->whereNotIn('id', array_keys($keptLines))->each(fn (OrderItem $line): ?bool => $line->delete());
 
             $order->refresh()->recalculateAmounts();
+            $order->applyDiscount($data->discount);
 
             $this->ensureNotBelowWhatWasPaid($order);
             $this->ensureWeeklyPaymentFits($order);
@@ -112,14 +113,12 @@ class UpdateOrder
 
     /**
      * Puts the line's packets on the sold line as pieces (the packets × the item's pieces per packet), or its dozens for a line
-     * without packets, and its discount. An item without a packet size is not sold by the packet.
+     * without packets. An item without a packet size is not sold by the packet.
      *
      * @throws ValidationException
      */
     private function fillLine(OrderItem $orderItem, Item $item, CheckoutLine $line): OrderItem
     {
-        $orderItem->discount = $line->discount;
-
         if ($line->packets === null) {
             $orderItem->quantity = $line->quantity;
 

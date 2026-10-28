@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * The edit of a saved order, on the same cart as a new sale, filled with the order's lines. Its lines count their own packets as
- * available and keep the price they were sold at and their discount; a new line takes its item's price of now. It is saved through UpdateOrder.
+ * available and keep the price they were sold at; a new line takes its item's price of now. The cart starts with the order's discount. It is saved through UpdateOrder.
  */
 class EditOrder extends EditRecord
 {
@@ -33,7 +33,7 @@ class EditOrder extends EditRecord
     /**
      * The order's saved lines, read once a request.
      *
-     * @var array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float, discount: float}>|null
+     * @var array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float}>|null
      */
     protected ?array $savedLines = null;
 
@@ -51,12 +51,13 @@ class EditOrder extends EditRecord
             'lens_power_id' => $line['lens_power_id'],
             'colors' => $line['colors'],
             'packets' => $line['packets'],
-            'discount' => $line['discount'],
         ], $this->linesOfThisOrder());
+
+        $this->cartDiscount = (float) $this->getRecord()->amount - (float) $this->getRecord()->total_amount;
     }
 
     /**
-     * @return array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float, discount: float}>
+     * @return array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float}>
      */
     protected function linesOfThisOrder(): array
     {
@@ -72,7 +73,6 @@ class EditOrder extends EditRecord
                     'pieces' => (int) $line->pieces,
                     'packets' => (int) round($line->packets()),
                     'price' => (float) $line->price,
-                    'discount' => (float) $line->discount,
                 ],
             ])
             ->all();
@@ -100,6 +100,7 @@ class EditOrder extends EditRecord
             lines: $this->checkoutLines(),
             notes: $data['notes'] ?? null,
             weeklyPayment: filled($data['weekly_payment'] ?? null) ? (float) $data['weekly_payment'] : null,
+            discount: $this->cartSummary()['discount'],
         );
 
         try {

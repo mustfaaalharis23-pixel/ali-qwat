@@ -134,6 +134,66 @@ class Order extends BaseModel
     }
 
     /**
+     * Takes the discount off the whole order: it is spread over the order's lines by each line's share of the order's amount, in whole
+     * dinars, and the last line takes what is left, so the shares always add up to the discount. Each line keeps its share, so the
+     * profit of every item stays true. The discount is never below zero, it is always less than the order's amount, and what the
+     * order comes to after it is never below what the order cost us. Then the order's amounts are worked out again.
+     *
+     * @throws ValidationException
+     */
+    public function applyDiscount(float $discount): void
+    {
+        $lines = $this->items()->orderBy('id')->get();
+        $amount = (float) $lines->sum('total_price');
+
+        $this->ensureDiscountFits($discount, $amount, (float) $lines->sum('total_cost'));
+
+        $left = $discount;
+
+        foreach ($lines->values() as $index => $line) {
+            $share = $index === $lines->count() - 1 ? $left : round($discount * (float) $line->total_price / $amount);
+            $left -= $share;
+
+            if (abs((float) $line->discount - $share) > 0.0001) {
+                $line->discount = $share;
+                $line->save();
+            }
+        }
+
+        $this->recalculateAmounts();
+    }
+
+    /**
+     * A discount is never below zero, it is always less than the order's amount, and it never takes the order below its cost.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureDiscountFits(float $discount, float $amount, float $cost): void
+    {
+        if ($discount < 0) {
+            throw ValidationException::withMessages([
+                'discount' => __('orders.validation.discount_must_not_be_negative'),
+            ]);
+        }
+
+        if ($discount === 0.0) {
+            return;
+        }
+
+        if ($discount >= $amount - 0.0001) {
+            throw ValidationException::withMessages([
+                'discount' => __('orders.validation.discount_more_than_order'),
+            ]);
+        }
+
+        if ($amount - $discount < $cost - 0.0001) {
+            throw ValidationException::withMessages([
+                'discount' => __('orders.validation.discount_below_order_cost'),
+            ]);
+        }
+    }
+
+    /**
      * The items of this order.
      *
      * @return HasMany<OrderItem, $this>

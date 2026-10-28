@@ -3,8 +3,8 @@
     its price of a dozen, what is left of the packet type it is on, its powers (a grid that wraps, so many powers never push
     the card past the screen; past a dozen of them the rest open with "show all"), the color mixes of its packets at that
     power, and a field the seller types its packets in. On the other side the cart: each line with its power, its colors,
-    its packets (typed too), its pieces in dozens at the price of a dozen, its total, and its discount (an amount or a percent
-    off the line's total, typed under it; a percent shows its amount), then the sale's total before the discounts, the discounts, and what it comes to, the down
+    its packets (typed too), its pieces in dozens at the price of a dozen, and its total, then the sale's total before its discount, one discount off the whole sale (an amount or a percent; a
+    percent shows its amount), and what it comes to, the down
     payment of a postpaid sale and the notes (the form's own fields), and its confirm button. Every button calls the page,
     which keeps the state. Inline styles and Filament's own components keep it the same in light and dark mode and right to left.
 
@@ -55,7 +55,7 @@
     {{-- The packets are typed, not counted with + and −. --}}
     .waqt-pos-qty { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 12rem; max-width: 17rem; margin-inline-start: auto; }
     .waqt-pos-qty.is-compact { flex: 0 1 9rem; margin-inline-start: 0; }
-    .waqt-pos-qty.is-discount { flex: 1 1 auto; max-width: 22rem; margin-inline-start: 0; flex-wrap: wrap; }
+    .waqt-pos-qty.is-discount { flex: 1 1 auto; max-width: none; margin-inline-start: 0; flex-wrap: wrap; }
     .waqt-pos-qty.is-discount .waqt-pos-qty-field { flex: 1 1 8rem; }
     {{-- The switch between a discount in dinars and a discount in percent. --}}
     .waqt-pos-switch { flex: none; display: inline-flex; padding: 0.15rem; gap: 0.15rem; border-radius: 0.6rem; background: rgba(127, 127, 127, 0.12); }
@@ -265,36 +265,9 @@
                             </x-filament::input.wrapper>
                         </div>
                         <div style="text-align: end">
-                            @if ($line['discount'] > 0)
-                                <div class="waqt-pos-num waqt-pos-muted" style="font-size: 0.75rem; text-decoration: line-through">{{ $line['totalText'] }} {{ $currency }}</div>
-                            @endif
-                            <div class="waqt-pos-num" style="font-weight: 800; font-size: 1.0625rem">{{ $line['netText'] }} {{ $currency }}</div>
+                            <div class="waqt-pos-num" style="font-weight: 800; font-size: 1.0625rem">{{ $line['totalText'] }} {{ $currency }}</div>
                             <div class="waqt-pos-num waqt-pos-muted" style="font-size: 0.75rem">{{ $line['breakdown'] }}</div>
                         </div>
-                    </div>
-
-                    {{-- The line's discount off its total, in dinars or in percent. A percent shows what it takes off in dinars beside it.
-                         Left empty, the line has none. --}}
-                    @php
-                        $isPercent = $line['discountPercent'] !== null;
-                        $discountValue = $isPercent ? $line['discountPercent'] : $line['discount'];
-                    @endphp
-                    <div class="waqt-pos-qty is-discount" wire:key="pos-line-discount-{{ $line['key'] }}-{{ $isPercent ? 'percent' : 'amount' }}-{{ $discountValue }}">
-                        <div class="waqt-pos-switch" role="group" aria-label="{{ $t('discount') }}">
-                            <button type="button" @class(['is-on' => ! $isPercent]) wire:click="setDiscountMode('{{ $line['key'] }}', 'amount')">{{ $currency }}</button>
-                            <button type="button" @class(['is-on' => $isPercent]) wire:click="setDiscountMode('{{ $line['key'] }}', 'percent')">%</button>
-                        </div>
-                        <x-filament::input.wrapper :prefix="$t('discount')" :suffix="$isPercent ? '%' : $currency" class="waqt-pos-qty-field">
-                            <x-filament::input type="number" inputmode="decimal" min="0" step="any" placeholder="0"
-                                value="{{ $discountValue > 0 ? $discountValue : '' }}" aria-label="{{ $t('discount') }}"
-                                x-on:keydown.enter.prevent="$el.blur()"
-                                x-on:change="$wire.{{ $isPercent ? 'setDiscountPercent' : 'setDiscount' }}('{{ $line['key'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
-                        </x-filament::input.wrapper>
-                        @if ($isPercent && $line['discount'] > 0)
-                            <span class="waqt-pos-num" style="flex: none; font-size: 0.8125rem; font-weight: 700; color: var(--danger-600)">
-                                {{ $t('discount_amount', ['amount' => $line['discountText'].' '.$currency]) }}
-                            </span>
-                        @endif
                     </div>
                 </div>
             @empty
@@ -311,9 +284,31 @@
                         <span class="waqt-pos-muted">{{ $t('subtotal') }}</span>
                         <span class="waqt-pos-num" style="font-weight: 700">{{ $cart['subtotalText'] }} {{ $currency }}</span>
                     </div>
-                    <div style="display: flex; align-items: baseline; justify-content: space-between">
-                        <span class="waqt-pos-muted">{{ $t('discount') }}</span>
-                        <span class="waqt-pos-num" style="font-weight: 700; color: var(--danger-600)">{{ $cart['discountText'] }} {{ $currency }}</span>
+                @endif
+
+                {{-- One discount off the whole sale, in dinars or in percent. A percent shows what it takes off in dinars beside it.
+                     Left empty, the sale has none. --}}
+                @if ($cart['lines'] !== [])
+                    @php
+                        $isPercent = $cart['discountPercent'] !== null;
+                        $discountValue = $isPercent ? $cart['discountPercent'] : $cart['discount'];
+                    @endphp
+                    <div class="waqt-pos-qty is-discount" wire:key="pos-discount-{{ $isPercent ? 'percent' : 'amount' }}-{{ $discountValue }}">
+                        <div class="waqt-pos-switch" role="group" aria-label="{{ $t('discount') }}">
+                            <button type="button" @class(['is-on' => ! $isPercent]) wire:click="setDiscountMode('amount')">{{ $currency }}</button>
+                            <button type="button" @class(['is-on' => $isPercent]) wire:click="setDiscountMode('percent')">%</button>
+                        </div>
+                        <x-filament::input.wrapper :prefix="$t('discount')" :suffix="$isPercent ? '%' : $currency" class="waqt-pos-qty-field">
+                            <x-filament::input type="number" inputmode="decimal" min="0" step="any" placeholder="0"
+                                value="{{ $discountValue > 0 ? $discountValue : '' }}" aria-label="{{ $t('discount') }}"
+                                x-on:keydown.enter.prevent="$el.blur()"
+                                x-on:change="$wire.{{ $isPercent ? 'setDiscountPercent' : 'setDiscount' }}($el.value).then(() => $el.value = $el.defaultValue)" />
+                        </x-filament::input.wrapper>
+                        @if ($isPercent && $cart['discount'] > 0)
+                            <span class="waqt-pos-num" style="flex: none; font-size: 0.8125rem; font-weight: 700; color: var(--danger-600)">
+                                {{ $t('discount_amount', ['amount' => $cart['discountText'].' '.$currency]) }}
+                            </span>
+                        @endif
                     </div>
                 @endif
                 <div style="display: flex; align-items: baseline; justify-content: space-between">

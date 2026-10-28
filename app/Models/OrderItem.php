@@ -50,8 +50,8 @@ class OrderItem extends BaseModel
     /**
      * Before every save, the line's pieces and dozens are written, they and the price must be more than zero, the pieces are whole
      * packets of the item, the item must have enough stock, the total price is price × dozens, and the pieces in the line's packet
-     * and the cost and the profit of the line are written with it. The line's discount is one amount off its total price:
-     * never below zero, always less than the line, and never taking the line below its cost.
+     * and the cost and the profit of the line are written with it. The line's discount is its share of the order's discount,
+     * never below zero, and it comes off the line's profit.
      * The last item of an order that is not deleted cannot be deleted.
      * Saving or deleting an item recalculates its order's amounts.
      */
@@ -192,7 +192,7 @@ class OrderItem extends BaseModel
      * The line keeps what a dozen of its item cost us the moment it was sold: the cost price is taken from the item when the line
      * is created, and when the line is moved to another item, and it never changes after that, not even when a later
      * purchase changes the item's cost. The line's cost and profit are worked out from it and from the dozens,
-     * so the profit of an old sale stays what it was. The line's discount comes off its profit.
+     * so the profit of an old sale stays what it was. The line's share of the order's discount comes off its profit.
      */
     protected function applyCostAndProfit(): void
     {
@@ -207,38 +207,15 @@ class OrderItem extends BaseModel
     }
 
     /**
-     * The discount is never below zero, it is always less than the line's total price, and what the line comes to after it
-     * is never below what the line cost us.
+     * The line's discount is its share of the order's discount (see Order::applyDiscount), and it is never below zero.
      *
      * @throws ValidationException
      */
     protected function ensureDiscountFits(): void
     {
-        $discount = (float) $this->discount;
-
-        if ($discount < 0) {
+        if ((float) $this->discount < 0) {
             throw ValidationException::withMessages([
                 'discount' => __('orders.validation.discount_must_not_be_negative'),
-            ]);
-        }
-
-        if ($discount === 0.0) {
-            return;
-        }
-
-        $item = Item::query()->find($this->item_id);
-
-        if ($discount >= (float) $this->total_price - 0.0001) {
-            throw ValidationException::withMessages([
-                'discount' => __('orders.validation.discount_more_than_line', ['item' => $item?->name]),
-            ]);
-        }
-
-        if ((float) $this->total_price - $discount < (float) $this->total_cost - 0.0001) {
-            $cost = Number::format((float) $this->total_cost, maxPrecision: 2, locale: app()->getLocale());
-
-            throw ValidationException::withMessages([
-                'discount' => __('orders.validation.discount_below_cost', ['item' => $item?->name, 'cost' => $cost]),
             ]);
         }
     }

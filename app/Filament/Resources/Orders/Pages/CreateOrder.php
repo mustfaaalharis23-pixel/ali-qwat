@@ -50,6 +50,7 @@ class CreateOrder extends CreateRecord
             notes: $data['notes'] ?? null,
             downPayment: filled($data['down_payment'] ?? null) ? (float) $data['down_payment'] : null,
             weeklyPayment: filled($data['weekly_payment'] ?? null) ? (float) $data['weekly_payment'] : null,
+            discount: $this->cartSummary()['discount'],
         );
 
         try {

@@ -18,7 +18,7 @@ class Checkout
     /**
      * The sale: checks the customer, the payment type, the items' prices, the down payment, and the weekly payment,
      * then saves the order, its items, and its down payment together, so either all of them are saved or none is.
-     * Each item's price is its sale price from the database.
+     * Each item's price is its sale price from the database. The order's discount is spread over its lines once they are saved.
      *
      * @throws ValidationException
      */
@@ -39,6 +39,8 @@ class Checkout
             foreach ($data->lines as $line) {
                 $this->addLine($order, $items->findOrFail($line->itemId), $line);
             }
+
+            $order->applyDiscount($data->discount);
 
             if ($data->downPayment !== null) {
                 app(PayCustomerDebt::class)->downPayment($user, $order, $data->downPayment);
@@ -114,7 +116,7 @@ class Checkout
     }
 
     /**
-     * What the order comes to: each line's dozens at its item's sale price, less the line's discount.
+     * What the order comes to: each line's dozens at its item's sale price, less the order's discount.
      *
      * @param  Collection<int, Item>  $items
      */
@@ -124,10 +126,10 @@ class Checkout
             function (CheckoutLine $line) use ($items): float {
                 $item = $items->findOrFail($line->itemId);
 
-                return (float) $item->sale_price * $line->dozensFor($item) - $line->discount;
+                return (float) $item->sale_price * $line->dozensFor($item);
             },
             $data->lines,
-        ));
+        )) - $data->discount;
     }
 
     /**
@@ -226,8 +228,8 @@ class Checkout
     }
 
     /**
-     * Sells the line's packets of the item: their pieces are the packets × the item's pieces per packet, at the item's price of a dozen,
-     * with the line's discount. A line without packets is sold by its dozens. An item without a packet size is not sold by the packet.
+     * Sells the line's packets of the item: their pieces are the packets × the item's pieces per packet, at the item's price of a dozen.
+     * A line without packets is sold by its dozens. An item without a packet size is not sold by the packet.
      *
      * @throws ValidationException
      */
@@ -248,7 +250,6 @@ class Checkout
                 ? ['quantity' => $line->quantity]
                 : ['pieces' => $line->packets * (int) $item->pieces_per_packet]),
             'price' => $item->sale_price,
-            'discount' => $line->discount,
         ]);
     }
 }

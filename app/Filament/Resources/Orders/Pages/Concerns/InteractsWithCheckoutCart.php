@@ -15,8 +15,8 @@ use Illuminate\Support\Number;
 /**
  * The cart of the panel's sale, built the way the app's checkout is: the seller searches the items, chooses a power and the colors of
  * its packets on an item's card, and types the whole packets; the cart beside them shows each line with its pieces, its
- * dozens at the price of a dozen, its discount (an amount, or a percent, off the line's total), and the total. A new sale and the edit of a
- * saved order share it. On an edit, the order's own
+ * dozens at the price of a dozen, and the total, with one discount off the whole sale (an amount, or a percent). A new sale and the edit of
+ * a saved order share it. On an edit, the order's own
  * lines are counted as available to it, because their pieces are already out of the stock, and they keep the price they were sold at.
  */
 trait InteractsWithCheckoutCart
@@ -28,12 +28,22 @@ trait InteractsWithCheckoutCart
 
     /**
      * The sale being built, keyed by the item and its packet type ("item#power|colors"): each line an item at a power with the
-     * colors of its packets, its whole packets, and its discount off the line's total: the amount typed, or the percent typed
-     * (null when the seller types an amount). A percent follows the line: change its packets and its discount changes with them.
+     * colors of its packets, and its whole packets.
      *
-     * @var array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, packets: int, discount?: float, discount_percent?: ?float}>
+     * @var array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, packets: int}>
      */
     public array $cart = [];
+
+    /**
+     * The discount off the whole sale as the seller typed it in dinars. Not used while a percent is typed.
+     */
+    public float $cartDiscount = 0;
+
+    /**
+     * The discount off the whole sale as the seller typed it in percent, or null when it is typed in dinars.
+     * A percent follows the cart: add or take out packets and the discount changes with them.
+     */
+    public ?float $cartDiscountPercent = null;
 
     /**
      * The power the seller is on for each item, by item id: a power's id, or "none" for the packets without a power.
@@ -50,10 +60,10 @@ trait InteractsWithCheckoutCart
     public array $chosenTypes = [];
 
     /**
-     * The lines the order already has saved, keyed like the cart, with their pieces, the price they were sold at, and their discount.
+     * The lines the order already has saved, keyed like the cart, with their pieces and the price they were sold at.
      * A new sale has none.
      *
-     * @return array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float, discount: float}>
+     * @return array<string, array{item_id: int, lens_power_id: ?int, colors: list<array{color_id: int, pieces: float}>, pieces: int, packets: int, price: float}>
      */
     protected function linesOfThisOrder(): array
     {
@@ -122,8 +132,6 @@ trait InteractsWithCheckoutCart
             'lens_power_id' => $type['lens_power_id'],
             'colors' => array_map(fn (array $color): array => ['color_id' => $color['id'], 'pieces' => (float) $color['pieces']], $type['colors']),
             'packets' => $packets,
-            'discount' => $this->cart[$key]['discount'] ?? 0.0,
-            'discount_percent' => $this->cart[$key]['discount_percent'] ?? null,
         ];
     }
 
@@ -156,49 +164,38 @@ trait InteractsWithCheckoutCart
     }
 
     /**
-     * Sets a line's discount as one amount off the line's total. Empty or below zero is no discount. The checkout checks it against
-     * the line when the sale is confirmed.
+     * Sets the sale's discount as one amount off its total. Empty or below zero is no discount. The checkout checks it against the
+     * sale when it is confirmed.
      */
-    public function setDiscount(string $key, mixed $discount): void
+    public function setDiscount(mixed $discount): void
     {
-        if (isset($this->cart[$key])) {
-            $this->cart[$key]['discount'] = max(0.0, (float) $discount);
-            $this->cart[$key]['discount_percent'] = null;
-        }
+        $this->cartDiscount = max(0.0, (float) $discount);
+        $this->cartDiscountPercent = null;
     }
 
     /**
-     * Sets a line's discount as a percent of the line's total, from 0 to 100.
+     * Sets the sale's discount as a percent of its total, from 0 to 100.
      */
-    public function setDiscountPercent(string $key, mixed $percent): void
+    public function setDiscountPercent(mixed $percent): void
     {
-        if (isset($this->cart[$key])) {
-            $this->cart[$key]['discount_percent'] = min(100.0, max(0.0, (float) $percent));
-        }
+        $this->cartDiscountPercent = min(100.0, max(0.0, (float) $percent));
     }
 
     /**
-     * Turns a line's discount into an amount or into a percent, keeping what it takes off: 1,500 off 15,000 becomes 10%, and back.
+     * Turns the sale's discount into an amount or into a percent, keeping what it takes off: 1,500 off 15,000 becomes 10%, and back.
      */
-    public function setDiscountMode(string $key, string $mode): void
+    public function setDiscountMode(string $mode): void
     {
-        $line = $this->cart[$key] ?? null;
-        $item = $line === null ? null : Item::query()->find($line['item_id']);
+        $subtotal = $this->cartSummary()['subtotal'];
+        $discount = $this->discountOf($subtotal);
 
-        if ($item === null) {
-            return;
-        }
-
-        $total = $this->lineTotal($line, $key, $item);
-        $discount = $this->discountOf($line, $total);
-
-        if ($mode === 'percent' && ($line['discount_percent'] ?? null) === null) {
-            $this->cart[$key]['discount_percent'] = $total > 0 ? round($discount / $total * 100, 2) : 0.0;
+        if ($mode === 'percent' && $this->cartDiscountPercent === null) {
+            $this->cartDiscountPercent = $subtotal > 0 ? round($discount / $subtotal * 100, 2) : 0.0;
         }
 
         if ($mode === 'amount') {
-            $this->cart[$key]['discount'] = $discount;
-            $this->cart[$key]['discount_percent'] = null;
+            $this->cartDiscount = $discount;
+            $this->cartDiscountPercent = null;
         }
     }
 
@@ -210,6 +207,8 @@ trait InteractsWithCheckoutCart
     public function clearCart(): void
     {
         $this->cart = [];
+        $this->cartDiscount = 0;
+        $this->cartDiscountPercent = null;
     }
 
     /**
@@ -237,12 +236,11 @@ trait InteractsWithCheckoutCart
     }
 
     /**
-     * The cart as its panel shows it: each line with its item, power, colors, packets, pieces, dozens, price of a dozen, total,
-     * discount (and the percent it was typed as), and what it comes to after the discount, and the sale's total before its discounts, its discounts, and what it
-     * comes to. A line the order already had keeps the price it was sold at; any other takes its item's sale price.
+     * The cart as its panel shows it: each line with its item, power, colors, packets, pieces, dozens, price of a dozen, and total,
+     * and the sale's total before its discount, its discount (and the percent it was typed as), and what it comes to. A line the order already had keeps the price it was sold at; any other takes its item's sale price.
      * The totals come from the pieces, so a dozen that is not whole never shifts them.
      *
-     * @return array{lines: list<array<string, mixed>>, subtotal: float, subtotalText: string, discount: float, discountText: string, total: float, totalText: string}
+     * @return array{lines: list<array<string, mixed>>, subtotal: float, subtotalText: string, discount: float, discountText: string, discountPercent: ?float, total: float, totalText: string}
      */
     public function cartSummary(): array
     {
@@ -257,9 +255,7 @@ trait InteractsWithCheckoutCart
                 $item = $items[$line['item_id']];
                 $pieces = $line['packets'] * (int) $item->pieces_per_packet;
                 $price = (float) ($savedLines[$key]['price'] ?? $item->sale_price);
-                $total = $this->lineTotal($line, $key, $item);
-                $discount = $this->discountOf($line, $total);
-                $percent = $line['discount_percent'] ?? null;
+                $total = $pieces * $price / Item::PIECES_IN_A_DOZEN;
 
                 return [
                     'key' => $key,
@@ -278,17 +274,12 @@ trait InteractsWithCheckoutCart
                     ]),
                     'total' => $total,
                     'totalText' => $this->number($total),
-                    'discount' => $discount,
-                    'discountText' => $this->number($discount),
-                    'discountPercent' => $percent,
-                    'net' => $total - $discount,
-                    'netText' => $this->number($total - $discount),
                 ];
             })
             ->values();
 
         $subtotal = (float) $lines->sum('total');
-        $discount = (float) $lines->sum('discount');
+        $discount = $this->discountOf($subtotal);
 
         return [
             'lines' => $lines->all(),
@@ -296,56 +287,36 @@ trait InteractsWithCheckoutCart
             'subtotalText' => $this->number($subtotal),
             'discount' => $discount,
             'discountText' => $this->number($discount),
+            'discountPercent' => $this->cartDiscountPercent,
             'total' => $subtotal - $discount,
             'totalText' => $this->number($subtotal - $discount),
         ];
     }
 
     /**
-     * The cart's lines as the checkout takes them, each with the amount its discount takes off.
+     * The cart's lines as the checkout takes them.
      *
      * @return list<CheckoutLine>
      */
     protected function checkoutLines(): array
     {
-        $items = Item::query()->whereIn('id', array_column($this->cart, 'item_id'))->get()->keyBy('id');
-
         return array_values(array_map(
-            fn (array $line, string $key): CheckoutLine => new CheckoutLine(
+            fn (array $line): CheckoutLine => new CheckoutLine(
                 $line['item_id'],
                 lensPowerId: $line['lens_power_id'],
                 packets: $line['packets'],
                 colors: $line['colors'],
-                discount: $items->has($line['item_id']) ? $this->discountOf($line, $this->lineTotal($line, $key, $items[$line['item_id']])) : 0.0,
             ),
             $this->cart,
-            array_keys($this->cart),
         ));
     }
 
     /**
-     * A cart line's total before its discount: its pieces in dozens at the price its saved line was sold at on an edit, else at its
-     * item's sale price.
-     *
-     * @param  array{item_id: int, packets: int}  $line
+     * What the sale's discount takes off its total: the percent typed, of the total, to a whole dinar; else the amount typed.
      */
-    protected function lineTotal(array $line, string $key, Item $item): float
+    protected function discountOf(float $subtotal): float
     {
-        $price = (float) ($this->linesOfThisOrder()[$key]['price'] ?? $item->sale_price);
-
-        return $line['packets'] * (int) $item->pieces_per_packet * $price / Item::PIECES_IN_A_DOZEN;
-    }
-
-    /**
-     * What a cart line's discount takes off its total: the percent typed, of the total, to a whole dinar; else the amount typed.
-     *
-     * @param  array{discount?: float, discount_percent?: ?float}  $line
-     */
-    protected function discountOf(array $line, float $total): float
-    {
-        $percent = $line['discount_percent'] ?? null;
-
-        return $percent === null ? (float) ($line['discount'] ?? 0) : round($total * (float) $percent / 100);
+        return $this->cartDiscountPercent === null ? $this->cartDiscount : round($subtotal * $this->cartDiscountPercent / 100);
     }
 
     /**
