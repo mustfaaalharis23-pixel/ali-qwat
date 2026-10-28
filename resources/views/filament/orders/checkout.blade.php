@@ -1,16 +1,22 @@
 {{--
     The panel's sale, laid out like the app's checkout. On one side the items the seller searches, a card each: its picture,
-    its price of a dozen, what is left of the packet type it is on, its powers, the color mixes of its packets at that power,
-    and its packet with + and −. On the other side the cart: each line with its power, its colors, its packets, its pieces in
-    dozens at the price of a dozen, and its total, then the sale's total, the down payment of a postpaid sale and the notes
-    (the form's own fields), and its confirm button. Every button calls the page, which keeps the state. Inline styles and Filament's own components keep it the same in light and dark mode and right to left.
+    its price of a dozen, what is left of the packet type it is on, its powers (a grid that wraps, so many powers never push
+    the card past the screen; past a dozen of them the rest open with "show all"), the color mixes of its packets at that
+    power, and a field the seller types its packets in. On the other side the cart: each line with its power, its colors,
+    its packets (typed too), its pieces in dozens at the price of a dozen, its total, and its discount (an amount or a percent
+    off the line's total, typed under it; a percent shows its amount), then the sale's total before the discounts, the discounts, and what it comes to, the down
+    payment of a postpaid sale and the notes (the form's own fields), and its confirm button. Every button calls the page,
+    which keeps the state. Inline styles and Filament's own components keep it the same in light and dark mode and right to left.
 
-    $items: the cards (CreateOrder::checkoutItems), $cart: the cart (CreateOrder::cartSummary)
+    $items: the cards (InteractsWithCheckoutCart::checkoutItems), $cart: the cart (InteractsWithCheckoutCart::cartSummary),
+    $submit: the page's method the confirm button calls (create on a new sale, save on an edit) and its label
 --}}
 @php
     $currency = \App\Metrics\Currency::IraqiDinar->symbol();
     $t = fn (string $key, array $replace = []): string => __("filament/resources/order.checkout.{$key}", $replace);
     $dot = fn (string $name): string => \App\Models\Color::swatch($name);
+    // The powers a card shows before "show all".
+    $powersShown = 12;
 @endphp
 
 <style>
@@ -19,10 +25,10 @@
         .waqt-pos { grid-template-columns: minmax(0, 1fr) 24rem; align-items: start; }
         .waqt-pos-cart { position: sticky; top: 5rem; }
     }
-    .waqt-pos-items { container-type: inline-size; display: grid; grid-auto-flow: row dense; gap: 0.875rem; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); margin-top: 0.875rem; }
-    .waqt-pos-card { display: flex; flex-direction: column; gap: 0.875rem; border-radius: 1rem; padding: 1rem; background: rgba(127, 127, 127, 0.06); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.2); }
-    .waqt-pos-options { display: grid; gap: 0.875rem; }
-    .waqt-pos-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: auto; }
+    .waqt-pos-items { container-type: inline-size; display: grid; grid-auto-flow: row dense; gap: 0.875rem; grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); margin-top: 0.875rem; }
+    .waqt-pos-card { min-width: 0; display: flex; flex-direction: column; gap: 0.875rem; border-radius: 1rem; padding: 1rem; background: rgba(127, 127, 127, 0.06); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.2); }
+    .waqt-pos-options { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    .waqt-pos-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.625rem 0.75rem; margin-top: auto; }
     {{-- An item with powers or colors takes a whole row: its name, price and add button on one side, its choices on the other.
          The small cards of the other items sit side by side at one height, so no card leaves an empty space beside it. --}}
     .waqt-pos-card.is-wide { grid-column: 1 / -1; }
@@ -35,16 +41,29 @@
     .waqt-pos-card.is-in-cart { box-shadow: inset 0 0 0 2px var(--primary-500); }
     .waqt-pos-picture { flex: none; width: 4rem; height: 4rem; border-radius: 0.75rem; object-fit: cover; background: rgba(127, 127, 127, 0.12); }
     .waqt-pos-label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 600; opacity: 0.65; margin-bottom: 0.4rem; }
-    .waqt-pos-powers { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.15rem; }
-    .waqt-pos-power { flex: none; min-width: 4.75rem; padding: 0.4rem 0.75rem; border-radius: 0.75rem; text-align: center; cursor: pointer; background: transparent; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3); }
+    {{-- The powers wrap into rows of small chips, so a card with many powers grows down, never sideways. --}}
+    .waqt-pos-powers { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: 0.4rem; }
+    .waqt-pos-powers.is-collapsed .waqt-pos-power.is-extra { display: none; }
+    .waqt-pos-power { min-width: 0; padding: 0.35rem 0.25rem; border-radius: 0.625rem; text-align: center; line-height: 1.3; cursor: pointer; background: transparent; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3); }
+    .waqt-pos-power > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .waqt-pos-power.is-selected { background: var(--primary-600); color: #fff; box-shadow: none; }
+    .waqt-pos-power.is-toggle { color: var(--primary-600); box-shadow: none; border: 1px dashed color-mix(in oklab, var(--primary-500) 55%, transparent); background: color-mix(in oklab, var(--primary-500) 6%, transparent); }
     .waqt-pos-type { display: flex; align-items: center; gap: 0.625rem; width: 100%; padding: 0.6rem 0.75rem; border-radius: 0.75rem; cursor: pointer; text-align: start; background: transparent; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3); }
     .waqt-pos-type.is-selected { box-shadow: inset 0 0 0 2px var(--primary-500); background: color-mix(in oklab, var(--primary-500) 8%, transparent); }
     .waqt-pos-tag { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.5rem; border-radius: 0.5rem; font-size: 0.8125rem; background: rgba(127, 127, 127, 0.1); }
     .waqt-pos-dot { flex: none; width: 0.6rem; height: 0.6rem; border-radius: 9999px; box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.45); }
-    .waqt-pos-stepper { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem; border-radius: 0.75rem; background: color-mix(in oklab, var(--primary-500) 10%, transparent); }
-    .waqt-pos-count { min-width: 2.25rem; text-align: center; font-size: 1.125rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .waqt-pos-count-input { width: 3rem; text-align: center; font-size: 1rem; font-weight: 800; background: transparent; border: none; font-variant-numeric: tabular-nums; }
+    {{-- The packets are typed, not counted with + and −. --}}
+    .waqt-pos-qty { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 12rem; max-width: 17rem; margin-inline-start: auto; }
+    .waqt-pos-qty.is-compact { flex: 0 1 9rem; margin-inline-start: 0; }
+    .waqt-pos-qty.is-discount { flex: 1 1 auto; max-width: 22rem; margin-inline-start: 0; flex-wrap: wrap; }
+    .waqt-pos-qty.is-discount .waqt-pos-qty-field { flex: 1 1 8rem; }
+    {{-- The switch between a discount in dinars and a discount in percent. --}}
+    .waqt-pos-switch { flex: none; display: inline-flex; padding: 0.15rem; gap: 0.15rem; border-radius: 0.6rem; background: rgba(127, 127, 127, 0.12); }
+    .waqt-pos-switch button { min-width: 2.25rem; padding: 0.3rem 0.5rem; border-radius: 0.45rem; font-size: 0.75rem; font-weight: 700; opacity: 0.7; cursor: pointer; }
+    .waqt-pos-switch button.is-on { background: var(--primary-600); color: #fff; opacity: 1; }
+    .waqt-pos-qty-field { flex: 1; min-width: 0; }
+    .waqt-pos-qty input { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+    .waqt-pos-qty input::-webkit-outer-spin-button, .waqt-pos-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .waqt-pos-muted { font-size: 0.8125rem; opacity: 0.65; }
     .waqt-pos-num { font-variant-numeric: tabular-nums; }
 </style>
@@ -97,16 +116,33 @@
                     @if ($showsPowers || $showsTypes)
                         <div class="waqt-pos-options">
                             @if ($showsPowers)
-                                <div>
-                                    <div class="waqt-pos-label"><x-filament::icon icon="heroicon-o-eye" style="width: 0.9rem; height: 0.9rem" />{{ $t('power') }}</div>
-                                    <div class="waqt-pos-powers">
+                                @php
+                                    // Past a dozen powers (and more than one to hide), the rest wait behind "show all"; the chosen one always shows.
+                                    $collapsesPowers = count($item['powers']) > $powersShown + 1;
+                                    $hiddenPowers = $collapsesPowers
+                                        ? collect($item['powers'])->slice($powersShown)->reject(fn (array $power): bool => $power['isSelected'])->count()
+                                        : 0;
+                                @endphp
+                                <div x-data="{ showsAllPowers: false }">
+                                    <div class="waqt-pos-label">
+                                        <x-filament::icon icon="heroicon-o-eye" style="width: 0.9rem; height: 0.9rem" />{{ $t('power') }}
+                                        <span class="waqt-pos-num" style="font-weight: 500">({{ count($item['powers']) }})</span>
+                                    </div>
+                                    <div @class(['waqt-pos-powers', 'is-collapsed' => $collapsesPowers])
+                                        @if ($collapsesPowers) x-bind:class="{ 'is-collapsed': ! showsAllPowers }" @endif>
                                         @foreach ($item['powers'] as $power)
-                                            <button type="button" class="waqt-pos-power {{ $power['isSelected'] ? 'is-selected' : '' }}"
+                                            <button type="button" @class(['waqt-pos-power', 'is-selected' => $power['isSelected'], 'is-extra' => $loop->index >= $powersShown && ! $power['isSelected']])
                                                 wire:click="choosePower({{ $item['id'] }}, {{ $power['id'] ?? 'null' }})">
-                                                <div class="waqt-pos-num" style="font-weight: 800">{{ $power['value'] }}</div>
-                                                <div class="waqt-pos-num" style="font-size: 0.6875rem; opacity: 0.8">{{ $t('dozens', ['value' => $power['dozens']]) }}</div>
+                                                <div class="waqt-pos-num" style="font-weight: 800; font-size: 0.875rem">{{ $power['value'] }}</div>
+                                                <div class="waqt-pos-num" style="font-size: 0.625rem; opacity: 0.8">{{ $t('dozens', ['value' => $power['dozens']]) }}</div>
                                             </button>
                                         @endforeach
+                                        @if ($collapsesPowers)
+                                            <button type="button" class="waqt-pos-power is-toggle" x-on:click="showsAllPowers = ! showsAllPowers">
+                                                <div class="waqt-pos-num" dir="ltr" style="font-weight: 800; font-size: 0.875rem" x-text="showsAllPowers ? '−' : '+{{ $hiddenPowers }}'">+{{ $hiddenPowers }}</div>
+                                                <div style="font-size: 0.625rem; font-weight: 600" x-text="showsAllPowers ? '{{ $t('show_less') }}' : '{{ $t('show_all') }}'">{{ $t('show_all') }}</div>
+                                            </button>
+                                        @endif
                                     </div>
                                 </div>
                             @endif
@@ -118,7 +154,7 @@
                                         @foreach ($item['types'] as $type)
                                             <button type="button" class="waqt-pos-type {{ $type['isSelected'] ? 'is-selected' : '' }}"
                                                 wire:click="chooseType({{ $item['id'] }}, '{{ $type['key'] }}')">
-                                                <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem">
+                                                <div style="flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0.35rem">
                                                     @forelse ($type['colors'] as $color)
                                                         <span class="waqt-pos-tag">
                                                             <span class="waqt-pos-dot" style="background: {{ $dot($color['name']) }}"></span>
@@ -143,7 +179,7 @@
                     @endif
 
                     <div class="waqt-pos-foot">
-                        <div>
+                        <div style="min-width: 0">
                             <div style="font-size: 0.875rem; font-weight: 700">{{ $t('packet_size', ['pieces' => $item['piecesPerPacket']]) }}</div>
                             @if ($item['inCartBreakdown'])
                                 <div class="waqt-pos-num" style="font-size: 0.75rem; font-weight: 600; color: var(--primary-600)">{{ $item['inCartBreakdown'] }}</div>
@@ -152,16 +188,27 @@
 
                         @if (! $item['isOutOfStock'])
                             @if ($item['inCart'] > 0)
-                                <div class="waqt-pos-stepper">
-                                    <x-filament::icon-button :icon="$item['inCart'] <= 1 ? 'heroicon-o-trash' : 'heroicon-m-minus'" :color="$item['inCart'] <= 1 ? 'danger' : 'primary'"
-                                        wire:click="decrementLine('{{ $item['lineKey'] }}')" :label="$t('remove')" />
-                                    <span class="waqt-pos-count">{{ $item['inCart'] }}</span>
-                                    <x-filament::icon-button icon="heroicon-m-plus" color="primary" wire:click="addPacket({{ $item['id'] }})" :label="$t('add')" />
+                                {{-- In the cart: the field holds its packets, and a new number replaces them (Enter or leaving the field). The key
+                                     brings the field back with the cart's number, also when the stock cut what was typed. --}}
+                                <div class="waqt-pos-qty" wire:key="pos-qty-{{ $item['lineKey'] }}-{{ $item['inCart'] }}">
+                                    <x-filament::input.wrapper :suffix="$t('packets_unit')" class="waqt-pos-qty-field">
+                                        <x-filament::input type="number" inputmode="numeric" min="0" step="1" value="{{ $item['inCart'] }}" aria-label="{{ $t('packets_label') }}"
+                                            x-on:keydown.enter.prevent="$el.blur()"
+                                            x-on:change="$wire.setPackets('{{ $item['lineKey'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
+                                    </x-filament::input.wrapper>
+                                    <x-filament::icon-button icon="heroicon-o-trash" color="danger" wire:click="removeLine('{{ $item['lineKey'] }}')" :label="$t('remove')" />
                                 </div>
                             @else
-                                <x-filament::button icon="heroicon-m-plus" size="sm" wire:click="addPacket({{ $item['id'] }})">
-                                    {{ $t('add') }}
-                                </x-filament::button>
+                                {{-- Not in the cart yet: the seller types the packets (one when left empty) and adds them. --}}
+                                <div class="waqt-pos-qty" x-data="{ packets: '' }">
+                                    <x-filament::input.wrapper :suffix="$t('packets_unit')" class="waqt-pos-qty-field">
+                                        <x-filament::input type="number" inputmode="numeric" min="1" step="1" placeholder="1" x-model="packets" aria-label="{{ $t('packets_label') }}"
+                                            x-on:keydown.enter.prevent="$wire.addPackets({{ $item['id'] }}, packets || 1)" />
+                                    </x-filament::input.wrapper>
+                                    <x-filament::button icon="heroicon-m-plus" x-on:click="$wire.addPackets({{ $item['id'] }}, packets || 1)">
+                                        {{ $t('add') }}
+                                    </x-filament::button>
+                                </div>
                             @endif
                         @endif
                     </div>
@@ -210,16 +257,44 @@
                     </div>
 
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem">
-                        <div class="waqt-pos-stepper">
-                            <x-filament::icon-button icon="heroicon-m-minus" color="primary" size="sm" wire:click="decrementLine('{{ $line['key'] }}')" :label="$t('remove')" />
-                            <input type="number" min="0" class="waqt-pos-count-input" value="{{ $line['packets'] }}"
-                                wire:change="setPackets('{{ $line['key'] }}', $event.target.value)" aria-label="{{ $t('packets_label') }}">
-                            <x-filament::icon-button icon="heroicon-m-plus" color="primary" size="sm" wire:click="incrementLine('{{ $line['key'] }}')" :label="$t('add')" />
+                        <div class="waqt-pos-qty is-compact" wire:key="pos-line-qty-{{ $line['key'] }}-{{ $line['packets'] }}">
+                            <x-filament::input.wrapper :suffix="$t('packets_unit')" class="waqt-pos-qty-field">
+                                <x-filament::input type="number" inputmode="numeric" min="0" step="1" value="{{ $line['packets'] }}" aria-label="{{ $t('packets_label') }}"
+                                    x-on:keydown.enter.prevent="$el.blur()"
+                                    x-on:change="$wire.setPackets('{{ $line['key'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
+                            </x-filament::input.wrapper>
                         </div>
                         <div style="text-align: end">
-                            <div class="waqt-pos-num" style="font-weight: 800; font-size: 1.0625rem">{{ $line['totalText'] }} {{ $currency }}</div>
+                            @if ($line['discount'] > 0)
+                                <div class="waqt-pos-num waqt-pos-muted" style="font-size: 0.75rem; text-decoration: line-through">{{ $line['totalText'] }} {{ $currency }}</div>
+                            @endif
+                            <div class="waqt-pos-num" style="font-weight: 800; font-size: 1.0625rem">{{ $line['netText'] }} {{ $currency }}</div>
                             <div class="waqt-pos-num waqt-pos-muted" style="font-size: 0.75rem">{{ $line['breakdown'] }}</div>
                         </div>
+                    </div>
+
+                    {{-- The line's discount off its total, in dinars or in percent. A percent shows what it takes off in dinars beside it.
+                         Left empty, the line has none. --}}
+                    @php
+                        $isPercent = $line['discountPercent'] !== null;
+                        $discountValue = $isPercent ? $line['discountPercent'] : $line['discount'];
+                    @endphp
+                    <div class="waqt-pos-qty is-discount" wire:key="pos-line-discount-{{ $line['key'] }}-{{ $isPercent ? 'percent' : 'amount' }}-{{ $discountValue }}">
+                        <div class="waqt-pos-switch" role="group" aria-label="{{ $t('discount') }}">
+                            <button type="button" @class(['is-on' => ! $isPercent]) wire:click="setDiscountMode('{{ $line['key'] }}', 'amount')">{{ $currency }}</button>
+                            <button type="button" @class(['is-on' => $isPercent]) wire:click="setDiscountMode('{{ $line['key'] }}', 'percent')">%</button>
+                        </div>
+                        <x-filament::input.wrapper :prefix="$t('discount')" :suffix="$isPercent ? '%' : $currency" class="waqt-pos-qty-field">
+                            <x-filament::input type="number" inputmode="decimal" min="0" step="any" placeholder="0"
+                                value="{{ $discountValue > 0 ? $discountValue : '' }}" aria-label="{{ $t('discount') }}"
+                                x-on:keydown.enter.prevent="$el.blur()"
+                                x-on:change="$wire.{{ $isPercent ? 'setDiscountPercent' : 'setDiscount' }}('{{ $line['key'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
+                        </x-filament::input.wrapper>
+                        @if ($isPercent && $line['discount'] > 0)
+                            <span class="waqt-pos-num" style="flex: none; font-size: 0.8125rem; font-weight: 700; color: var(--danger-600)">
+                                {{ $t('discount_amount', ['amount' => $line['discountText'].' '.$currency]) }}
+                            </span>
+                        @endif
                     </div>
                 </div>
             @empty
@@ -230,17 +305,29 @@
                 </div>
             @endforelse
 
-            <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid rgba(127, 127, 127, 0.2)">
-                <span class="waqt-pos-muted" style="font-size: 0.9375rem">{{ $t('total') }}</span>
-                <span class="waqt-pos-num" style="font-size: 1.375rem; font-weight: 800">{{ $cart['totalText'] }} {{ $currency }}</span>
+            <div style="display: grid; gap: 0.35rem; padding-top: 0.75rem; border-top: 1px solid rgba(127, 127, 127, 0.2)">
+                @if ($cart['discount'] > 0)
+                    <div style="display: flex; align-items: baseline; justify-content: space-between">
+                        <span class="waqt-pos-muted">{{ $t('subtotal') }}</span>
+                        <span class="waqt-pos-num" style="font-weight: 700">{{ $cart['subtotalText'] }} {{ $currency }}</span>
+                    </div>
+                    <div style="display: flex; align-items: baseline; justify-content: space-between">
+                        <span class="waqt-pos-muted">{{ $t('discount') }}</span>
+                        <span class="waqt-pos-num" style="font-weight: 700; color: var(--danger-600)">{{ $cart['discountText'] }} {{ $currency }}</span>
+                    </div>
+                @endif
+                <div style="display: flex; align-items: baseline; justify-content: space-between">
+                    <span class="waqt-pos-muted" style="font-size: 0.9375rem">{{ $cart['discount'] > 0 ? $t('net_total') : $t('total') }}</span>
+                    <span class="waqt-pos-num" style="font-size: 1.375rem; font-weight: 800">{{ $cart['totalText'] }} {{ $currency }}</span>
+                </div>
             </div>
             <div class="waqt-pos-muted" style="font-size: 0.75rem">{{ $t('price_by_system') }}</div>
 
             {{-- The down payment of a postpaid sale and the notes, as fields of the form. --}}
             {{ $getChildSchema() }}
 
-            <x-filament::button size="lg" icon="heroicon-o-check" wire:click="create" :disabled="$cart['lines'] === []" style="width: 100%">
-                {{ $t('confirm') }}
+            <x-filament::button size="lg" icon="heroicon-o-check" wire:click="{{ $submit['action'] }}" :disabled="$cart['lines'] === []" style="width: 100%">
+                {{ $submit['label'] }}
             </x-filament::button>
         </div>
     </div>

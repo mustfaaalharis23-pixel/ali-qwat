@@ -2,8 +2,12 @@
 
 namespace App\Policies;
 
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+
 /**
- * Orders can only be viewed: the only permission is order.view. Adding, editing, deleting, and restoring are for super users only.
+ * Orders are viewed and edited: the permissions are order.view and order.update. Adding, deleting, and restoring are for super users only.
  */
 class OrderPolicy extends ModelPolicy
 {
@@ -12,6 +16,16 @@ class OrderPolicy extends ModelPolicy
      */
     public static function basicAbilities(): array
     {
-        return ['view'];
+        return ['view', 'update'];
+    }
+
+    /**
+     * A deleted order is not edited.
+     *
+     * @param  Order  $model
+     */
+    public function update(User $user, Model $model): bool
+    {
+        return parent::update($user, $model) && ! $model->trashed();
     }
 }

@@ -23,6 +23,7 @@ return new class extends Migration
             $table->unsignedInteger('package_size')->default(1);
             $table->double('price');
             $table->double('total_price');
+            $table->double('discount')->default(0);
             $table->double('cost_price')->default(0);
             $table->double('total_cost')->default(0);
             $table->double('profit')->default(0);

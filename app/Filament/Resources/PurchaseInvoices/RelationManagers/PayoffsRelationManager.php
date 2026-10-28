@@ -59,8 +59,10 @@ class PayoffsRelationManager extends RelationManager
                     ->minValue(0.01)
                     ->maxValue(fn (?Payoff $record): float => $this->maximumAmount($record))
                     ->required(),
+                // The calendar is in English, so the date's digits stay English in Arabic too, like the invoice's date.
                 DateInput::make('date')
                     ->label(__('filament/resources/payoff.fields.date'))
+                    ->locale('en')
                     ->defaultToday()
                     ->required(),
                 FileUpload::make('image')

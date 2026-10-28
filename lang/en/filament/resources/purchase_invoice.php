@@ -75,6 +75,10 @@ return [
             'title' => 'The exchange rate could not be fetched',
             'body' => 'Neither the Agricultural Bank of China nor China Merchants Bank answered. Type the exchange rate by hand: the yuan in one US dollar.',
         ],
+        'draft_restored' => [
+            'title' => 'What you were typing is back',
+            'body' => 'This is the last copy saved in this browser before you left the page. Images are not saved, so upload them again.',
+        ],
     ],
 
     'validation' => [
@@ -167,6 +171,12 @@ return [
         'show_groups' => 'Powers and colors',
         'close' => 'Close',
         'more' => 'More',
+        'discard_draft' => [
+            'label' => 'Discard the saved data',
+            'heading' => 'Discard the saved data',
+            'description' => 'The data brought back is cleared, and the invoice starts over.',
+            'submit' => 'Discard',
+        ],
     ],
 
     'widgets' => [

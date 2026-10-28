@@ -394,7 +394,7 @@ class PurchaseInvoiceInfolist
         return collect([
             $group->lensPower === null
                 ? __('filament/resources/lens_power.none')
-                : __('filament/resources/invoice_item.group.power', ['value' => $group->lensPower->value]),
+                : __('filament/resources/invoice_item.group.power', ['value' => $group->lensPower->inHundreds()]),
             __('filament/resources/invoice_item.group.packets', ['packets' => self::number($group->boxes_count)]),
         ])->implode(' · ');
     }
@@ -461,7 +461,7 @@ class PurchaseInvoiceInfolist
         return [
             'power' => $group->lensPower === null
                 ? __('filament/resources/lens_power.none')
-                : __('filament/resources/invoice_item.group.power', ['value' => $group->lensPower->value]),
+                : __('filament/resources/invoice_item.group.power', ['value' => $group->lensPower->inHundreds()]),
             'hasPower' => $group->lensPower !== null,
             'packets' => __('filament/resources/purchase_invoice.groups_modal.packets', ['value' => self::number($packets)]),
             'pieces' => __('filament/resources/purchase_invoice.groups_modal.pieces', ['value' => self::number($pieces)]),

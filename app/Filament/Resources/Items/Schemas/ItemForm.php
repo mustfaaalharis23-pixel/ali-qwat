@@ -69,11 +69,11 @@ class ItemForm
                     ->columns(['default' => 1, 'md' => 3])
                     ->columnSpanFull()
                     ->schema([
+                        // Optional: an item left without a price is saved at 0, and its price is set later.
                         MoneyInput::make('sale_price')
                             ->label(__('filament/resources/item.fields.sale_price'))
                             ->minValue(0)
-                            ->default(0)
-                            ->required(),
+                            ->dehydrateStateUsing(fn (mixed $state): float|string => blank($state) ? 0 : str_replace(',', '', (string) $state)),
                         MoneyInput::make('cost_price')
                             ->label(__('filament/resources/item.fields.cost_price'))
                             ->helperText(__('filament/resources/item.hints.cost_price'))

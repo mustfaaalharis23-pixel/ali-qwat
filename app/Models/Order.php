@@ -106,8 +106,9 @@ class Order extends BaseModel
     }
 
     /**
-     * Sets the amount and the total amount to the sum of the items' total prices, then the paid amount and remaining,
-     * and the order's cost and profit from the costs and profits its items kept, and saves the order.
+     * Sets the amount to the sum of the items' total prices (before their discounts) and the total amount to that minus the items'
+     * discounts, then the paid amount and remaining of the total amount, and the order's cost and profit from the costs and profits
+     * its items kept, and saves the order.
      * A postpaid order is paid by the allocations of its customer's payments; a cash order is fully paid when it is sold.
      * A deleted order keeps its amounts.
      */
@@ -118,14 +119,15 @@ class Order extends BaseModel
         }
 
         $amount = (float) $this->items()->sum('total_price');
+        $totalAmount = $amount - (float) $this->items()->sum('discount');
         $paidAmount = $this->payment_type === OrderPaymentType::Postpaid
             ? (float) $this->allocations()->sum('amount')
-            : $amount;
+            : $totalAmount;
 
         $this->amount = $amount;
-        $this->total_amount = $amount;
+        $this->total_amount = $totalAmount;
         $this->paid_amount = $paidAmount;
-        $this->remaining = $amount - $paidAmount;
+        $this->remaining = $totalAmount - $paidAmount;
         $this->total_cost = (float) $this->items()->sum('total_cost');
         $this->profit = (float) $this->items()->sum('profit');
         $this->save();

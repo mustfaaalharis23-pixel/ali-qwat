@@ -114,7 +114,7 @@ class Checkout
     }
 
     /**
-     * What the order comes to: each line's dozens at its item's sale price.
+     * What the order comes to: each line's dozens at its item's sale price, less the line's discount.
      *
      * @param  Collection<int, Item>  $items
      */
@@ -124,7 +124,7 @@ class Checkout
             function (CheckoutLine $line) use ($items): float {
                 $item = $items->findOrFail($line->itemId);
 
-                return (float) $item->sale_price * $line->dozensFor($item);
+                return (float) $item->sale_price * $line->dozensFor($item) - $line->discount;
             },
             $data->lines,
         ));
@@ -226,8 +226,8 @@ class Checkout
     }
 
     /**
-     * Sells the line's packets of the item: their pieces are the packets × the item's pieces per packet, at the item's price of a dozen.
-     * A line without packets is sold by its dozens. An item without a packet size is not sold by the packet.
+     * Sells the line's packets of the item: their pieces are the packets × the item's pieces per packet, at the item's price of a dozen,
+     * with the line's discount. A line without packets is sold by its dozens. An item without a packet size is not sold by the packet.
      *
      * @throws ValidationException
      */
@@ -248,6 +248,7 @@ class Checkout
                 ? ['quantity' => $line->quantity]
                 : ['pieces' => $line->packets * (int) $item->pieces_per_packet]),
             'price' => $item->sale_price,
+            'discount' => $line->discount,
         ]);
     }
 }

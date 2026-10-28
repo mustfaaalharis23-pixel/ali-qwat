@@ -6,7 +6,9 @@ use App\Enums\OrderPaymentType;
 use App\Filament\Forms\Components\DateInput;
 use App\Filament\Forms\Components\MoneyInput;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
+use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Metrics\Currency;
+use App\Models\Order;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Section;
@@ -23,6 +25,8 @@ class OrderForm
      * The price of a dozen comes from the item's sale price and is not entered, because the checkout always takes
      * it from the database. An item bought with powers is sold at one of its powers, and in one of the color mixes of that power,
      * so the same item can be on two lines; an item without powers or colors is sold without them.
+     * The edit of a saved order is the same form, filled with the order: its down payment is not edited there, and an order with
+     * payments on it keeps its customer and its payment type.
      */
     public static function configure(Schema $schema): Schema
     {
@@ -38,11 +42,15 @@ class OrderForm
                             ->relationship('customer', 'name')
                             ->searchable()
                             ->preload()
+                            ->disabled(fn (?Order $record): bool => self::hasPayments($record))
+                            ->helperText(fn (?Order $record): ?string => self::hasPayments($record) ? __('orders.validation.paid_order_keeps_customer') : null)
                             ->required(),
                         Select::make('payment_type')
                             ->label(__('filament/resources/order.fields.payment_type'))
                             ->options(OrderPaymentType::class)
                             ->live()
+                            ->disabled(fn (?Order $record): bool => self::hasPayments($record))
+                            ->helperText(fn (?Order $record): ?string => self::hasPayments($record) ? __('orders.validation.paid_order_keeps_payment_type') : null)
                             ->required(),
                         DateInput::make('date')
                             ->label(__('filament/resources/order.fields.date'))
@@ -56,9 +64,12 @@ class OrderForm
                     ->columnSpanFull()
                     ->schema([
                         View::make('filament.orders.checkout')
-                            ->viewData(fn (CreateOrder $livewire): array => [
+                            ->viewData(fn (CreateOrder|EditOrder $livewire): array => [
                                 'items' => $livewire->checkoutItems(),
                                 'cart' => $livewire->cartSummary(),
+                                'submit' => $livewire instanceof EditOrder
+                                    ? ['action' => 'save', 'label' => __('filament-panels::resources/pages/edit-record.form.actions.save.label')]
+                                    : ['action' => 'create', 'label' => __('filament/resources/order.checkout.confirm')],
                             ])
                             // Rendered inside the cart, above its confirm button. The down payment and the weekly payment are set on a postpaid sale only.
                             ->schema([
@@ -67,7 +78,7 @@ class OrderForm
                                     ->suffix(Currency::IraqiDinar->symbol())
                                     ->placeholder(__('filament/resources/order.checkout.optional'))
                                     ->minValue(0.01)
-                                    ->visible(fn (Get $get): bool => self::isPostpaid($get('payment_type'))),
+                                    ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && self::isPostpaid($get('payment_type'))),
                                 MoneyInput::make('weekly_payment')
                                     ->label(__('filament/resources/order.fields.weekly_payment'))
                                     ->suffix(Currency::IraqiDinar->symbol())
@@ -82,6 +93,14 @@ class OrderForm
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * Whether the order being edited has payments on it, its down payment too.
+     */
+    private static function hasPayments(?Order $record): bool
+    {
+        return $record?->allocations()->exists() ?? false;
     }
 
     /**

@@ -1,11 +1,12 @@
 {{--
     The checking sheet of one purchase invoice. It is held in the hand of the employee who receives the goods from the
-    factory, on a clipboard, while they open the cartons and count. So every line is a short card: a small picture, the
-    item's name with its prices beside it, every amount with its currency sign and each strip named, so an amount is never
-    taken for a count and yuan and dinars are never mixed up at a glance (one piece in yuan; one piece and a dozen landed in dinars, with the transport), then its colors and the
-    packets of each power. The totals of the packets, the cartons, and the price close the sheet, with room for whoever
-    received the goods to sign. It prints in black and white as well as in color, runs over pages with no card cut in
-    two, and follows the language of the panel.
+    factory, on a clipboard, while they open the cartons and count. So the lines are one table, like the customer's invoice,
+    with one row for every line: a small picture, the item's name and the colors of its packet; a small table of its powers
+    (in hundreds, as the factories write them) with the packets and dozens of each; then the price of one piece in yuan and
+    the landed price of a piece and a dozen in dinars, with the transport, each with its currency sign so yuan and dinars are
+    never mixed up at a glance. The totals of the packets, the cartons, and the price close the sheet, with room for whoever
+    received the goods to sign. It prints in black and white as well as in color, runs over pages with the head of the table
+    on every page and no row cut in two, and follows the language of the panel.
 --}}
 @php
     $isRtl = app()->getLocale() === 'ar';
@@ -215,36 +216,89 @@
             background: var(--brand-deep);
         }
 
-        /* One compact card for every line: its name with its prices in one strip per currency, then its colors and powers */
+        /* One row for every line, like the customer's invoice: the item, a table of its powers, and its prices */
 
-        .cards {
-            display: flex;
-            flex-direction: column;
-            gap: 3mm;
+        .lines {
+            width: 100%;
             margin-top: 5mm;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
 
-        .card {
-            display: grid;
-            grid-template-columns: 18mm minmax(0, 1fr);
-            align-items: start;
-            gap: 3.5mm;
-            padding: 2.5mm 3.5mm;
-            border: 1px solid var(--rule);
-            border-radius: 8px;
+        .col-index {
+            width: 5%;
+        }
+
+        .col-powers {
+            width: 34%;
+        }
+
+        .col-yuan {
+            width: 12%;
+        }
+
+        .col-landed {
+            width: 19%;
+        }
+
+        .lines > thead {
+            display: table-header-group;
+        }
+
+        .lines > tbody > tr {
             break-inside: avoid;
         }
 
-        .card-body {
-            display: grid;
-            gap: 1.8mm;
+        .lines > thead > tr > th {
+            padding: 7px 8px;
+            border-bottom: 1px solid var(--ink);
+            background: var(--brand-wash);
+            color: var(--brand-deep);
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.4;
+            text-align: start;
+            vertical-align: bottom;
+        }
+
+        .lines > thead > tr > th.center {
+            text-align: center;
+        }
+
+        .lines > thead > tr > th .note {
+            display: block;
+            font-size: 10px;
+            font-weight: 400;
+        }
+
+        .lines > tbody > tr > td {
+            padding: 2.5mm 8px;
+            border-bottom: 1px solid var(--rule);
+            color: var(--ink);
+            vertical-align: middle;
+        }
+
+        .lines > tbody > tr:last-child > td {
+            border-bottom-color: var(--ink);
+        }
+
+        .lines > tbody > tr > td.index {
+            color: var(--label);
+            font-size: 11px;
+        }
+
+        .item-cell {
+            display: flex;
+            align-items: center;
+            gap: 3mm;
         }
 
         .picture,
         .no-picture {
-            width: 18mm;
-            height: 18mm;
-            border-radius: 5px;
+            flex-shrink: 0;
+            width: 14mm;
+            height: 14mm;
+            border-radius: 4px;
         }
 
         .picture {
@@ -259,78 +313,41 @@
             justify-content: center;
             border: 1px dashed var(--rule);
             color: var(--label);
-            font-size: 9px;
-            text-align: center;
-        }
-
-        .card-head {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px 8px;
-        }
-
-        .index {
-            flex-shrink: 0;
-            min-width: 22px;
-            padding: 0 6px;
-            border-radius: 4px;
-            background: var(--ink);
-            color: var(--paper);
-            font-size: 10.5px;
-            font-weight: 700;
+            font-size: 8px;
             text-align: center;
         }
 
         .item-name {
             color: var(--ink);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             line-height: 1.35;
             overflow-wrap: anywhere;
         }
 
-        /* Yuan in a grey strip, landed dinars in a blue one, each named once at its start */
-
-        .prices {
+        .colors {
             display: flex;
             flex-wrap: wrap;
-            gap: 2mm;
-            margin-inline-start: auto;
+            gap: 3px;
+            margin-top: 3px;
         }
 
-        .price-strip {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
-            border: 1px solid var(--rule);
-            border-radius: 5px;
-            overflow: hidden;
-        }
-
-        .price-strip .pairs {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 1px 10px;
-            padding: 2px 10px;
-        }
-
-        .price-strip .tag {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            background: var(--desk);
+        .price {
             color: var(--ink);
-            font-size: 10.5px;
+            font-size: 13px;
             font-weight: 700;
-            white-space: nowrap;
+        }
+
+        .landed {
+            display: grid;
+            gap: 2px;
         }
 
         .pair {
-            display: inline-flex;
+            display: flex;
             align-items: baseline;
-            gap: 4px;
+            justify-content: space-between;
+            gap: 6px;
             white-space: nowrap;
         }
 
@@ -338,76 +355,50 @@
             font-size: 10px;
         }
 
-        .pair .label:lang(en) {
-            font-size: 8.5px;
-            letter-spacing: .04em;
-        }
-
         .pair b {
-            color: var(--ink);
-            font-size: 13.5px;
+            color: var(--brand-deep);
+            font-size: 12.5px;
         }
 
-        .pair .money .currency {
-            margin-inline-end: 3px;
+        .money .currency {
             color: inherit;
-            font-size: .8em;
-            font-weight: 600;
         }
 
-        .price-strip.dinar {
-            border-color: var(--brand-line);
-        }
+        /* The powers of a row: the packets and dozens of each power */
 
-        .price-strip.dinar .tag {
-            background: var(--brand-wash);
-            color: var(--brand-deep);
-        }
-
-        .price-strip.dinar .pair b {
-            color: var(--brand-deep);
-        }
-
-        /* The colors in one packet of the line and the packets of each power, on one line */
-
-        .details {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px 14px;
-        }
-
-        .detail {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .detail > .label {
-            margin-inline-end: 2px;
-        }
-
-        .power {
-            display: inline-flex;
+        .powers {
+            width: 100%;
             border: 1px solid var(--rule);
-            border-radius: 4px;
+            border-radius: 6px;
+            border-collapse: separate;
+            border-spacing: 0;
             overflow: hidden;
-            font-size: 11px;
-            white-space: nowrap;
+            table-layout: fixed;
         }
 
-        .power .value {
-            padding: 0 6px;
+        .powers th,
+        .powers td {
+            padding: 1px 6px;
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .powers th {
             background: var(--desk);
-            color: var(--ink);
-            font-weight: 700;
+            color: var(--label);
+            font-size: 10px;
         }
 
-        .power .packets {
-            padding: 0 6px;
-            color: var(--ink);
-            font-weight: 600;
+        .powers td {
+            border-top: 1px solid var(--hair);
+        }
+
+        .powers th + th,
+        .powers td + td {
+            border-inline-start: 1px solid var(--hair);
         }
 
         .chip {
@@ -415,7 +406,7 @@
             border: 1px solid var(--rule);
             border-radius: 999px;
             color: var(--ink);
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 500;
             white-space: nowrap;
         }
@@ -598,62 +589,92 @@
 
     <p class="how-to">{{ __('invoices.purchase_print.how_to') }}</p>
 
-    <section class="cards">
-        @foreach ($lines as $line)
-            @php
-                $groups = $line->groups->sortBy(fn ($group) => $group->lensPower === null ? -INF : (float) $group->lensPower->value);
-            @endphp
-            <article class="card">
-                @if (filled($line->item?->image))
-                    <img class="picture" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($line->item->image) }}" alt="">
-                @else
-                    <span class="no-picture">{{ __('invoices.purchase_print.no_image') }}</span>
-                @endif
-
-                <div class="card-body">
-                    <div class="card-head">
-                        <span class="index num">{{ $loop->iteration }}</span>
-                        <h2 class="item-name"><bdi>{{ $line->item?->name ?? $line->specificDescription?->name }}</bdi></h2>
-
-                        <div class="prices">
-                            <p class="price-strip yuan">
-                                <span class="tag">{{ __('invoices.purchase_print.yuan') }}</span>
-                                <span class="pairs">
-                                    <span class="pair"><span class="label">{{ __('invoices.purchase_print.piece') }}</span>@if ($line->unit_cost === null)<b class="none">—</b>@else<b class="num money"><span class="currency">{{ $currency }}</span>{{ $money($line->unit_cost) }}</b>@endif</span>
-                                </span>
-                            </p>
-                            <p class="price-strip dinar">
-                                <span class="tag">{{ __('invoices.purchase_print.landed') }}</span>
-                                <span class="pairs">
-                                    <span class="pair"><span class="label">{{ __('invoices.purchase_print.piece') }}</span>@if ($line->final_unit_cost_iqd === null)<b class="none">—</b>@else<b class="num money"><span class="currency">{{ $dinar }}</span>{{ $dinars($line->final_unit_cost_iqd) }}</b>@endif</span>
-                                    <span class="pair"><span class="label">{{ __('invoices.purchase_print.dozen') }}</span>@if ($line->final_unit_cost_iqd === null)<b class="none">—</b>@else<b class="num money"><span class="currency">{{ $dinar }}</span>{{ $dinars($line->final_unit_cost_iqd * $dozen) }}</b>@endif</span>
-                                </span>
-                            </p>
+    <table class="lines">
+        <colgroup>
+            <col class="col-index">
+            <col>
+            <col class="col-powers">
+            <col class="col-yuan">
+            <col class="col-landed">
+        </colgroup>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>{{ __('invoices.purchase_print.item') }}</th>
+                <th class="center">
+                    {{ __('invoices.purchase_print.powers_heading') }}
+                    <span class="note">{{ __('invoices.purchase_print.powers_heading_note') }}</span>
+                </th>
+                <th>{{ __('invoices.purchase_print.yuan_piece') }}</th>
+                <th>{{ __('invoices.purchase_print.landed_column') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($lines as $line)
+                @php
+                    // A row per power, lowest first, with its packets; a line without powers is one row of all its packets.
+                    $powerRows = $line->groups->isEmpty()
+                        ? collect([['power' => null, 'packets' => (float) $line->boxes_count]])
+                        : $line->groups
+                            ->sortBy(fn ($group) => $group->lensPower === null ? -INF : (float) $group->lensPower->value)
+                            ->map(fn ($group): array => ['power' => $group->lensPower?->inHundreds(), 'packets' => (float) $group->boxes_count]);
+                @endphp
+                <tr>
+                    <td class="index num">{{ $loop->iteration }}</td>
+                    <td>
+                        <div class="item-cell">
+                            @if (filled($line->item?->image))
+                                <img class="picture" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($line->item->image) }}" alt="">
+                            @else
+                                <span class="no-picture">{{ __('invoices.purchase_print.no_image') }}</span>
+                            @endif
+                            <div>
+                                <h2 class="item-name"><bdi>{{ $line->item?->name ?? $line->specificDescription?->name }}</bdi></h2>
+                                @if ($line->colors->isNotEmpty())
+                                    <p class="colors">
+                                        @foreach ($line->colors as $color)
+                                            <span class="chip"><bdi>{{ $color->color?->name }}</bdi></span>
+                                        @endforeach
+                                    </p>
+                                @endif
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="details">
-                        @if ($line->colors->isNotEmpty())
-                            <p class="detail">
-                                <span class="label">{{ __('invoices.purchase_print.packet_colors') }}</span>
-                                @foreach ($line->colors as $color)
-                                    <span class="chip"><bdi>{{ $color->color?->name }}</bdi></span>
+                    </td>
+                    <td>
+                        <table class="powers">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('invoices.purchase_print.power') }}</th>
+                                    <th>{{ __('invoices.purchase_print.packets') }}</th>
+                                    <th>{{ __('invoices.purchase_print.dozens') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($powerRows as $row)
+                                    <tr>
+                                        <td>@if ($row['power'] === null)<span class="none">{{ __('invoices.purchase_print.no_power') }}</span>@else<span class="num">{{ $row['power'] }}</span>@endif</td>
+                                        <td><span class="num">{{ $number($row['packets']) }}</span></td>
+                                        <td><span class="num">{{ $number($row['packets'] * (float) $line->pieces_per_packet / $dozen) }}</span></td>
+                                    </tr>
                                 @endforeach
-                            </p>
+                            </tbody>
+                        </table>
+                    </td>
+                    <td>@if ($line->unit_cost === null)<span class="none">—</span>@else<b class="price num money"><span class="currency">{{ $currency }}</span>{{ $money($line->unit_cost) }}</b>@endif</td>
+                    <td>
+                        @if ($line->final_unit_cost_iqd === null)
+                            <span class="none">—</span>
+                        @else
+                            <div class="landed">
+                                <span class="pair"><span class="label">{{ __('invoices.purchase_print.piece') }}</span><b class="num money"><span class="currency">{{ $dinar }}</span>{{ $dinars($line->final_unit_cost_iqd) }}</b></span>
+                                <span class="pair"><span class="label">{{ __('invoices.purchase_print.dozen') }}</span><b class="num money"><span class="currency">{{ $dinar }}</span>{{ $dinars($line->final_unit_cost_iqd * $dozen) }}</b></span>
+                            </div>
                         @endif
-                        <p class="detail">
-                            <span class="label">{{ __('invoices.purchase_print.powers') }}</span>
-                            @forelse ($groups as $group)
-                                <span class="power"><span class="value num">{{ $group->lensPower?->value ?? __('invoices.purchase_print.no_power') }}</span><span class="packets num">{{ $number($group->boxes_count) }}</span></span>
-                            @empty
-                                <span class="power"><span class="value">{{ __('invoices.purchase_print.no_power') }}</span><span class="packets num">{{ $number($line->boxes_count) }}</span></span>
-                            @endforelse
-                        </p>
-                    </div>
-                </div>
-            </article>
-        @endforeach
-    </section>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
 
     <section class="closing">
         <dl class="totals">

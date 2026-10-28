@@ -13,6 +13,7 @@ use App\Orders\Checkout\Checkout;
 use App\Orders\Checkout\CheckoutData;
 use App\Orders\Checkout\CheckoutLine;
 use App\Orders\PayCustomerDebt;
+use App\Orders\UpdateOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -98,6 +99,51 @@ class PostpaidBoxMatchesCustomerDebtsTest extends TestCase
         $paidOrder->fresh()->delete();
         $this->assertEquals(0, $ali->debt());
         $this->assertPostpaidBoxMatchesDebts(1500);
+    }
+
+    /**
+     * EN: Editing orders moves the debt and the postpaid box together. Given Ahmed's postpaid order of 1,000 with 400 paid,
+     *     Sara's unpaid postpaid order of 500, and Ali's cash order of 900: Ahmed's order grows to 2,000 (he owes 1,600),
+     *     Sara's becomes cash (she owes nothing), and Ali's becomes postpaid (he owes 900). The box and the debts are 2,500.
+     * AR: تعديل الأوردرات يحرك الدين وصندوق الآجل سوية. عندنا أوردر آجل لأحمد بـ 1,000 مسدد منه 400،
+     *     وأوردر آجل لسارة بـ 500 ما مسدد، وأوردر كاش لعلي بـ 900: أوردر أحمد يكبر لـ 2,000 (يصير مطلوب 1,600)،
+     *     وأوردر سارة يصير كاش (ما مطلوبة شي)، وأوردر علي يصير آجل (يصير مطلوب 900). الصندوق والديون يصيرون 2,500.
+     */
+    public function test_editing_orders_keeps_the_postpaid_box_equal_to_the_debts(): void
+    {
+        $ahmed = Customer::factory()->create();
+        $sara = Customer::factory()->create();
+        $ali = Customer::factory()->create();
+        $ahmedsOrder = $this->sell($ahmed, OrderPaymentType::Postpaid, 1000);
+        $sarasOrder = $this->sell($sara, OrderPaymentType::Postpaid, 500);
+        $alisOrder = $this->sell($ali, OrderPaymentType::Cash, 900);
+        $this->pay($ahmed, 400);
+        $this->assertPostpaidBoxMatchesDebts(1100);
+
+        $this->editOrder($ahmedsOrder, quantity: 2);
+        $this->editOrder($sarasOrder, paymentType: OrderPaymentType::Cash);
+        $this->editOrder($alisOrder, paymentType: OrderPaymentType::Postpaid);
+
+        $this->assertEquals(1600, $ahmed->debt());
+        $this->assertEquals(0, $sara->debt());
+        $this->assertEquals(900, $ali->debt());
+        $this->assertPostpaidBoxMatchesDebts(2500);
+    }
+
+    /**
+     * EN: Edits the order's one line to the quantity, or its payment type, through the edit action, keeping the rest as it is.
+     * AR: يعدل كمية البند الوحيد بالأوردر، أو طريقة دفعه، عن طريق action التعديل، والباقي يبقى مثل ما هو.
+     */
+    private function editOrder(Order $order, float $quantity = 1, ?OrderPaymentType $paymentType = null): void
+    {
+        $order = $order->fresh();
+
+        (new UpdateOrder)->handle($order, new CheckoutData(
+            customerId: $order->customer_id,
+            paymentType: $paymentType ?? $order->payment_type,
+            date: $order->date->toDateString(),
+            lines: [new CheckoutLine($order->items()->sole()->item_id, quantity: $quantity)],
+        ));
     }
 
     /**

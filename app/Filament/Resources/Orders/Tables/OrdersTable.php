@@ -5,8 +5,10 @@ namespace App\Filament\Resources\Orders\Tables;
 use App\Enums\OrderPaymentType;
 use App\Filament\Tables\Columns\IdColumn;
 use App\Models\Item;
+use App\Models\Order;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -84,6 +86,8 @@ class OrdersTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                EditAction::make()
+                    ->hidden(fn (Order $record): bool => $record->trashed()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

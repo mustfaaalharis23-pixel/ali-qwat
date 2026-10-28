@@ -55,7 +55,7 @@ class ConfirmPurchaseInvoice
     }
 
     /**
-     * Only a purchase invoice that is not deleted, has its images, and is at this side's stage can be confirmed.
+     * Only a purchase invoice that is not deleted and is at this side's stage can be confirmed. Images are not needed.
      * The receiver's stage comes only after the importer confirmed, so this is what keeps the two confirmations in order.
      *
      * @throws ValidationException
@@ -71,12 +71,6 @@ class ConfirmPurchaseInvoice
         if ($invoice->trashed()) {
             throw ValidationException::withMessages([
                 'status' => __('invoices.validation.deleted_invoice_is_not_confirmed'),
-            ]);
-        }
-
-        if ($side === InvoiceConfirmation::Importer && blank($invoice->images)) {
-            throw ValidationException::withMessages([
-                'images' => __('invoices.validation.invoice_without_images_is_not_confirmed'),
             ]);
         }
 

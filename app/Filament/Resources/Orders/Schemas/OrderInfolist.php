@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Models\Item;
+use App\Models\Order;
 use App\Models\OrderItem;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
@@ -82,6 +83,13 @@ class OrderInfolist
                         TextEntry::make('amount')
                             ->label(__('filament/resources/order.fields.amount'))
                             ->numeric(),
+                        // What the lines' discounts took off the amount, on an order that has any.
+                        TextEntry::make('discount')
+                            ->label(__('filament/resources/order.fields.discount'))
+                            ->state(fn (Order $record): float => (float) $record->amount - (float) $record->total_amount)
+                            ->numeric()
+                            ->color('danger')
+                            ->visible(fn (Order $record): bool => (float) $record->amount - (float) $record->total_amount > 0.0001),
                         TextEntry::make('down_payment')
                             ->label(__('filament/resources/order.fields.down_payment'))
                             ->numeric()
@@ -110,7 +118,7 @@ class OrderInfolist
 
     /**
      * The order's lines as a table, with the lens power a line was sold at and the colors of its packets as badges under its item,
-     * and its dozens with the packets and pieces they are under them.
+     * and its dozens with the packets and pieces they are under them, and the discount taken off each line (a dash for none).
      * What each line cost us and earned shows only to a user who can see the cost.
      */
     private static function linesEntry(): RepeatableEntry
@@ -122,6 +130,7 @@ class OrderInfolist
                 TableColumn::make(__('filament/resources/order.fields.quantity')),
                 TableColumn::make(__('filament/resources/order.fields.price')),
                 TableColumn::make(__('filament/resources/order.fields.total_price')),
+                TableColumn::make(__('filament/resources/order.fields.discount')),
                 self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.cost_price')) : null,
                 self::canSeeTheCost() ? TableColumn::make(__('filament/resources/order.fields.profit')) : null,
             ])))
@@ -141,6 +150,11 @@ class OrderInfolist
                     ]))->size(TextSize::ExtraSmall)->color('gray')),
                 TextEntry::make('price')->numeric(),
                 TextEntry::make('total_price')->numeric(),
+                TextEntry::make('discount')
+                    ->state(fn (OrderItem $record): ?float => $record->discount > 0 ? $record->discount : null)
+                    ->numeric()
+                    ->color('danger')
+                    ->placeholder('—'),
                 self::canSeeTheCost() ? TextEntry::make('cost_price')->numeric() : null,
                 self::canSeeTheCost() ? TextEntry::make('profit')->numeric()->color('success') : null,
             ])));

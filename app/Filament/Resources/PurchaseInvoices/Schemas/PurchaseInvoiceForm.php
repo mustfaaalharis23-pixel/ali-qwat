@@ -87,8 +87,10 @@ class PurchaseInvoiceForm
                         InvoiceCategoryResource::nameInput(),
                     ])
                     ->required(),
+                // The calendar is in English, so the date's digits stay English in Arabic too.
                 DateInput::make('date')
                     ->label(__('filament/resources/invoice.fields.date'))
+                    ->locale('en')
                     ->defaultToday()
                     ->required(),
                 // The yuan in one US dollar. The create page fills it from the Agricultural Bank of China, or China Merchants Bank
@@ -340,7 +342,6 @@ class PurchaseInvoiceForm
                     ->maxSize(2048)
                     ->disk('public')
                     ->directory('invoices')
-                    ->required()
                     ->columnSpanFull(),
                 Textarea::make('notes')
                     ->label(__('filament/resources/invoice.fields.notes'))
@@ -604,7 +605,9 @@ class PurchaseInvoiceForm
         return [
             Select::make('lens_power_id')
                 ->label(__('filament/resources/invoice_item.fields.lens_power_id'))
-                ->options(fn (): array => LensPower::query()->orderBy('value')->pluck('value', 'id')->all())
+                ->options(fn (): array => LensPower::query()->orderBy('value')->get()
+                    ->mapWithKeys(fn (LensPower $power): array => [$power->id => $power->inHundreds()])
+                    ->all())
                 ->placeholder(__('filament/resources/lens_power.none'))
                 ->searchable()
                 ->createOptionForm(fn (Schema $schema): Schema => LensPowerResource::form($schema))
@@ -704,7 +707,7 @@ class PurchaseInvoiceForm
     {
         return blank($lensPowerId)
             ? __('filament/resources/lens_power.none')
-            : (string) (LensPower::withTrashed()->find($lensPowerId)?->value ?? '—');
+            : (LensPower::withTrashed()->find($lensPowerId)?->inHundreds() ?? '—');
     }
 
     /**

@@ -5,8 +5,9 @@
     black and white, where the rules, the weights, and the sizes carry it all.
     Every amount is one left-to-right run with its currency, lined up on its last digit in both languages.
     The details of the order (date and time, payment, cashier, item count) sit in a small two-column block beside the
-    customer. Every line shows a small picture of its item, and reads in dozens: its quantity in dozens with the whole
-    packets it left in under it, and the price of one dozen, so the quantity by the price makes the line's total.
+    customer. The lines of one item at one price and one color mix are one row, with a small picture of the item. The row
+    reads in dozens: a small table of its powers with the packets and dozens of each (or, without powers, its quantity
+    in dozens with the whole packets under it), and the price of one dozen, so the dozens by the price make the row's total.
     A long order runs over pages: the head of the table repeats on every page, a line is never cut in two, and the
     totals stay together. A down payment, when the order has one, sits right above the customer's signature, so whoever
     signs sees what was paid. It is the customer's invoice, so it never carries what the items cost us, the profit,
@@ -17,6 +18,29 @@
     $discount = (float) $order->amount - (float) $order->total_amount;
     $customer = $order->customer;
     $hasCustomer = filled($customer?->name) || filled($customer?->phone) || filled($customer?->email);
+    $count = fn (float $value): string => \Illuminate\Support\Number::format($value, maxPrecision: 2, locale: app()->getLocale());
+
+    // One row per item sold at one price with one color mix, so an item sold at many powers is not repeated:
+    // its powers go in a small table inside the row, lowest first (no power before them), with the packets and dozens of each.
+    $rows = $order->items
+        ->groupBy(fn ($line): string => $line->item_id.'|'.(float) $line->price.'|'.json_encode(\App\Models\Item::colorMix($line->colors)))
+        ->values()
+        ->map(fn ($lines): array => [
+            'line' => $lines->first(),
+            'powers' => $lines
+                ->groupBy(fn ($line): string => (string) $line->lens_power_id)
+                ->map(fn ($same): array => [
+                    'power' => $same->first()->lensPower?->value,
+                    'packets' => (float) $same->sum(fn ($line): float => $line->packets()),
+                    'dozens' => (float) $same->sum('quantity'),
+                ])
+                ->sortBy(fn (array $power): float => $power['power'] === null ? -INF : (float) $power['power'])
+                ->values(),
+            'pieces' => (float) $lines->sum('pieces'),
+            'dozens' => (float) $lines->sum('quantity'),
+            'total' => (float) $lines->sum('total_price'),
+        ]);
+    $hasAnyPowers = $order->items->contains(fn ($line): bool => $line->lens_power_id !== null);
 @endphp
 <!doctype html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
@@ -266,19 +290,23 @@
         }
 
         .col-index {
-            width: 6%;
+            width: 5%;
         }
 
-        .col-quantity {
+        .col-picture {
             width: 15%;
         }
 
+        .col-quantity {
+            width: 30%;
+        }
+
         .col-price {
-            width: 16%;
+            width: 12%;
         }
 
         .col-amount {
-            width: 18%;
+            width: 13%;
         }
 
         .lines thead {
@@ -328,19 +356,24 @@
             line-height: 1.65;
         }
 
-        .item-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .lines th.center {
+            text-align: center;
+        }
+
+        /* The picture in its own column, large enough to see the frame, and the model centered beside it */
+
+        .lines td.picture-cell {
+            text-align: center;
         }
 
         .picture {
             display: block;
-            flex-shrink: 0;
-            width: 14mm;
-            height: 14mm;
+            width: 100%;
+            max-width: 26mm;
+            height: 18mm;
+            margin-inline: auto;
             border: 1px solid var(--hair);
-            border-radius: 4px;
+            border-radius: 6px;
             background: var(--desk);
             object-fit: cover;
         }
@@ -353,7 +386,15 @@
         .lines td.item {
             color: var(--ink);
             font-weight: 500;
+            text-align: center;
             overflow-wrap: anywhere;
+        }
+
+        .lines td.item .model {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.35;
         }
 
         .lines td.quantity .sets {
@@ -375,8 +416,68 @@
             font-weight: 700;
         }
 
-        .lines tbody tr:last-child td {
+        .lines > tbody > tr:last-child > td {
             border-bottom-color: var(--ink);
+        }
+
+        /* The powers of a row: a table of the packets and dozens of each power, under a two-line heading */
+
+        .lines th.powers-heading,
+        .lines td.powers-cell {
+            text-align: center;
+        }
+
+        .lines th.powers-heading .note {
+            display: block;
+            font-size: 10.5px;
+            font-weight: 400;
+        }
+
+        .lines .powers {
+            width: 100%;
+            border: 1px solid var(--hair);
+            border-radius: 6px;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            table-layout: fixed;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .lines .powers th,
+        .lines .powers td {
+            padding: 2px 8px;
+            border: 0;
+            color: var(--ink);
+            font-size: 12.5px;
+            font-weight: 500;
+            letter-spacing: normal;
+            line-height: 1.5;
+            text-align: center;
+            text-transform: none;
+            vertical-align: middle;
+        }
+
+        .lines .powers th {
+            padding-inline: 4px;
+            background: var(--desk);
+            color: var(--label);
+            font-size: 10.5px;
+            white-space: nowrap;
+        }
+
+        .lines .powers td {
+            border-top: 1px solid var(--hair);
+        }
+
+        .lines .powers th + th,
+        .lines .powers td + td {
+            border-inline-start: 1px solid var(--hair);
+        }
+
+        .lines .powers .no-power {
+            color: var(--label);
+            font-size: 11px;
         }
 
         .closing {
@@ -699,7 +800,7 @@
             @endif
             <div class="fact">
                 <dt>{{ __('invoices.print.items_count') }}</dt>
-                <dd>{{ $order->items->count() }}</dd>
+                <dd>{{ $rows->count() }}</dd>
             </div>
         </dl>
     </section>
@@ -707,6 +808,7 @@
     <table class="lines">
         <colgroup>
             <col class="col-index">
+            <col class="col-picture">
             <col>
             <col class="col-quantity">
             <col class="col-price">
@@ -715,44 +817,72 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>{{ __('invoices.print.item') }}</th>
-                <th class="money">{{ __('invoices.print.quantity') }}</th>
+                <th class="center">{{ __('invoices.print.picture') }}</th>
+                <th class="center">{{ __('invoices.print.model') }}</th>
+                @if ($hasAnyPowers)
+                    <th class="powers-heading">
+                        {{ __('invoices.print.powers_heading') }}
+                        <span class="note">{{ __('invoices.print.powers_heading_note') }}</span>
+                    </th>
+                @else
+                    <th class="money">{{ __('invoices.print.quantity') }}</th>
+                @endif
                 <th class="money">{{ __('invoices.print.unit_price') }}</th>
                 <th class="money">{{ __('invoices.print.total') }}</th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($order->items as $line)
+            @foreach ($rows as $row)
+                @php
+                    $line = $row['line'];
+                    $hasPowers = $row['powers']->contains(fn (array $power): bool => $power['power'] !== null);
+                @endphp
                 <tr>
                     <td class="index">{{ $loop->iteration }}</td>
-                    <td class="item">
-                        <div class="item-row">
-                            @if ($source = $picture($line->item))
-                                <img class="picture" src="{{ $source }}" alt="">
-                            @else
-                                <span class="picture"></span>
-                            @endif
-                            <div>
-                                <bdi>{{ $line->item?->name }}</bdi>
-                                @if ($line->lensPower)
-                                    <span class="power"><bdi>{{ __('invoices.print.power', ['value' => $line->lensPower->value]) }}</bdi></span>
-                                @endif
-                                @if ($line->colors)
-                                    <span class="power">
-                                        @foreach ($line->colorsWithNames() as $color)
-                                            <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
-                                        @endforeach
-                                    </span>
-                                @endif
-                            </div>
-                        </div>
+                    <td class="picture-cell">
+                        @if ($source = $picture($line->item))
+                            <img class="picture" src="{{ $source }}" alt="">
+                        @else
+                            <span class="picture"></span>
+                        @endif
                     </td>
-                    <td class="money quantity">
-                        <bdi>{{ trans('orders.dozens', ['count' => \Illuminate\Support\Number::format((float) $line->quantity, maxPrecision: 2, locale: app()->getLocale())]) }}</bdi>
-                        <span class="sets"><bdi>{{ $line->package->describe((float) $line->pieces, $line->package_size) }}</bdi></span>
+                    <td class="item">
+                        <bdi class="model">{{ $line->item?->name }}</bdi>
+                        @if ($line->colors)
+                            <span class="power">
+                                @foreach ($line->colorsWithNames() as $color)
+                                    <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
+                                @endforeach
+                            </span>
+                        @endif
+                    </td>
+                    <td class="quantity {{ $hasAnyPowers ? 'powers-cell' : 'money' }}">
+                        @if ($hasPowers)
+                            <table class="powers">
+                                <thead>
+                                    <tr>
+                                        <th>{{ __('invoices.print.power_column') }}</th>
+                                        <th>{{ __('invoices.print.packets_column') }}</th>
+                                        <th>{{ __('invoices.print.dozens_column') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($row['powers'] as $power)
+                                        <tr>
+                                            <td>@if ($power['power'] === null)<span class="no-power">{{ __('invoices.print.no_power') }}</span>@else<bdi dir="ltr">{{ (float) $power['power'] > 0 ? '+'.$power['power'] : $power['power'] }}</bdi>@endif</td>
+                                            <td><bdi>{{ $count($power['packets']) }}</bdi></td>
+                                            <td><bdi>{{ $count($power['dozens']) }}</bdi></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        @else
+                            <bdi>{{ trans('orders.dozens', ['count' => $count($row['dozens'])]) }}</bdi>
+                            <span class="sets"><bdi>{{ $line->package->describe($row['pieces'], $line->package_size) }}</bdi></span>
+                        @endif
                     </td>
                     <td class="money">{{ $money((float) $line->price) }}</td>
-                    <td class="money amount">{{ $money((float) $line->total_price) }}</td>
+                    <td class="money amount">{{ $money($row['total']) }}</td>
                 </tr>
             @endforeach
         </tbody>

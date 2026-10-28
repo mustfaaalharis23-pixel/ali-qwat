@@ -5,6 +5,7 @@ namespace App\Invoices;
 use App\Metrics\FormattedValue;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\LensPower;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Picqer\Barcode\BarcodeGeneratorSVG;
@@ -53,10 +54,11 @@ class PurchaseLabelDocument
             'cartons' => FormattedValue::of((float) $invoice->items->sum('cartons_count'))->number,
             'cbm' => FormattedValue::of($invoice->cbm)->number,
             'powers' => $invoice->items
-                ->flatMap(fn (InvoiceItem $line): Collection => $line->groups->pluck('lensPower.value'))
+                ->flatMap(fn (InvoiceItem $line): Collection => $line->groups->pluck('lensPower'))
                 ->filter()
-                ->unique()
-                ->sortBy(fn (string $value): float => (float) $value)
+                ->unique('id')
+                ->sortBy(fn (LensPower $power): float => (float) $power->value)
+                ->map(fn (LensPower $power): string => $power->inHundreds())
                 ->values()
                 ->all(),
         ]);

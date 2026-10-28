@@ -30,14 +30,14 @@ class OrderPolicyTest extends TestCase
     }
 
     /**
-     * EN: The only order permission that can be given to a user is order.view.
-     * AR: الصلاحية الوحيدة للطلبات اللي تنطى لليوزر هي order.view.
+     * EN: The order permissions that can be given to a user are order.view and order.update.
+     * AR: صلاحيات الطلبات اللي تنطى لليوزر هي order.view و order.update.
      */
-    public function test_the_only_order_permission_is_view(): void
+    public function test_the_order_permissions_are_view_and_update(): void
     {
         $permissions = (new PermissionDiscovery)->discover([Order::class]);
 
-        $this->assertSame(['order.view'], $permissions[Order::class]);
+        $this->assertSame(['order.view', 'order.update'], $permissions[Order::class]);
     }
 
     /**
@@ -55,8 +55,8 @@ class OrderPolicyTest extends TestCase
     }
 
     /**
-     * EN: The abilities that change orders: add, edit, delete, restore, and force delete.
-     * AR: الـ abilities اللي تغير الطلبات: إضافة، تعديل، حذف، استرجاع، وحذف نهائي.
+     * EN: The abilities that change orders other than editing: add, delete, restore, and force delete.
+     * AR: الـ abilities اللي تغير الطلبات غير التعديل: إضافة، حذف، استرجاع، وحذف نهائي.
      *
      * @return array<string, array{string}>
      */
@@ -64,7 +64,6 @@ class OrderPolicyTest extends TestCase
     {
         return [
             'create' => ['create'],
-            'update' => ['update'],
             'delete' => ['delete'],
             'deleteAny' => ['deleteAny'],
             'restore' => ['restore'],
@@ -99,8 +98,8 @@ class OrderPolicyTest extends TestCase
     }
 
     /**
-     * EN: A normal user can never add, edit, delete, or restore orders, even if order permissions other than view are saved for them.
-     * AR: اليوزر العادي ما يكدر يضيف أو يعدل أو يحذف أو يسترجع الطلبات أبداً، حتى لو انحفظتله صلاحيات order غير العرض.
+     * EN: A normal user can never add, delete, or restore orders, even if order permissions other than view and update are saved for them.
+     * AR: اليوزر العادي ما يكدر يضيف أو يحذف أو يسترجع الطلبات أبداً، حتى لو انحفظتله صلاحيات order غير العرض والتعديل.
      */
     #[DataProvider('changeAbilities')]
     public function test_normal_user_can_never_change_orders(string $ability): void
@@ -108,6 +107,41 @@ class OrderPolicyTest extends TestCase
         $user = $this->userWithPermissions(['order.view', 'order.create', 'order.update', 'order.delete', 'order.restore']);
 
         $this->assertFalse($user->can($ability, $this->target($ability)));
+    }
+
+    /**
+     * EN: A user who has the order.update permission can edit an order.
+     * AR: اليوزر اللي عنده صلاحية order.update يكدر يعدل الأوردر.
+     */
+    public function test_user_with_the_order_update_permission_can_edit_an_order(): void
+    {
+        $user = $this->userWithPermissions(['order.view', 'order.update']);
+
+        $this->assertTrue($user->can('update', Order::factory()->create()));
+    }
+
+    /**
+     * EN: A user who only views orders cannot edit one.
+     * AR: اليوزر اللي بس يعرض الطلبات ما يكدر يعدل أوردر.
+     */
+    public function test_user_without_the_order_update_permission_cannot_edit_an_order(): void
+    {
+        $user = $this->userWithPermissions(['order.view']);
+
+        $this->assertFalse($user->can('update', Order::factory()->create()));
+    }
+
+    /**
+     * EN: A deleted order is not edited, even by a user who has the order.update permission.
+     * AR: الأوردر المحذوف ما ينعدل، حتى من اليوزر اللي عنده صلاحية order.update.
+     */
+    public function test_a_deleted_order_cannot_be_edited(): void
+    {
+        $user = $this->userWithPermissions(['order.view', 'order.update']);
+        $order = Order::factory()->create();
+        $order->delete();
+
+        $this->assertFalse($user->can('update', $order));
     }
 
     /**
@@ -123,8 +157,8 @@ class OrderPolicyTest extends TestCase
     }
 
     /**
-     * EN: A super user can add, edit, delete, and restore orders.
-     * AR: is_super يكدر يضيف ويعدل ويحذف ويسترجع الطلبات.
+     * EN: A super user can add, delete, and restore orders.
+     * AR: is_super يكدر يضيف ويحذف ويسترجع الطلبات.
      */
     #[DataProvider('changeAbilities')]
     public function test_super_user_can_change_orders(string $ability): void

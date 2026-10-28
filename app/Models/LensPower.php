@@ -40,6 +40,15 @@ class LensPower extends BaseModel
     }
 
     /**
+     * The power in hundreds without a point, the way the factories in China write it: 1.00 is 100 and 1.50 is 150.
+     * The purchase invoice shows the powers this way.
+     */
+    public function inHundreds(): string
+    {
+        return (string) (int) round((float) $this->value * 100);
+    }
+
+    /**
      * @throws ValidationException
      */
     protected function ensureIsOnNoLine(): void

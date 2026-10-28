@@ -7,9 +7,13 @@ use App\Invoices\ConfirmPurchaseInvoice;
 use App\Invoices\FetchExchangeRate;
 use App\Models\GeneralDescription;
 use App\Models\Payoff;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Arr;
 
 class CreatePurchaseInvoice extends CreateRecord
 {
@@ -24,6 +28,76 @@ class CreatePurchaseInvoice extends CreateRecord
      * What was paid to the supplier on the spot, taken off the form and turned into the invoice's first payoff.
      */
     private ?float $initialPayment = null;
+
+    /**
+     * Whether the form was filled from the copy this browser kept of an invoice that was being typed, so it can be discarded.
+     */
+    public bool $hasRestoredDraft = false;
+
+    /**
+     * Puts back what the user was typing before the page was left, from the copy this browser keeps under the user.
+     * Only the form's own fields are taken, and never the images, because an upload does not outlive the page.
+     * The copy is the form's raw state, so it is put back the way Filament keeps the form when creating another, without the hydration hooks.
+     *
+     * @param  array<string, mixed>  $draft
+     */
+    public function restoreDraft(array $draft): void
+    {
+        $rawState = $this->form->getRawState();
+        $draft = Arr::except(array_intersect_key($draft, $rawState), ['images']);
+
+        if ($draft === []) {
+            return;
+        }
+
+        $this->form->rawState([...$rawState, ...$draft]);
+
+        $hydratedDefaultState = null;
+        $this->form->hydrateState($hydratedDefaultState, shouldCallHydrationHooks: false);
+        $this->form->dispatchClientSideStateReset();
+
+        $this->hasRestoredDraft = true;
+
+        Notification::make()
+            ->title(__('filament/resources/purchase_invoice.notifications.draft_restored.title'))
+            ->body(__('filament/resources/purchase_invoice.notifications.draft_restored.body'))
+            ->info()
+            ->send();
+    }
+
+    /**
+     * Keeps a copy of the form in this browser while it is typed, and brings it back when the page opens again.
+     */
+    public function getFooter(): View
+    {
+        return view('filament.purchase-invoices.draft', [
+            'storageKey' => 'waqt:purchase-invoice-draft:'.auth()->id(),
+        ]);
+    }
+
+    /**
+     * Only after a copy was put back: discarding it forgets the copy and opens the page again on an empty invoice.
+     *
+     * @return array<Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('discardDraft')
+                ->label(__('filament/resources/purchase_invoice.actions.discard_draft.label'))
+                ->icon(Heroicon::OutlinedTrash)
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalHeading(__('filament/resources/purchase_invoice.actions.discard_draft.heading'))
+                ->modalDescription(__('filament/resources/purchase_invoice.actions.discard_draft.description'))
+                ->modalSubmitActionLabel(__('filament/resources/purchase_invoice.actions.discard_draft.submit'))
+                ->visible(fn (): bool => $this->hasRestoredDraft)
+                ->action(function (): void {
+                    $this->dispatch('purchase-invoice-draft-cleared');
+                    $this->redirect(PurchaseInvoiceResource::getUrl('create'));
+                }),
+        ];
+    }
 
     /**
      * The exchange rate and its source are filled from the banks when the page opens: the Agricultural Bank of China first,
@@ -56,6 +130,10 @@ class CreatePurchaseInvoice extends CreateRecord
     {
         (new ConfirmPurchaseInvoice)->handleOnCreation($this->getRecord());
         $this->payTheInitialPayment();
+
+        // Last, so the copy kept in the browser is forgotten only once the invoice is really created.
+        $this->hasRestoredDraft = false;
+        $this->dispatch('purchase-invoice-draft-cleared');
     }
 
     /**

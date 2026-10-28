@@ -8,6 +8,7 @@ use App\Models\Order;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -25,6 +26,7 @@ class ViewOrder extends ViewRecord
     /**
      * The order's invoice opens in a new tab to print, as a full page or as the small printer's receipt, the same as on the
      * invoice printing page. It shows to a user who can open that page, and not on a deleted order, which has no invoice.
+     * A deleted order is not edited.
      */
     protected function getHeaderActions(): array
     {
@@ -46,6 +48,8 @@ class ViewOrder extends ViewRecord
                 ->color('gray')
                 ->button()
                 ->visible(fn (): bool => ! $this->getRecord()->trashed() && Gate::allows('viewAny', InvoicePrinting::class)),
+            EditAction::make()
+                ->hidden(fn (): bool => $this->getRecord()->trashed()),
             DeleteAction::make(),
         ];
     }
