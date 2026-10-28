@@ -18,7 +18,7 @@
     $discount = (float) $order->amount - (float) $order->total_amount;
     $customer = $order->customer;
     $hasCustomer = filled($customer?->name) || filled($customer?->phone) || filled($customer?->email);
-    $count = fn (float $value): string => \Illuminate\Support\Number::format($value, maxPrecision: 2, locale: app()->getLocale());
+    $count = fn (float $value): string => \Illuminate\Support\Number::format($value, maxPrecision: 2);
 
     // One row per item sold at one price with one color mix, so an item sold at many powers is not repeated:
     // its powers go in a small table inside the row, lowest first (no power before them), with the packets and dozens of each.
@@ -851,7 +851,7 @@
                         @if ($line->colors)
                             <span class="power">
                                 @foreach ($line->colorsWithNames() as $color)
-                                    <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
+                                    <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2)]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
                                 @endforeach
                             </span>
                         @endif

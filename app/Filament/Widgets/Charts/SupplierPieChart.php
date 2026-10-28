@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets\Charts;
 
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Number;
 
 /**
  * The template of the pies of a number for each supplier, from the largest to the smallest:
@@ -88,6 +89,8 @@ abstract class SupplierPieChart extends ChartWidget
     protected function getOptions(): array
     {
         return [
+            // The chart writes its numbers in English digits, like the rest of the system.
+            'locale' => Number::defaultLocale(),
             'scales' => [
                 'x' => ['display' => false],
                 'y' => ['display' => false],

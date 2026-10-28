@@ -123,7 +123,7 @@ class PurchaseInvoiceForm
                     ->live(debounce: 500)
                     ->required()
                     ->helperText(fn (Get $get): string => __('filament/resources/purchase_invoice.dinar_rate_hint', [
-                        'value' => Number::format(self::dinarsPerDollar($get('dinar_rate')) ?? 0, locale: app()->getLocale()),
+                        'value' => Number::format(self::dinarsPerDollar($get('dinar_rate')) ?? 0),
                     ])),
                 // Typed by hand, and changed until the invoice first enters a container; from then on it is locked for good.
                 MoneyInput::make('cbm_price')
@@ -773,7 +773,7 @@ class PurchaseInvoiceForm
      */
     private static function count(mixed $value): string
     {
-        return (string) Number::format(self::number($value), maxPrecision: 2, locale: app()->getLocale());
+        return (string) Number::format(self::number($value), maxPrecision: 2);
     }
 
     /**
@@ -791,8 +791,8 @@ class PurchaseInvoiceForm
 
         if (abs($spread - $packets) > 0.0001) {
             $fail(__('invoices.validation.groups_must_add_up', [
-                'spread' => Number::format($spread, maxPrecision: 2, locale: app()->getLocale()),
-                'packets' => Number::format($packets, maxPrecision: 2, locale: app()->getLocale()),
+                'spread' => Number::format($spread, maxPrecision: 2),
+                'packets' => Number::format($packets, maxPrecision: 2),
             ]));
         }
     }
@@ -812,8 +812,8 @@ class PurchaseInvoiceForm
 
         if (abs($pieces - $packet) > 0.0001) {
             $fail(__('invoices.validation.colors_must_fill_the_packet', [
-                'pieces' => Number::format($pieces, maxPrecision: 2, locale: app()->getLocale()),
-                'packet' => Number::format($packet, maxPrecision: 2, locale: app()->getLocale()),
+                'pieces' => Number::format($pieces, maxPrecision: 2),
+                'packet' => Number::format($packet, maxPrecision: 2),
             ]));
         }
     }
@@ -929,7 +929,7 @@ class PurchaseInvoiceForm
     {
         return [
             'text' => __("filament/resources/purchase_invoice.facts.{$name}", [
-                'value' => $value === null ? '—' : Number::format($value, maxPrecision: $maxDecimals, locale: app()->getLocale()),
+                'value' => $value === null ? '—' : Number::format($value, maxPrecision: $maxDecimals),
                 ...$replace,
             ]),
             'tooltip' => __("filament/resources/purchase_invoice.facts_hints.{$name}"),
@@ -1012,7 +1012,7 @@ class PurchaseInvoiceForm
      */
     private static function cbm(float $cbm): string
     {
-        return Number::format($cbm, maxPrecision: self::CBM_DECIMALS, locale: app()->getLocale());
+        return Number::format($cbm, maxPrecision: self::CBM_DECIMALS);
     }
 
     /**

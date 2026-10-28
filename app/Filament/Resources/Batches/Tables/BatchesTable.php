@@ -42,7 +42,7 @@ class BatchesTable
                     ->state(fn (Batch $record): ?string => $record->colors->isEmpty() ? null : $record->colors
                         ->map(fn (BatchColor $color): string => __('filament/resources/invoice_item.group.color', [
                             'color' => $color->color?->name,
-                            'pieces' => Number::format($color->pieces, maxPrecision: 2, locale: app()->getLocale()),
+                            'pieces' => Number::format($color->pieces, maxPrecision: 2),
                         ]))
                         ->implode(__('filament/resources/invoice_item.group.separator')))
                     ->placeholder('—')

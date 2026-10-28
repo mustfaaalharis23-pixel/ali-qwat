@@ -344,7 +344,7 @@ class InvoicesRelationManager extends RelationManager
      */
     private function number(float|int|string|null $value): string
     {
-        return Number::format((float) $value, maxPrecision: 2, locale: app()->getLocale());
+        return Number::format((float) $value, maxPrecision: 2);
     }
 
     /**

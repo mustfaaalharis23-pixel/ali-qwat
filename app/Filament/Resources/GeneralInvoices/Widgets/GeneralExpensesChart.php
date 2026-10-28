@@ -4,6 +4,7 @@ namespace App\Filament\Resources\GeneralInvoices\Widgets;
 
 use App\Models\Invoice;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Number;
 
 /**
  * A pie of where the general expenses went: the descriptions spent on the most, each with its own color,
@@ -76,6 +77,8 @@ class GeneralExpensesChart extends ChartWidget
     protected function getOptions(): array
     {
         return [
+            // The chart writes its numbers in English digits, like the rest of the system.
+            'locale' => Number::defaultLocale(),
             'scales' => [
                 'x' => ['display' => false],
                 'y' => ['display' => false],

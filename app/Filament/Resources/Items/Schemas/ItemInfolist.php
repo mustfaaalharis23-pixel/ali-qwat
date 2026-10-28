@@ -153,7 +153,7 @@ class ItemInfolist
                 'arrived' => self::packetsAndDozens($row['arrived_packets'], $row['arrived_pieces']),
                 'incoming' => self::packetsAndDozens($row['incoming_packets'], $row['incoming_pieces']),
                 'remaining' => __('filament/resources/item.by_power.dozens', [
-                    'dozens' => Number::format($row['remaining_pieces'] / Item::PIECES_IN_A_DOZEN, maxPrecision: 2, locale: app()->getLocale()),
+                    'dozens' => Number::format($row['remaining_pieces'] / Item::PIECES_IN_A_DOZEN, maxPrecision: 2),
                 ]),
             ])
             ->all();
@@ -168,7 +168,7 @@ class ItemInfolist
     private static function quantitiesByColor(Item $record): array
     {
         $pieces = fn (float $pieces): string => __('filament/resources/item.by_color.pieces', [
-            'pieces' => Number::format($pieces, maxPrecision: 2, locale: app()->getLocale()),
+            'pieces' => Number::format($pieces, maxPrecision: 2),
         ]);
 
         return $record->quantitiesByColor()
@@ -192,8 +192,8 @@ class ItemInfolist
         }
 
         return __('filament/resources/item.by_power.packets_and_dozens', [
-            'packets' => Number::format($packets, maxPrecision: 2, locale: app()->getLocale()),
-            'dozens' => Number::format($pieces / Item::PIECES_IN_A_DOZEN, maxPrecision: 2, locale: app()->getLocale()),
+            'packets' => Number::format($packets, maxPrecision: 2),
+            'dozens' => Number::format($pieces / Item::PIECES_IN_A_DOZEN, maxPrecision: 2),
         ]);
     }
 
@@ -203,7 +203,7 @@ class ItemInfolist
     private static function piecePrice(float $dozenPrice): Text
     {
         return Text::make(__('filament/resources/item.hints.piece_price', [
-            'value' => Number::format(Item::piecePrice($dozenPrice), maxPrecision: 0, locale: app()->getLocale()),
+            'value' => Number::format(Item::piecePrice($dozenPrice), maxPrecision: 0),
         ]))->size(TextSize::ExtraSmall)->color('gray');
     }
 

@@ -537,7 +537,7 @@ trait InteractsWithCheckoutCart
 
     protected function number(float|int $value): string
     {
-        return (string) Number::format($value, maxPrecision: 2, locale: app()->getLocale());
+        return (string) Number::format($value, maxPrecision: 2);
     }
 
     /**

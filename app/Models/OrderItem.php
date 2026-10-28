@@ -138,7 +138,7 @@ class OrderItem extends BaseModel
         return collect($this->colorsWithNames())
             ->map(fn (array $color): string => __('filament/resources/invoice_item.group.color', [
                 'color' => $color['name'],
-                'pieces' => Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale()),
+                'pieces' => Number::format($color['pieces'], maxPrecision: 2),
             ]))
             ->implode(__('filament/resources/invoice_item.group.separator'));
     }

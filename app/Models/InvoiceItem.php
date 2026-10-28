@@ -157,7 +157,7 @@ class InvoiceItem extends BaseModel
         $colors = $this->colors
             ->map(fn (InvoiceItemColor $color): string => __('filament/resources/invoice_item.group.color', [
                 'color' => $color->color?->name,
-                'pieces' => Number::format((float) $color->pieces, maxPrecision: 2, locale: app()->getLocale()),
+                'pieces' => Number::format((float) $color->pieces, maxPrecision: 2),
             ]))
             ->implode(__('filament/resources/invoice_item.group.separator'));
 

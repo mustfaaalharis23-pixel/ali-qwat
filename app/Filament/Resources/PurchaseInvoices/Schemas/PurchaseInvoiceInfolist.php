@@ -504,7 +504,7 @@ class PurchaseInvoiceInfolist
      */
     private static function number(float|int|string|null $value, int $maxDecimals = 2): string
     {
-        return Number::format((float) $value, maxPrecision: $maxDecimals, locale: app()->getLocale());
+        return Number::format((float) $value, maxPrecision: $maxDecimals);
     }
 
     /**

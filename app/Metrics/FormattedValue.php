@@ -21,16 +21,14 @@ readonly class FormattedValue
      */
     public static function of(float $value, ?Currency $currency = null): self
     {
-        $locale = app()->getLocale();
-
         if ($currency === null) {
-            return new self(Number::format($value, maxPrecision: 2, locale: $locale), null);
+            return new self(Number::format($value, maxPrecision: 2), null);
         }
 
         $decimals = $currency === Currency::IraqiDinar ? 0 : 2;
         $rounded = round($value, $decimals);
         $precision = $rounded === floor($rounded) ? 0 : $decimals;
 
-        return new self(Number::format($rounded, precision: $precision, locale: $locale), $currency->symbol());
+        return new self(Number::format($rounded, precision: $precision), $currency->symbol());
     }
 }

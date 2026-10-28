@@ -144,8 +144,8 @@ class OrderInfolist
                 TextEntry::make('quantity')
                     ->numeric(maxDecimalPlaces: 2)
                     ->belowContent(fn (OrderItem $record): Text => Text::make(__('filament/resources/order.packets_and_pieces', [
-                        'packets' => Number::format($record->packets(), maxPrecision: 2, locale: app()->getLocale()),
-                        'pieces' => Number::format((float) $record->pieces, locale: app()->getLocale()),
+                        'packets' => Number::format($record->packets(), maxPrecision: 2),
+                        'pieces' => Number::format((float) $record->pieces),
                     ]))->size(TextSize::ExtraSmall)->color('gray')),
                 TextEntry::make('price')->numeric(),
                 TextEntry::make('total_price')->numeric(),

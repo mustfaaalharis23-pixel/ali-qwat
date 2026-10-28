@@ -545,11 +545,11 @@
                             <span class="item-power-value"><bdi>{{ __('invoices.print.power', ['value' => $line->lensPower->value]) }}</bdi></span>
                         @endif
                         @foreach ($line->colorsWithNames() as $color)
-                            <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2, locale: app()->getLocale())]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
+                            <bdi>{{ $color['name'] }}</bdi> {{ __('invoices.print.color_pieces', ['pieces' => \Illuminate\Support\Number::format($color['pieces'], maxPrecision: 2)]) }}{{ $loop->last ? '' : __('filament/resources/invoice_item.group.separator') }}
                         @endforeach
                     </span>
                 @endif
-                <span class="item-math"><bdi>{{ trans('orders.dozens', ['count' => \Illuminate\Support\Number::format((float) $line->quantity, maxPrecision: 2, locale: app()->getLocale())]) }}</bdi> × {{ $money((float) $line->price) }}</span>
+                <span class="item-math"><bdi>{{ trans('orders.dozens', ['count' => \Illuminate\Support\Number::format((float) $line->quantity, maxPrecision: 2)]) }}</bdi> × {{ $money((float) $line->price) }}</span>
                 <span class="item-total money">{{ $money((float) $line->total_price) }}</span>
                 <span class="item-sets"><bdi>{{ $line->package->describe((float) $line->pieces, $line->package_size) }}</bdi></span>
             </div>

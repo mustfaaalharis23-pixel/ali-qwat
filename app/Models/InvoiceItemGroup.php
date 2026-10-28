@@ -75,7 +75,7 @@ class InvoiceItemGroup extends BaseModel
      */
     public function description(): string
     {
-        $number = fn (mixed $value): string => (string) Number::format((float) $value, maxPrecision: 2, locale: app()->getLocale());
+        $number = fn (mixed $value): string => (string) Number::format((float) $value, maxPrecision: 2);
 
         return collect([
             $this->lensPower === null ? null : __('filament/resources/invoice_item.group.power', ['value' => $this->lensPower->value]),

@@ -36,7 +36,7 @@ enum Package: string implements HasLabel
         $count = round($pieces / max($size, 1), 2);
 
         return trans_choice("orders.package_counts.{$this->value}", $count, [
-            'count' => Number::format($count, maxPrecision: 2, locale: app()->getLocale()),
+            'count' => Number::format($count, maxPrecision: 2),
         ]);
     }
 }

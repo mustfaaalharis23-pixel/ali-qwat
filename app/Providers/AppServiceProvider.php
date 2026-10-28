@@ -10,6 +10,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
      * How a date and time is written across the panel.
      */
     private const DATE_TIME_FORMAT = 'Y/m/d H:i';
+
+    /**
+     * The language numbers are written in across the system, so they always have English digits.
+     */
+    private const NUMBER_LOCALE = 'en';
 
     /**
      * Register any application services.
@@ -39,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerSuperOnlyMacros();
         $this->registerDateFormats();
+        $this->registerNumberFormats();
 
         Gate::before(function (User $user, string $ability, array $arguments): ?bool {
             if (! $user->is_super) {
@@ -68,6 +75,20 @@ class AppServiceProvider extends ServiceProvider
         Schema::configureUsing(fn (Schema $schema): Schema => $schema
             ->defaultDateDisplayFormat(self::DATE_FORMAT)
             ->defaultDateTimeDisplayFormat(self::DATE_TIME_FORMAT));
+    }
+
+    /**
+     * Every number in the system is written in English digits (0-9), whatever the language: what Laravel's Number helper formats
+     * (the screens, the printed invoices, the metrics), and the numbers, money, and summaries of Filament's tables and details pages.
+     * The date field already writes its dates in English digits in every language.
+     */
+    private function registerNumberFormats(): void
+    {
+        Number::useLocale(self::NUMBER_LOCALE);
+
+        Table::configureUsing(fn (Table $table): Table => $table->defaultNumberLocale(self::NUMBER_LOCALE));
+
+        Schema::configureUsing(fn (Schema $schema): Schema => $schema->defaultNumberLocale(self::NUMBER_LOCALE));
     }
 
     /**
