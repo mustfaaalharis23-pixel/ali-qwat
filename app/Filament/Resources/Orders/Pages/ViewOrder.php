@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders\Pages;
 
 use App\Filament\Pages\InvoicePrinting;
+use App\Filament\Resources\Customers\Actions\PayDebtAction;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use Filament\Actions\Action;
@@ -26,7 +27,8 @@ class ViewOrder extends ViewRecord
     /**
      * The order's invoice opens in a new tab to print, as a full page or as the small printer's receipt, the same as on the
      * invoice printing page. It shows to a user who can open that page, and not on a deleted order, which has no invoice.
-     * A deleted order is not edited.
+     * A deleted order is not edited. A postpaid order with something left on it can be paid from its page: the payment window
+     * opens on this order only, and the page reads the order again once it is paid.
      */
     protected function getHeaderActions(): array
     {
@@ -48,6 +50,8 @@ class ViewOrder extends ViewRecord
                 ->color('gray')
                 ->button()
                 ->visible(fn (): bool => ! $this->getRecord()->trashed() && Gate::allows('viewAny', InvoicePrinting::class)),
+            PayDebtAction::make()
+                ->after(fn (): mixed => $this->getRecord()->refresh()),
             EditAction::make()
                 ->hidden(fn (): bool => $this->getRecord()->trashed()),
             DeleteAction::make(),

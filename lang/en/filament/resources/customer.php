@@ -22,6 +22,12 @@ return [
     'actions' => [
         'pay_debt' => [
             'label' => 'Pay debt',
+            'heading_order' => 'Pay order #:order · :customer',
+            'pay_order_all' => 'All',
+            'order_late' => 'late: :amount',
+            'order_weekly' => 'weekly: :amount',
+            'order_next' => 'next: :amount on :date',
+            'order_next_today' => 'next: :amount today',
             'heading' => 'Pay the debt of :customer',
             'debt' => 'Remaining debt: :debt',
             'customer' => 'Customer',
@@ -49,6 +55,24 @@ return [
     ],
 
     'statement' => [
+        'layouts' => [
+            'orders' => 'By order',
+            'dates' => 'By date',
+        ],
+        'tree' => [
+            'order' => 'Order #:id · :date · :items items',
+            'total' => 'Amount',
+            'paid' => 'Paid',
+            'remaining' => 'Left',
+            'settled' => 'Fully paid',
+            'open' => ':amount left',
+            'open_order' => 'Open the order',
+            'no_payments' => 'Nothing paid on it yet',
+            'left_after' => ':amount left after it',
+            'by' => 'Recorded by :user',
+            'receipt' => 'Receipt',
+            'empty' => 'No postpaid orders in this period.',
+        ],
         'fields' => [
             'customer' => 'Customer',
             'customer_placeholder' => 'Choose a customer',

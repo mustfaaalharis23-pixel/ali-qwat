@@ -38,6 +38,8 @@ return [
         'order_has_payments' => 'الأوردر اللي عليه تسديدات ما ينحذف. احذف التسديدات أولاً.',
         'payment_amount_must_be_positive' => 'المبلغ لازم يكون أكبر من صفر.',
         'payment_exceeds_customer_debt' => 'المبلغ ما يكدر يكون أكثر من الدين الباقي على الزبون (:debt).',
+        'payment_order_not_open' => 'هذا الأوردر مو من ديون هذا الزبون، أو ما باقي عليه شي.',
+        'payment_exceeds_order_remaining' => 'المبلغ على أوردر #:order أكثر من الباقي عليه (:remaining).',
         'payment_description_missing' => 'ماكو وصف لتحويل أموال الآجل.',
         'payment_needs_postpaid_order' => 'التسديد ينضاف بس لأوردر آجل.',
         'payment_on_deleted_order' => 'الأوردر المحذوف ما ينضاف عليه تسديد.',

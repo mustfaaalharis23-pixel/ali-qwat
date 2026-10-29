@@ -37,6 +37,27 @@ return [
     'sections' => [
         'details' => '订单详情',
         'amounts' => '金额',
+        'payments' => '付款记录',
+    ],
+
+    'weekly' => [
+        'amount' => '每周',
+        'next' => '下次付款',
+        'left' => '剩余',
+        'settled' => '已全部付清',
+        'late_value' => ':amount · 已逾期 :days 天',
+        'next_value' => ':amount · :date',
+        'next_today' => ':amount · 今天',
+        'left_value' => ':amount · 剩余期数 :weeks',
+    ],
+
+    'payments' => [
+        'date' => '日期',
+        'amount' => '此订单金额',
+        'by' => '记录人',
+        'receipt' => '收据',
+        'down_payment' => '首付款',
+        'none' => '尚未付款',
     ],
 
     'packets_and_pieces' => ':packets 包 · :pieces 副',

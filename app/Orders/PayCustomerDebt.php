@@ -66,17 +66,66 @@ class PayCustomerDebt
                 ]);
             }
 
-            $payment = CustomerPayment::create([
-                'customer_id' => $customer->id,
-                'invoice_id' => $this->withdrawalInvoice($actor, $customer, $description, $amount, $date, $notes)->id,
-                'user_id' => $actor->id,
-                'amount' => $amount,
-                'date' => $date,
-                'image' => $image,
-                'notes' => $notes,
-            ]);
+            $payment = $this->recordPayment($actor, $customer, $description, $amount, $date, $image, $notes);
 
             $this->spread($payment, $orders, $amount);
+
+            return $payment;
+        });
+    }
+
+    /**
+     * Records a payment of the customer on the orders the seller chose, each with its own amount ([order id => amount]), instead of
+     * spreading it from the oldest, so every order keeps what was paid on it. The payment is the amounts together, and its money
+     * moves the same way as any payment. Every order must be one of the customer's postpaid orders with something left on it,
+     * and every amount more than zero and not more than what is left on its order.
+     * The actor needs customer_payment.create and invoice.create. Everything is saved while the customer's row is locked,
+     * and either everything is saved or nothing is.
+     *
+     * @param  array<int|string, float|int|string>  $amounts
+     *
+     * @throws AuthorizationException
+     * @throws ValidationException
+     */
+    public function payOrders(
+        User $actor,
+        Customer $customer,
+        array $amounts,
+        CarbonInterface|string $date,
+        ?string $image = null,
+        ?string $notes = null,
+    ): CustomerPayment {
+        Gate::forUser($actor)->authorize('create', CustomerPayment::class);
+        Gate::forUser($actor)->authorize('create', Invoice::class);
+
+        $amounts = array_map(fn (mixed $amount): float => (float) $amount, $amounts);
+
+        if ($amounts === [] || collect($amounts)->contains(fn (float $amount): bool => $amount <= 0)) {
+            throw ValidationException::withMessages([
+                'amount' => __('orders.validation.payment_amount_must_be_positive'),
+            ]);
+        }
+
+        $description = $this->transferDescription();
+
+        return DB::transaction(function () use ($actor, $customer, $amounts, $date, $image, $notes, $description): CustomerPayment {
+            Customer::query()->whereKey($customer->getKey())->lockForUpdate()->first();
+
+            $orders = $this->openOrders($customer)->keyBy('id');
+
+            foreach ($amounts as $orderId => $amount) {
+                $this->ensureFitsTheOrder($orders->get((int) $orderId), $amount);
+            }
+
+            $payment = $this->recordPayment($actor, $customer, $description, array_sum($amounts), $date, $image, $notes);
+
+            foreach ($amounts as $orderId => $amount) {
+                CustomerPaymentOrder::create([
+                    'customer_payment_id' => $payment->id,
+                    'order_id' => (int) $orderId,
+                    'amount' => $amount,
+                ]);
+            }
 
             return $payment;
         });
@@ -130,6 +179,54 @@ class PayCustomerDebt
     public function plan(Customer $customer, float $amount): array
     {
         return $this->shares($this->openOrders($customer), $amount);
+    }
+
+    /**
+     * An amount paid on a chosen order needs the order to be one of the customer's debts, and it is not more than what is left on it.
+     *
+     * @throws ValidationException
+     */
+    private function ensureFitsTheOrder(?Order $order, float $amount): void
+    {
+        if ($order === null) {
+            throw ValidationException::withMessages([
+                'orders' => __('orders.validation.payment_order_not_open'),
+            ]);
+        }
+
+        if ($amount > (float) $order->remaining + 0.0001) {
+            $remaining = FormattedValue::of((float) $order->remaining, Currency::IraqiDinar);
+
+            throw ValidationException::withMessages([
+                'orders' => __('orders.validation.payment_exceeds_order_remaining', [
+                    'order' => $order->id,
+                    'remaining' => "{$remaining->number} {$remaining->currency}",
+                ]),
+            ]);
+        }
+    }
+
+    /**
+     * Saves the payment with its postpaid money withdrawal invoice.
+     */
+    private function recordPayment(
+        User $actor,
+        Customer $customer,
+        SpecificDescription $description,
+        float $amount,
+        CarbonInterface|string $date,
+        ?string $image,
+        ?string $notes,
+    ): CustomerPayment {
+        return CustomerPayment::create([
+            'customer_id' => $customer->id,
+            'invoice_id' => $this->withdrawalInvoice($actor, $customer, $description, $amount, $date, $notes)->id,
+            'user_id' => $actor->id,
+            'amount' => $amount,
+            'date' => $date,
+            'image' => $image,
+            'notes' => $notes,
+        ]);
     }
 
     /**

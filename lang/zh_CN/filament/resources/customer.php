@@ -22,6 +22,12 @@ return [
     'actions' => [
         'pay_debt' => [
             'label' => '还款',
+            'heading_order' => '支付订单 #:order · :customer',
+            'pay_order_all' => '全部',
+            'order_late' => '逾期：:amount',
+            'order_weekly' => '每周：:amount',
+            'order_next' => '下次：:date 付 :amount',
+            'order_next_today' => '下次：今天付 :amount',
             'heading' => '偿还 :customer 的欠款',
             'debt' => '剩余欠款：:debt',
             'customer' => '客户',
@@ -49,6 +55,24 @@ return [
     ],
 
     'statement' => [
+        'layouts' => [
+            'orders' => '按订单',
+            'dates' => '按日期',
+        ],
+        'tree' => [
+            'order' => '订单 #:id · :date · :items 件商品',
+            'total' => '金额',
+            'paid' => '已付',
+            'remaining' => '剩余',
+            'settled' => '已全部付清',
+            'open' => '剩余 :amount',
+            'open_order' => '打开订单',
+            'no_payments' => '尚未付款',
+            'left_after' => '付款后剩余 :amount',
+            'by' => '记录人 :user',
+            'receipt' => '收据',
+            'empty' => '此期间没有赊账订单。',
+        ],
         'fields' => [
             'customer' => '客户',
             'customer_placeholder' => '选择客户',

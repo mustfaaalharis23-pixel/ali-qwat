@@ -37,6 +37,27 @@ return [
     'sections' => [
         'details' => 'Order details',
         'amounts' => 'Amounts',
+        'payments' => 'Payments',
+    ],
+
+    'weekly' => [
+        'amount' => 'Every week',
+        'next' => 'Next payment',
+        'left' => 'Left',
+        'settled' => 'Fully paid',
+        'late_value' => ':amount · for :days days',
+        'next_value' => ':amount · :date',
+        'next_today' => ':amount · today',
+        'left_value' => ':amount · payments left :weeks',
+    ],
+
+    'payments' => [
+        'date' => 'Date',
+        'amount' => 'Amount on this order',
+        'by' => 'Recorded by',
+        'receipt' => 'Receipt',
+        'down_payment' => 'Down payment',
+        'none' => 'Nothing paid on it yet',
     ],
 
     'packets_and_pieces' => ':packets packets · :pieces pieces',

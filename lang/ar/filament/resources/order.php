@@ -37,6 +37,27 @@ return [
     'sections' => [
         'details' => 'تفاصيل الطلب',
         'amounts' => 'المبالغ',
+        'payments' => 'التسديدات',
+    ],
+
+    'weekly' => [
+        'amount' => 'كل أسبوع',
+        'next' => 'الدفعة الجاية',
+        'left' => 'الباقي',
+        'settled' => 'مسدد كامل',
+        'late_value' => ':amount · من :days يوم',
+        'next_value' => ':amount · :date',
+        'next_today' => ':amount · اليوم',
+        'left_value' => ':amount · الدفعات الباقية :weeks',
+    ],
+
+    'payments' => [
+        'date' => 'التاريخ',
+        'amount' => 'المبلغ على هذا الأوردر',
+        'by' => 'سجّله',
+        'receipt' => 'الوصل',
+        'down_payment' => 'دفعة أولية',
+        'none' => 'ما انسدد منه شي بعد',
     ],
 
     'packets_and_pieces' => ':packets باكيت · :pieces قطعة',

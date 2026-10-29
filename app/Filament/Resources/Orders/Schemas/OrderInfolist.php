@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Enums\OrderPaymentType;
+use App\Models\CustomerPaymentOrder;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Orders\WeeklyPaymentReminders;
+use Carbon\CarbonImmutable;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
@@ -103,11 +107,50 @@ class OrderInfolist
                             ->numeric()
                             ->visible(fn (): bool => self::canSeeTheCost()),
                     ]),
+                // A postpaid order with a weekly payment shows what is due on it now: what is late and since how many days, the next
+                // weekly payment with its date, and what is left with how many weekly payments, until it is fully paid.
+                Section::make(__('filament/resources/order.fields.weekly_payment'))
+                    ->icon(Heroicon::OutlinedCalendarDays)
+                    ->columns(['default' => 1, 'sm' => 2, 'xl' => 4])
+                    ->columnSpanFull()
+                    ->visible(fn (Order $record): bool => ! $record->trashed() && $record->payment_type === OrderPaymentType::Postpaid && filled($record->weekly_payment))
+                    ->schema([
+                        TextEntry::make('weekly_payment')
+                            ->label(__('filament/resources/order.weekly.amount'))
+                            ->numeric()
+                            ->weight(FontWeight::Bold),
+                        TextEntry::make('weekly_late')
+                            ->label(__('filament/pages/customer_payments.reminders.late_amount'))
+                            ->state(fn (Order $record): string => self::weeklyLateText($record))
+                            ->badge()
+                            ->color(fn (Order $record): string => (self::reminderOf($record)['late'] ?? 0) > 0.0001 ? 'danger' : 'success'),
+                        TextEntry::make('weekly_next')
+                            ->label(__('filament/resources/order.weekly.next'))
+                            ->state(fn (Order $record): string => self::weeklyNextText($record))
+                            ->badge()
+                            ->color(fn (Order $record): string => self::reminderOf($record)['next_due_date']?->isToday() ? 'warning' : 'gray'),
+                        TextEntry::make('weekly_left')
+                            ->label(__('filament/resources/order.weekly.left'))
+                            ->state(fn (Order $record): string => ($reminder = self::reminderOf($record)) === null
+                                ? __('filament/resources/order.weekly.settled')
+                                : __('filament/resources/order.weekly.left_value', [
+                                    'amount' => Number::format($reminder['remaining'], maxPrecision: 2),
+                                    'weeks' => $reminder['weeks_left'],
+                                ])),
+                    ]),
                 Section::make(__('filament/resources/order.fields.items'))
                     ->icon(Heroicon::OutlinedQueueList)
                     ->columnSpanFull()
                     ->schema([
                         self::linesEntry(),
+                    ]),
+                // What was paid on a postpaid order, payment by payment, so the order shows how much of it was paid and when.
+                Section::make(__('filament/resources/order.sections.payments'))
+                    ->icon(Heroicon::OutlinedBanknotes)
+                    ->columnSpanFull()
+                    ->visible(fn (Order $record): bool => $record->payment_type === OrderPaymentType::Postpaid)
+                    ->schema([
+                        self::paymentsEntry(),
                     ]),
                 TextEntry::make('notes')
                     ->label(__('filament/resources/order.fields.notes'))
@@ -152,6 +195,89 @@ class OrderInfolist
                 self::canSeeTheCost() ? TextEntry::make('cost_price')->numeric() : null,
                 self::canSeeTheCost() ? TextEntry::make('profit')->numeric()->color('success') : null,
             ])));
+    }
+
+    /**
+     * The payments on the order, oldest first, as a table: the date, what of the payment went to this order, who recorded it, whether
+     * it was the down payment, and its receipt to print. A deleted payment is not on the order anymore.
+     */
+    private static function paymentsEntry(): RepeatableEntry
+    {
+        return RepeatableEntry::make('allocations')
+            ->hiddenLabel()
+            ->state(fn (Order $record) => $record->allocations()->with('payment.user')->get()
+                ->filter(fn (CustomerPaymentOrder $allocation): bool => $allocation->payment !== null)
+                ->sortBy(fn (CustomerPaymentOrder $allocation): string => $allocation->payment->date->toDateString().'|'.str_pad((string) $allocation->id, 12, '0', STR_PAD_LEFT))
+                ->values())
+            ->placeholder(__('filament/resources/order.payments.none'))
+            ->table([
+                TableColumn::make(__('filament/resources/order.payments.date')),
+                TableColumn::make(__('filament/resources/order.payments.amount')),
+                TableColumn::make(__('filament/resources/order.payments.by')),
+                TableColumn::make(__('filament/resources/order.payments.receipt')),
+            ])
+            ->schema([
+                TextEntry::make('payment.date')
+                    ->date('Y/m/d')
+                    ->belowContent(fn (CustomerPaymentOrder $record): ?Text => $record->payment->is_down_payment
+                        ? Text::make(__('filament/resources/order.payments.down_payment'))->badge()->color('info')
+                        : null),
+                TextEntry::make('amount')->numeric()->weight(FontWeight::Bold)->color('success'),
+                TextEntry::make('payment.user.name')->placeholder('—'),
+                TextEntry::make('receipt')
+                    ->state(__('filament/resources/customer_payment.actions.print_receipt'))
+                    ->icon(Heroicon::OutlinedPrinter)
+                    ->color('primary')
+                    ->url(fn (CustomerPaymentOrder $record): string => route('customer-payments.receipt', $record->payment), shouldOpenInNewTab: true),
+            ]);
+    }
+
+    /**
+     * The order's weekly payment reminder today (see WeeklyPaymentReminders::ordersOn), or null when nothing is left on it.
+     *
+     * @return array{order: Order, late: float, late_since: ?CarbonImmutable, next_due_date: ?CarbonImmutable, next_amount: float, remaining: float, weeks_left: int}|null
+     */
+    private static function reminderOf(Order $record): ?array
+    {
+        return once(fn (): ?array => (new WeeklyPaymentReminders)->ordersOn(today())
+            ->first(fn (array $row): bool => $row['order']->is($record)));
+    }
+
+    /**
+     * What is late on the order and since how many days, or that it is not late.
+     */
+    private static function weeklyLateText(Order $record): string
+    {
+        $reminder = self::reminderOf($record);
+
+        if ($reminder === null || $reminder['late'] <= 0.0001) {
+            return __('filament/pages/customer_payments.order_reminders.not_late');
+        }
+
+        return __('filament/resources/order.weekly.late_value', [
+            'amount' => Number::format($reminder['late'], maxPrecision: 2),
+            'days' => (int) $reminder['late_since']->diffInDays(today()),
+        ]);
+    }
+
+    /**
+     * The next weekly payment with its amount and date ("today" when it is due today), or that every payment already fell due,
+     * or that the order is fully paid.
+     */
+    private static function weeklyNextText(Order $record): string
+    {
+        $reminder = self::reminderOf($record);
+        $next = $reminder['next_due_date'] ?? null;
+
+        return match (true) {
+            $reminder === null => __('filament/resources/order.weekly.settled'),
+            $next === null => __('filament/pages/customer_payments.order_reminders.no_next'),
+            $next->isToday() => __('filament/resources/order.weekly.next_today', ['amount' => Number::format($reminder['next_amount'], maxPrecision: 2)]),
+            default => __('filament/resources/order.weekly.next_value', [
+                'amount' => Number::format($reminder['next_amount'], maxPrecision: 2),
+                'date' => $next->format('Y/m/d'),
+            ]),
+        };
     }
 
     /**

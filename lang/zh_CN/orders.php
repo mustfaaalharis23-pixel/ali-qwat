@@ -38,6 +38,8 @@ return [
         'order_has_payments' => '已有还款的订单不能删除。请先删除其还款。',
         'payment_amount_must_be_positive' => '金额必须大于零。',
         'payment_exceeds_customer_debt' => '金额不能超过客户的剩余欠款（:debt）。',
+        'payment_order_not_open' => '该订单不是此客户的欠款，或已无剩余金额。',
+        'payment_exceeds_order_remaining' => '订单 #:order 的金额超过其剩余金额（:remaining）。',
         'payment_description_missing' => '没有用于赊账转账的科目。',
         'payment_needs_postpaid_order' => '还款只能添加到赊账订单。',
         'payment_on_deleted_order' => '已删除的订单不能添加还款。',

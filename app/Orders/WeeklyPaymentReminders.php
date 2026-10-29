@@ -12,7 +12,8 @@ use Illuminate\Support\Collection;
  * The weekly payments the customers are reminded of. A postpaid order with a weekly payment owes it every 7 days
  * from its date, until what was left after its down payment is covered, so the last one is only what is left.
  * What the customer paid on the order, apart from the down payment, covers its weekly payments from the oldest.
- * A weekly payment is late from the day after it falls due. Each customer shows once, with their orders added up.
+ * A weekly payment is late from the day after it falls due. Today's and the late reminders show each customer once, with their
+ * orders added up; the reminders of the orders show every order on its own until it is fully paid.
  */
 class WeeklyPaymentReminders
 {
@@ -47,6 +48,63 @@ class WeeklyPaymentReminders
             'amount' => $this->expectedBy($order, $day->subDay()) - $this->paidOnWeeklyPayments($order),
             'due_date' => $this->firstUnpaidDueDate($order),
         ]))->sortBy(fn (array $row): string => $row['due_date']->toDateString())->values();
+    }
+
+    /**
+     * The reminder of every order with a weekly payment that is not fully paid yet, on the date: what is late and since when, the
+     * next weekly payment (its due date and what is unpaid of it, the one due on the date included), what is left on the order,
+     * and how many weekly payments that is. The late orders come first, the oldest late first, then the others by their next
+     * weekly payment, the nearest first.
+     *
+     * @return Collection<int, array{order: Order, late: float, late_since: ?CarbonImmutable, next_due_date: ?CarbonImmutable, next_amount: float, remaining: float, weeks_left: int}>
+     */
+    public function ordersOn(CarbonInterface $date): Collection
+    {
+        $day = CarbonImmutable::parse($date)->startOfDay();
+
+        return $this->openOrders()
+            ->map(function (Order $order) use ($day): array {
+                $paid = $this->paidOnWeeklyPayments($order);
+                $late = max(0, $this->expectedBy($order, $day->subDay()) - $paid);
+                $nextDueDate = $this->nextDueDate($order, $day);
+
+                return [
+                    'order' => $order,
+                    'late' => $late,
+                    'late_since' => $late > 0.0001 ? $this->firstUnpaidDueDate($order) : null,
+                    'next_due_date' => $nextDueDate,
+                    'next_amount' => $nextDueDate === null
+                        ? 0.0
+                        : $this->expectedBy($order, $nextDueDate) - max($paid, $this->expectedBy($order, $nextDueDate->subDay())),
+                    'remaining' => (float) $order->remaining,
+                    'weeks_left' => (int) ceil(round((float) $order->remaining / (float) $order->weekly_payment, 4)),
+                ];
+            })
+            ->sortBy(fn (array $row): string => implode('|', [
+                $row['late_since'] === null ? '1' : '0',
+                ($row['late_since'] ?? $row['next_due_date'])?->toDateString() ?? '9999-12-31',
+                str_pad((string) $row['order']->id, 12, '0', STR_PAD_LEFT),
+            ]))
+            ->values();
+    }
+
+    /**
+     * The due date of the first weekly payment on or after the date that is not fully paid, or null when the weekly payments
+     * left all fell due before the date (the order is then only late).
+     */
+    private function nextDueDate(Order $order, CarbonImmutable $day): ?CarbonImmutable
+    {
+        $orderDate = $order->date->toImmutable()->startOfDay();
+        $weeklyPayment = (float) $order->weekly_payment;
+        $firstOnOrAfterTheDay = max(1, (int) ceil($orderDate->diffInDays($day) / 7));
+        $paidWeeks = (int) floor(($this->paidOnWeeklyPayments($order) + 0.0001) / $weeklyPayment);
+        $week = max($firstOnOrAfterTheDay, $paidWeeks + 1);
+
+        if (($week - 1) * $weeklyPayment >= $this->owedInWeeklyPayments($order) - 0.0001) {
+            return null;
+        }
+
+        return $orderDate->addDays(7 * $week);
     }
 
     /**

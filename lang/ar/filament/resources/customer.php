@@ -22,6 +22,12 @@ return [
     'actions' => [
         'pay_debt' => [
             'label' => 'تسديد',
+            'heading_order' => 'تسديد أوردر #:order · :customer',
+            'pay_order_all' => 'الكل',
+            'order_late' => 'متأخر: :amount',
+            'order_weekly' => 'أسبوعية: :amount',
+            'order_next' => 'الجاية: :amount يوم :date',
+            'order_next_today' => 'الجاية: :amount اليوم',
             'heading' => 'تسديد دين :customer',
             'debt' => 'الدين الباقي: :debt',
             'customer' => 'الزبون',
@@ -49,6 +55,24 @@ return [
     ],
 
     'statement' => [
+        'layouts' => [
+            'orders' => 'حسب الأوردر',
+            'dates' => 'حسب التاريخ',
+        ],
+        'tree' => [
+            'order' => 'أوردر #:id · :date · :items مادة',
+            'total' => 'المبلغ',
+            'paid' => 'انسدد',
+            'remaining' => 'الباقي',
+            'settled' => 'مسدد كامل',
+            'open' => 'باقي عليه :amount',
+            'open_order' => 'فتح الأوردر',
+            'no_payments' => 'ما انسدد منه شي بعد',
+            'left_after' => 'الباقي بعدها :amount',
+            'by' => 'سجّله :user',
+            'receipt' => 'الوصل',
+            'empty' => 'ماكو أوردرات آجلة بهذي الفترة.',
+        ],
         'fields' => [
             'customer' => 'الزبون',
             'customer_placeholder' => 'اختار زبون',

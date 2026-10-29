@@ -14,6 +14,8 @@ use App\Models\OrderItem;
 use App\Models\SpecificDescription;
 use App\Models\User;
 use App\Orders\PayCustomerDebt;
+use App\Orders\WeeklyPaymentReminders;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -221,6 +223,136 @@ class PayCustomerDebtTest extends TestCase
 
         $this->assertSame(0, CustomerPayment::query()->count());
         $this->assertSame(0, Invoice::query()->revenues()->count());
+    }
+
+    /**
+     * EN: A payment on a chosen order goes to that order, not to the oldest: the customer owes 700 on an order of 2026-07-01 and 500
+     *     on one of 2026-08-01, and pays 500 on the newer. The newer is fully paid and the older still has 700 left.
+     * AR: التسديد على أوردر مختار يروح لهذاك الأوردر، مو للأقدم: الزبون عليه 700 على أوردر 2026-07-01 و500
+     *     على أوردر 2026-08-01، ويدفع 500 على الأحدث. الأحدث يتسدد كله والأقدم يبقى عليه 700.
+     */
+    public function test_a_payment_on_a_chosen_order_goes_to_that_order(): void
+    {
+        $customer = Customer::factory()->create();
+        $older = $this->order($customer, '2026-07-01', 700);
+        $newer = $this->order($customer, '2026-08-01', 500);
+
+        $payment = (new PayCustomerDebt)->payOrders($this->superUser(), $customer, [$newer->id => 500], '2026-09-10');
+
+        $this->assertEquals(500, $payment->amount);
+        $this->assertEquals([$newer->id => 500], $payment->allocations()->pluck('amount', 'order_id')->all());
+        $this->assertEquals(0, $newer->fresh()->remaining);
+        $this->assertEquals(700, $older->fresh()->remaining);
+    }
+
+    /**
+     * EN: One payment can go to several chosen orders, each with its own amount: 200 on the older and 300 on the newer make one
+     *     payment of 500, and each order records what it got, so the older has 500 left and the newer 200.
+     * AR: التسديد الواحد يكدر يروح لأكثر من أوردر مختار، كل واحد بمبلغه: 200 على الأقدم و300 على الأحدث يصيرون
+     *     تسديد واحد بـ 500، وكل أوردر ينسجل عليه اللي أخذه، فالأقدم يبقى عليه 500 والأحدث 200.
+     */
+    public function test_one_payment_can_go_to_several_chosen_orders_each_with_its_amount(): void
+    {
+        $customer = Customer::factory()->create();
+        $older = $this->order($customer, '2026-07-01', 700);
+        $newer = $this->order($customer, '2026-08-01', 500);
+
+        $payment = (new PayCustomerDebt)->payOrders($this->superUser(), $customer, [$older->id => 200, $newer->id => 300], '2026-09-10');
+
+        $this->assertEquals(500, $payment->amount);
+        $this->assertEquals([$older->id => 200, $newer->id => 300], $payment->allocations()->pluck('amount', 'order_id')->all());
+        $this->assertEquals(500, $older->fresh()->remaining);
+        $this->assertEquals(200, $newer->fresh()->remaining);
+    }
+
+    /**
+     * EN: A payment on chosen orders moves its money like any payment: one invoice of the total 500, so the postpaid box goes down
+     *     from 1200 to 700, the accountant's balance goes up by 500, and the customer owes 700.
+     * AR: التسديد على أوردرات مختارة يحرّك فلوسه مثل أي تسديد: فاتورة وحدة بالمجموع 500، فصندوق الآجل ينزل
+     *     من 1200 إلى 700، ورصيد المحاسب يزيد 500، والزبون يبقى عليه 700.
+     */
+    public function test_a_payment_on_chosen_orders_moves_its_total_from_the_postpaid_box(): void
+    {
+        $customer = Customer::factory()->create();
+        $older = $this->order($customer, '2026-07-01', 700);
+        $newer = $this->order($customer, '2026-08-01', 500);
+
+        $payment = (new PayCustomerDebt)->payOrders($this->superUser(), $customer, [$older->id => 200, $newer->id => 300], '2026-09-10');
+
+        $this->assertEquals(500, $payment->invoice->amount);
+        $this->assertEquals(700, Order::boxBalance(OrderPaymentType::Postpaid, $this->allTime()));
+        $this->assertEquals(500, Invoice::accountantBalance($this->allTime()));
+        $this->assertEquals(700, $customer->debt());
+    }
+
+    /**
+     * EN: The payments on chosen orders that cannot be taken: more than what is left on the order, an order of another customer,
+     *     a cash order (nothing is left on it), nothing to pay at all, and zero on an order.
+     * AR: التسديدات على أوردرات مختارة اللي ما تنقبل: أكثر من الباقي على الأوردر، أوردر لزبون ثاني،
+     *     أوردر كاش (ما باقي عليه شي)، ولا شي للدفع أصلاً، وصفر على أوردر.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function orderPaymentsThatCannotBeTaken(): array
+    {
+        return [
+            'more than what is left on the order' => ['more than left'],
+            'an order of another customer' => ['another customer'],
+            'a cash order' => ['cash order'],
+            'nothing to pay' => ['nothing'],
+            'zero on an order' => ['zero'],
+        ];
+    }
+
+    /**
+     * EN: A payment on chosen orders that cannot be taken is refused, and nothing is saved.
+     * AR: التسديد على أوردرات مختارة اللي ما ينقبل ينرفض، وما ينحفظ شي.
+     */
+    #[DataProvider('orderPaymentsThatCannotBeTaken')]
+    public function test_a_payment_on_chosen_orders_that_cannot_be_taken_is_refused(string $case): void
+    {
+        $customer = Customer::factory()->create();
+        $order = $this->order($customer, '2026-08-01', 500);
+        $amounts = match ($case) {
+            'more than left' => [$order->id => 600],
+            'another customer' => [$this->order(Customer::factory()->create(), '2026-08-01', 500)->id => 100],
+            'cash order' => [$this->order($customer, '2026-08-01', 500, OrderPaymentType::Cash)->id => 100],
+            'nothing' => [],
+            'zero' => [$order->id => 0],
+        };
+
+        try {
+            (new PayCustomerDebt)->payOrders($this->superUser(), $customer, $amounts, '2026-09-10');
+            $this->fail('A payment that cannot be taken must be refused.');
+        } catch (ValidationException) {
+            //
+        }
+
+        $this->assertSame(0, CustomerPayment::query()->count());
+        $this->assertSame(0, CustomerPaymentOrder::query()->count());
+        $this->assertEquals(500, $order->fresh()->remaining);
+    }
+
+    /**
+     * EN: Paying one order clears its own reminder only: two orders of 1000 at 100 a week from 2026-09-01 are each 200 late on
+     *     2026-09-20. After 200 is paid on the second, the second is not late and the first is still 200 late.
+     * AR: تسديد أوردر واحد يصفّي تذكيره هو بس: أوردرين كل واحد 1000 بدفعة أسبوعية 100 من 2026-09-01، كل واحد متأخر 200
+     *     بتاريخ 2026-09-20. بعد ما تندفع 200 على الثاني، الثاني ما متأخر والأول بعده متأخر 200.
+     */
+    public function test_paying_one_order_clears_its_own_reminder_only(): void
+    {
+        $customer = Customer::factory()->create();
+        $first = $this->order($customer, '2026-09-01', 1000);
+        $second = $this->order($customer, '2026-09-01', 1000);
+        Order::query()->whereKey([$first->id, $second->id])->update(['weekly_payment' => 100]);
+
+        (new PayCustomerDebt)->payOrders($this->superUser(), $customer, [$second->id => 200], '2026-09-20');
+
+        $late = (new WeeklyPaymentReminders)->ordersOn(CarbonImmutable::parse('2026-09-20'))
+            ->mapWithKeys(fn (array $row): array => [$row['order']->id => $row['late']])
+            ->all();
+
+        $this->assertEquals([$first->id => 200, $second->id => 0], $late);
     }
 
     /**

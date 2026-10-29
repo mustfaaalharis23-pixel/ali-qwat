@@ -8,7 +8,9 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Metrics\Currency;
 use App\Models\Customer;
 use App\Models\CustomerPayment;
+use App\Models\CustomerPaymentOrder;
 use App\Models\Order;
+use App\Orders\WeeklyPaymentReminders;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -30,6 +32,10 @@ use Livewire\Attributes\On;
  * a postpaid order adds to what the customer owes, and a payment takes from it. A down payment is a payment like any other,
  * only named apart so it can be told from the rest. Cash orders are paid when they are sold, so they are not in it.
  * With a from date, everything before it is summed into a previous balance on the first line.
+ *
+ * The statement opens by order: a tree with one branch per postpaid order (inside the period, by its date), with what it came to,
+ * what was paid on it, what is left, and under it every payment that went to it, oldest first, with its date, what of it went to
+ * this order, and what was left on the order after it. So each order shows how it was paid over time. "By date" shows the lines.
  */
 class CustomerStatementTable extends TableWidget
 {
@@ -56,6 +62,11 @@ class CustomerStatementTable extends TableWidget
      * @var array<string, mixed>|null
      */
     public ?array $data = [];
+
+    /**
+     * How the statement is shown: "orders" (a tree of every order with its payments) or "dates" (one line per movement).
+     */
+    public string $layout = 'orders';
 
     public function mount(): void
     {
@@ -153,7 +164,11 @@ class CustomerStatementTable extends TableWidget
      */
     protected function getViewData(): array
     {
-        return ['summary' => $this->statement['summary'] ?? []];
+        return [
+            'summary' => $this->statement['summary'] ?? [],
+            'hasCustomer' => $this->statement !== null,
+            'orderTree' => $this->layout === 'orders' ? $this->orderTree() : [],
+        ];
     }
 
     /**
@@ -210,6 +225,77 @@ class CustomerStatementTable extends TableWidget
                 ['label' => __('filament/resources/customer.statement.summary.balance'), 'value' => $balance, 'currency' => Currency::IraqiDinar, 'color' => $balance > 0.0001 ? 'danger' : 'success'],
             ],
         ];
+    }
+
+    /**
+     * The chosen customer's postpaid orders inside the period, oldest first, each with what it came to, what was paid on it, what is
+     * left, its weekly payment with what of it is late and the next one (for an order with a weekly payment), and every payment that
+     * went to it, oldest first, with what was left on the order after it. Empty without a customer.
+     *
+     * @return list<array{id: int, date: string, items: int, total: float, paid: float, remaining: float, percent: int, url: string, weekly: ?float, late: float, late_days: ?int, next_amount: float, next_date: ?CarbonImmutable, payments: list<array{date: string, amount: float, left_after: float, is_down_payment: bool, user: ?string, notes: ?string, receipt: string}>}>
+     */
+    private function orderTree(): array
+    {
+        $customerId = $this->data['customer'] ?? null;
+        $customer = filled($customerId) ? Customer::query()->find($customerId) : null;
+
+        if ($customer === null) {
+            return [];
+        }
+
+        $reminders = (new WeeklyPaymentReminders)->ordersOn(today())->keyBy(fn (array $row): int => $row['order']->id);
+
+        return $customer->orders()
+            ->where('payment_type', OrderPaymentType::Postpaid)
+            ->when(filled($this->data['from'] ?? null), fn ($query) => $query->whereDate('date', '>=', $this->data['from']))
+            ->when(filled($this->data['until'] ?? null), fn ($query) => $query->whereDate('date', '<=', $this->data['until']))
+            ->withCount('items')
+            ->with(['allocations.payment.user'])
+            ->orderBy('date')
+            ->orderBy('id')
+            ->get()
+            ->map(function (Order $order) use ($reminders): array {
+                $left = (float) $order->total_amount;
+                $reminder = $reminders->get($order->id);
+                $payments = $order->allocations
+                    ->filter(fn (CustomerPaymentOrder $allocation): bool => $allocation->payment !== null)
+                    ->sortBy(fn (CustomerPaymentOrder $allocation): string => $allocation->payment->date->toDateString().'|'.str_pad((string) $allocation->customer_payment_id, 12, '0', STR_PAD_LEFT))
+                    ->map(function (CustomerPaymentOrder $allocation) use (&$left): array {
+                        $left -= (float) $allocation->amount;
+
+                        return [
+                            'date' => $allocation->payment->date->format('Y/m/d'),
+                            'amount' => (float) $allocation->amount,
+                            'left_after' => max($left, 0),
+                            'is_down_payment' => (bool) $allocation->payment->is_down_payment,
+                            'user' => $allocation->payment->user?->name,
+                            'notes' => $allocation->payment->notes,
+                            'receipt' => route('customer-payments.receipt', $allocation->payment),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+                $total = (float) $order->total_amount;
+                $paid = (float) $order->paid_amount;
+
+                return [
+                    'id' => $order->id,
+                    'date' => $order->date->format('Y/m/d'),
+                    'items' => (int) $order->items_count,
+                    'total' => $total,
+                    'paid' => $paid,
+                    'remaining' => (float) $order->remaining,
+                    'percent' => $total > 0 ? (int) min(100, round($paid / $total * 100)) : 0,
+                    'url' => OrderResource::getUrl('view', ['record' => $order]),
+                    'weekly' => filled($order->weekly_payment) ? (float) $order->weekly_payment : null,
+                    'late' => (float) ($reminder['late'] ?? 0),
+                    'late_days' => isset($reminder['late_since']) ? (int) $reminder['late_since']->diffInDays(today()) : null,
+                    'next_amount' => (float) ($reminder['next_amount'] ?? 0),
+                    'next_date' => $reminder['next_due_date'] ?? null,
+                    'payments' => $payments,
+                ];
+            })
+            ->all();
     }
 
     /**

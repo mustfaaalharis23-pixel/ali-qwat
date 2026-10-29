@@ -38,6 +38,8 @@ return [
         'order_has_payments' => 'An order that has payments on it cannot be deleted. Delete its payments first.',
         'payment_amount_must_be_positive' => 'The amount must be more than zero.',
         'payment_exceeds_customer_debt' => 'The amount cannot be more than the customer\'s remaining debt (:debt).',
+        'payment_order_not_open' => 'This order is not one of this customer\'s debts, or nothing is left on it.',
+        'payment_exceeds_order_remaining' => 'The amount on order #:order is more than what is left on it (:remaining).',
         'payment_description_missing' => 'There is no description for postpaid money transfers.',
         'payment_needs_postpaid_order' => 'A payment can only be added to a postpaid order.',
         'payment_on_deleted_order' => 'A deleted order cannot get a payment.',
