@@ -188,12 +188,13 @@
 
                         @if (! $item['isOutOfStock'])
                             @if ($item['inCart'] > 0)
-                                {{-- In the cart: the field holds its packets, and a new number replaces them (Enter or leaving the field). The key
-                                     brings the field back with the cart's number, also when the stock cut what was typed. --}}
-                                <div class="waqt-pos-qty" wire:key="pos-qty-{{ $item['lineKey'] }}-{{ $item['inCart'] }}">
+                                {{-- In the cart: the field holds its packets, and the cart follows what is typed as soon as typing pauses.
+                                     The key does not change with the number, so the field keeps its focus while the cart updates. --}}
+                                <div class="waqt-pos-qty" wire:key="pos-qty-{{ $item['lineKey'] }}">
                                     <x-filament::input.wrapper :suffix="$t('packets_unit')" class="waqt-pos-qty-field">
                                         <x-filament::input type="number" inputmode="numeric" min="0" step="1" value="{{ $item['inCart'] }}" aria-label="{{ $t('packets_label') }}"
                                             x-on:keydown.enter.prevent="$el.blur()"
+                                            x-on:input.debounce.400ms="$el.value > 0 && $wire.setPackets('{{ $item['lineKey'] }}', $el.value).then(() => document.activeElement === $el || ($el.value = $el.defaultValue))"
                                             x-on:change="$wire.setPackets('{{ $item['lineKey'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
                                     </x-filament::input.wrapper>
                                     <x-filament::icon-button icon="heroicon-o-trash" color="danger" wire:click="removeLine('{{ $item['lineKey'] }}')" :label="$t('remove')" />
@@ -257,10 +258,11 @@
                     </div>
 
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem">
-                        <div class="waqt-pos-qty is-compact" wire:key="pos-line-qty-{{ $line['key'] }}-{{ $line['packets'] }}">
+                        <div class="waqt-pos-qty is-compact" wire:key="pos-line-qty-{{ $line['key'] }}">
                             <x-filament::input.wrapper :suffix="$t('packets_unit')" class="waqt-pos-qty-field">
                                 <x-filament::input type="number" inputmode="numeric" min="0" step="1" value="{{ $line['packets'] }}" aria-label="{{ $t('packets_label') }}"
                                     x-on:keydown.enter.prevent="$el.blur()"
+                                    x-on:input.debounce.400ms="$el.value > 0 && $wire.setPackets('{{ $line['key'] }}', $el.value).then(() => document.activeElement === $el || ($el.value = $el.defaultValue))"
                                     x-on:change="$wire.setPackets('{{ $line['key'] }}', $el.value).then(() => $el.value = $el.defaultValue)" />
                             </x-filament::input.wrapper>
                         </div>
@@ -286,14 +288,14 @@
                     </div>
                 @endif
 
-                {{-- One discount off the whole sale, in dinars or in percent. A percent shows what it takes off in dinars beside it.
-                     Left empty, the sale has none. --}}
+                {{-- One discount off the whole sale, in dinars or in percent, followed by the cart as soon as typing pauses. A percent
+                     shows what it takes off in dinars beside it. Left empty, the sale has none. --}}
                 @if ($cart['lines'] !== [])
                     @php
                         $isPercent = $cart['discountPercent'] !== null;
                         $discountValue = $isPercent ? $cart['discountPercent'] : $cart['discount'];
                     @endphp
-                    <div class="waqt-pos-qty is-discount" wire:key="pos-discount-{{ $isPercent ? 'percent' : 'amount' }}-{{ $discountValue }}">
+                    <div class="waqt-pos-qty is-discount" wire:key="pos-discount-{{ $isPercent ? 'percent' : 'amount' }}">
                         <div class="waqt-pos-switch" role="group" aria-label="{{ $t('discount') }}">
                             <button type="button" @class(['is-on' => ! $isPercent]) wire:click="setDiscountMode('amount')">{{ $currency }}</button>
                             <button type="button" @class(['is-on' => $isPercent]) wire:click="setDiscountMode('percent')">%</button>
@@ -302,6 +304,7 @@
                             <x-filament::input type="number" inputmode="decimal" min="0" step="any" placeholder="0"
                                 value="{{ $discountValue > 0 ? $discountValue : '' }}" aria-label="{{ $t('discount') }}"
                                 x-on:keydown.enter.prevent="$el.blur()"
+                                x-on:input.debounce.400ms="$wire.{{ $isPercent ? 'setDiscountPercent' : 'setDiscount' }}($el.value).then(() => document.activeElement === $el || ($el.value = $el.defaultValue))"
                                 x-on:change="$wire.{{ $isPercent ? 'setDiscountPercent' : 'setDiscount' }}($el.value).then(() => $el.value = $el.defaultValue)" />
                         </x-filament::input.wrapper>
                         @if ($isPercent && $cart['discount'] > 0)

@@ -167,6 +167,7 @@ return [
         'add_group' => '添加组',
         'edit_group' => '编辑组',
         'save_group' => '保存',
+        'save_group_and_add_more' => '保存并继续添加',
         'add_color' => '添加颜色',
         'show_groups' => '度数和颜色',
         'close' => '关闭',

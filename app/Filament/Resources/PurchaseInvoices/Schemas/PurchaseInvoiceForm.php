@@ -563,6 +563,8 @@ class PurchaseInvoiceForm
 
     /**
      * The modal that adds a group, or edits the one it is called on, and writes the group into the line's groups.
+     * A new group can also be saved with "save and add more": the group is added and the modal stays open, empty, for the next
+     * power, so the powers of a line are typed one after another without opening the modal again.
      */
     private static function groupAction(Action $action, bool $isNew): Action
     {
@@ -570,9 +572,13 @@ class PurchaseInvoiceForm
             ->modalHeading(__('filament/resources/purchase_invoice.actions.'.($isNew ? 'add_group' : 'edit_group')))
             ->modalWidth(Width::TwoExtraLarge)
             ->modalSubmitActionLabel(__('filament/resources/purchase_invoice.actions.save_group'))
+            ->extraModalFooterActions(fn (Action $action): array => $isNew ? [
+                $action->makeModalSubmitAction('saveGroupAndAddMore', arguments: ['another' => true])
+                    ->label(__('filament/resources/purchase_invoice.actions.save_group_and_add_more')),
+            ] : [])
             ->fillForm(fn (array $arguments, Repeater $component): array => $isNew ? [] : self::groupFormData($component->getRawItemState($arguments['item'])))
             ->schema(fn (array $arguments, Repeater $component): array => self::groupSchema($component, $isNew ? null : (string) $arguments['item']))
-            ->action(function (array $data, array $arguments, Repeater $component) use ($isNew): void {
+            ->action(function (array $data, array $arguments, Repeater $component, Action $action, Schema $schema) use ($isNew): void {
                 $items = $component->getRawState() ?? [];
                 $key = $isNew ? ($component->generateUuid() ?? count($items)) : $arguments['item'];
 
@@ -584,6 +590,13 @@ class PurchaseInvoiceForm
 
                 $component->rawState($items);
                 $component->callAfterStateUpdated();
+
+                if ($isNew && ($arguments['another'] ?? false)) {
+                    $schema->fill();
+                    $schema->dispatchClientSideStateReset();
+
+                    $action->halt();
+                }
             });
     }
 
@@ -597,10 +610,10 @@ class PurchaseInvoiceForm
     {
         $line = $groups->makeGetUtility();
         $packets = self::number($line('boxes_count'));
-        $otherPackets = collect($groups->getRawState() ?? [])
+        // Worked out each time it is read, so after "save and add more" it already counts the group just added.
+        $left = fn (): float => max(0, $packets - collect($groups->getRawState() ?? [])
             ->reject(fn (mixed $group, int|string $key): bool => (string) $key === $editedItem)
-            ->sum(fn (mixed $group): float => self::number(is_array($group) ? ($group['boxes_count'] ?? 0) : 0));
-        $left = max(0, $packets - $otherPackets);
+            ->sum(fn (mixed $group): float => self::number(is_array($group) ? ($group['boxes_count'] ?? 0) : 0)));
 
         return [
             Select::make('lens_power_id')
@@ -619,13 +632,13 @@ class PurchaseInvoiceForm
                 ->rule('gt:0')
                 ->required()
                 ->live(debounce: 300)
-                ->helperText(fn (mixed $state): View => self::facts([self::leftFact($left - self::number($state), 'packets', $packets)]))
+                ->helperText(fn (mixed $state): View => self::facts([self::leftFact($left() - self::number($state), 'packets', $packets)]))
                 ->rules([
                     fn (): Closure => function (string $attribute, mixed $value, Closure $fail) use ($packets, $left): void {
                         if ($packets <= 0) {
                             $fail(__('invoices.validation.line_sets_first'));
-                        } elseif (self::number($value) > $left + 0.0001) {
-                            $fail(__('invoices.validation.group_more_than_left', ['left' => self::count($left)]));
+                        } elseif (self::number($value) > $left() + 0.0001) {
+                            $fail(__('invoices.validation.group_more_than_left', ['left' => self::count($left())]));
                         }
                     },
                 ]),

@@ -167,6 +167,7 @@ return [
         'add_group' => 'Add group',
         'edit_group' => 'Edit group',
         'save_group' => 'Save',
+        'save_group_and_add_more' => 'Save & add more',
         'add_color' => 'Add color',
         'show_groups' => 'Powers and colors',
         'close' => 'Close',

@@ -167,6 +167,7 @@ return [
         'add_group' => 'إضافة مجموعة',
         'edit_group' => 'تعديل المجموعة',
         'save_group' => 'حفظ',
+        'save_group_and_add_more' => 'حفظ وإضافة مزيد',
         'add_color' => 'إضافة لون',
         'show_groups' => 'الدرجات والألوان',
         'close' => 'إغلاق',
