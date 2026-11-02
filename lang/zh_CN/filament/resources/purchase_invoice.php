@@ -55,6 +55,22 @@ return [
     'colors_hint' => '一包中每种颜色各有多少副；合计必须等于每包副数（:pieces）。若包无颜色，请留空。',
     'cbm_price_hint' => '每个明细行的运费 = 其 CBM × 此价格；计算使用的是此价格，而不是集装箱的价格。采购单进入集装箱之前可以修改，之后将永久锁定。',
     'cbm_price_locked_hint' => '已锁定：采购单已进入集装箱。运费按此价格计算，而不是按集装箱的价格。',
+    'final_cost_modal' => [
+        'description' => '每打最终成本的来源，按本明细行的数字和本单据的汇率逐步计算',
+        'rates' => '单据汇率与价格',
+        'dinar_rate' => '100 $ = :value 千 IQD',
+        'goods' => '货物成本',
+        'transport' => '运费',
+        'dozen_in_yuan' => '每打（人民币）',
+        'in_dollars' => '换算美元',
+        'in_dinars' => '换算第纳尔',
+        'line_transport' => '明细行运费',
+        'dozen_transport' => '每打运费',
+        'cartons' => ':value 箱',
+        'pieces' => ':value 副',
+        'no_transport' => '无运费：单据没有每立方米价格',
+    ],
+
     'groups_modal' => [
         'description' => '每包副数 :packet · :packets 包 · :pieces 副',
         'packets' => ':value 包',
@@ -170,6 +186,7 @@ return [
         'save_group_and_add_more' => '保存并继续添加',
         'add_color' => '添加颜色',
         'show_groups' => '度数和颜色',
+        'show_final_cost' => '成本明细',
         'close' => '关闭',
         'more' => '更多',
         'discard_draft' => [

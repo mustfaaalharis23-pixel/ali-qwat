@@ -55,6 +55,22 @@ return [
     'colors_hint' => 'How many pieces of each color one packet holds; they must add up to the packet size (:pieces). Leave it empty for a packet without colors.',
     'cbm_price_hint' => 'Each line\'s transport = its CBM × this price; this is the price used, not the container\'s. It can be changed until the invoice enters a container; then it is locked for good.',
     'cbm_price_locked_hint' => 'Locked: the invoice has entered a container. Transport is calculated at this price, not the container\'s.',
+    'final_cost_modal' => [
+        'description' => 'Where the final cost of a dozen comes from, step by step, with this line\'s numbers and the invoice\'s rates',
+        'rates' => 'The invoice\'s rates',
+        'dinar_rate' => '100 $ = :value thousand IQD',
+        'goods' => 'Goods cost',
+        'transport' => 'Transport',
+        'dozen_in_yuan' => 'A dozen in yuan',
+        'in_dollars' => 'In dollars',
+        'in_dinars' => 'In dinars',
+        'line_transport' => 'Line transport',
+        'dozen_transport' => 'Transport of a dozen',
+        'cartons' => ':value cartons',
+        'pieces' => ':value pieces',
+        'no_transport' => 'No transport: the invoice has no price per cubic meter',
+    ],
+
     'groups_modal' => [
         'description' => 'Packet size :packet · :packets packets · :pieces pieces',
         'packets' => ':value packets',
@@ -170,6 +186,7 @@ return [
         'save_group_and_add_more' => 'Save & add more',
         'add_color' => 'Add color',
         'show_groups' => 'Powers and colors',
+        'show_final_cost' => 'Breakdown',
         'close' => 'Close',
         'more' => 'More',
         'discard_draft' => [

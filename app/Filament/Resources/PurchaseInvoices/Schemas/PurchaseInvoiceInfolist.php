@@ -370,7 +370,8 @@ class PurchaseInvoiceInfolist
                     ->belowContent(fn (InvoiceItem $record): ?Text => $record->transport_cost_per_piece_usd === null ? null : self::below('per_dozen', [
                         'value' => self::number(self::perDozen($record->transport_cost_per_piece_usd), 3),
                     ])),
-                // What one dozen costs in dinars once it arrives, which becomes the item's cost; under it, its price and its transport.
+                // What one dozen costs in dinars once it arrives, which becomes the item's cost; under it, its price and its transport,
+                // and a link to how it was worked out.
                 TextEntry::make('final_unit_cost_iqd')
                     ->state(fn (InvoiceItem $record): ?float => self::perDozen($record->final_unit_cost_iqd))
                     ->numeric(maxDecimalPlaces: 0)
@@ -379,10 +380,13 @@ class PurchaseInvoiceInfolist
                     ->color('success')
                     ->placeholder('—')
                     ->extraAttributes(self::onOneLine())
-                    ->belowContent(fn (InvoiceItem $record): ?Text => $record->final_unit_cost_iqd === null ? null : self::below('final_parts', [
-                        'cost' => self::number(self::perDozen($record->unit_cost_iqd), 0),
-                        'transport' => self::number(self::perDozen($record->transport_cost_per_piece_iqd), 0),
-                    ])),
+                    ->belowContent(fn (InvoiceItem $record): array => $record->final_unit_cost_iqd === null ? [] : [
+                        self::below('final_parts', [
+                            'cost' => self::number(self::perDozen($record->unit_cost_iqd), 0),
+                            'transport' => self::number(self::perDozen($record->transport_cost_per_piece_iqd), 0),
+                        ]),
+                        self::finalCostAction(),
+                    ]),
             ]);
     }
 
@@ -425,6 +429,150 @@ class PurchaseInvoiceInfolist
                 'colors' => self::colorRows($record),
                 'groups' => $record->groups->map(fn (InvoiceItemGroup $group): array => self::groupCard($group, (float) $record->pieces_per_packet))->all(),
             ]));
+    }
+
+    /**
+     * Opens where the line's final cost of one dozen comes from, step by step with the line's own numbers and the invoice's rates.
+     * It only shows, so it has no submit button.
+     */
+    private static function finalCostAction(): Action
+    {
+        return Action::make('showFinalCost')
+            ->label(__('filament/resources/purchase_invoice.actions.show_final_cost'))
+            ->icon(Heroicon::OutlinedCalculator)
+            ->link()
+            ->size(Size::Small)
+            ->modalHeading(fn (InvoiceItem $record): string => (string) $record->specificDescription?->name)
+            ->modalDescription(__('filament/resources/purchase_invoice.final_cost_modal.description'))
+            ->modalIcon(Heroicon::OutlinedCalculator)
+            ->modalWidth(Width::TwoExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel(__('filament/resources/purchase_invoice.actions.close'))
+            ->modalContent(fn (InvoiceItem $record): View => view('filament.purchase-invoices.final-cost', self::finalCostSteps($record)));
+    }
+
+    /**
+     * The steps of a line's final cost of one dozen, from the values saved on the line and its invoice: first the invoice's rates,
+     * then the goods (12 × the piece in yuan, ÷ the exchange rate, × the dinars in one dollar), then the transport (cartons ×
+     * the CBM of a carton, × the price of one CBM, ÷ the pieces × 12, × the dinars in one dollar; none without that price),
+     * and the two added. Each part keeps its own colour all through: the yuan and the goods amber, the transport blue, and the
+     * dinars and the final cost green. Dollars keep up to four decimals so each step can be checked by hand; dinars are whole.
+     *
+     * @return array{
+     *     rates: list<array{label: string, value: string, note: ?string, color: string, icon: Heroicon}>,
+     *     sections: list<array{title: string, color: string, icon: Heroicon, steps: list<array{label: string, math: ?string, value: string}>}>,
+     *     parts: list<array{label: string, value: string, color: string}>,
+     *     total: string,
+     *     hasTransport: bool,
+     * }
+     */
+    private static function finalCostSteps(InvoiceItem $line): array
+    {
+        $invoice = $line->invoice;
+        $dinarsPerDollar = (float) $invoice->dinarsPerDollar();
+        $yuan = fn (float $value): string => self::number($value, 4).' '.Currency::ChineseYuan->symbol();
+        $dollars = fn (float $value): string => self::number($value, 4).' '.Currency::UsDollar->symbol();
+        $dinars = fn (float $value): string => self::number($value, 0).' '.Currency::IraqiDinar->symbol();
+        $label = fn (string $key, array $replace = []): string => __("filament/resources/purchase_invoice.final_cost_modal.{$key}", $replace);
+
+        $goodsDollars = (float) self::perDozen($line->unit_cost_usd);
+        $goodsDinars = (float) self::perDozen($line->unit_cost_iqd);
+        $hasTransport = $line->transport_cost_usd !== null;
+
+        $rates = [
+            [
+                'label' => __('filament/resources/invoice.fields.exchange_rate'),
+                'value' => __('filament/resources/purchase_invoice.costs_below.rate', ['rate' => self::number($invoice->exchange_rate, 4)]),
+                'note' => $invoice->exchange_rate_source?->getLabel(),
+                'color' => 'warning',
+                'icon' => Heroicon::OutlinedCurrencyYen,
+            ],
+            [
+                'label' => __('filament/resources/invoice.fields.dinar_rate'),
+                'value' => '1 '.Currency::UsDollar->symbol().' = '.$dinars($dinarsPerDollar),
+                'note' => $label('dinar_rate', ['value' => self::number($invoice->dinar_rate)]),
+                'color' => 'success',
+                'icon' => Heroicon::OutlinedBanknotes,
+            ],
+        ];
+
+        $sections = [[
+            'title' => $label('goods'),
+            'color' => 'warning',
+            'icon' => Heroicon::OutlinedShoppingBag,
+            'steps' => [
+                [
+                    'label' => $label('dozen_in_yuan'),
+                    'math' => $yuan((float) $line->unit_cost).' × '.Item::PIECES_IN_A_DOZEN,
+                    'value' => $yuan((float) self::perDozen($line->unit_cost)),
+                ],
+                [
+                    'label' => $label('in_dollars'),
+                    'math' => $yuan((float) self::perDozen($line->unit_cost)).' ÷ '.self::number($invoice->exchange_rate, 4),
+                    'value' => $dollars($goodsDollars),
+                ],
+                [
+                    'label' => $label('in_dinars'),
+                    'math' => $dollars($goodsDollars).' × '.self::number($dinarsPerDollar),
+                    'value' => $dinars($goodsDinars),
+                ],
+            ],
+        ]];
+
+        $parts = [['label' => $label('goods'), 'value' => self::number($goodsDinars, 0), 'color' => 'warning']];
+
+        if ($hasTransport) {
+            $transportDollars = (float) self::perDozen($line->transport_cost_per_piece_usd);
+            $transportDinars = (float) self::perDozen($line->transport_cost_per_piece_iqd);
+
+            $rates[] = [
+                'label' => __('filament/resources/invoice.fields.cbm_price'),
+                'value' => $dollars((float) $invoice->cbm_price),
+                'note' => null,
+                'color' => 'info',
+                'icon' => Heroicon::OutlinedCube,
+            ];
+
+            $sections[] = [
+                'title' => $label('transport'),
+                'color' => 'info',
+                'icon' => Heroicon::OutlinedTruck,
+                'steps' => [
+                    [
+                        'label' => __('filament/resources/invoice_item.fields.cbm'),
+                        'math' => $line->cartons_count === null || $line->carton_cbm === null
+                            ? null
+                            : $label('cartons', ['value' => self::number($line->cartons_count)]).' × '.self::number($line->carton_cbm, 4),
+                        'value' => self::number($line->cbm, 4).' CBM',
+                    ],
+                    [
+                        'label' => $label('line_transport'),
+                        'math' => self::number($line->cbm, 4).' CBM × '.$dollars((float) $invoice->cbm_price),
+                        'value' => $dollars((float) $line->transport_cost_usd),
+                    ],
+                    [
+                        'label' => $label('dozen_transport'),
+                        'math' => $dollars((float) $line->transport_cost_usd).' ÷ '.$label('pieces', ['value' => self::number($line->quantity)]).' × '.Item::PIECES_IN_A_DOZEN,
+                        'value' => $dollars($transportDollars),
+                    ],
+                    [
+                        'label' => $label('in_dinars'),
+                        'math' => $dollars($transportDollars).' × '.self::number($dinarsPerDollar),
+                        'value' => $dinars($transportDinars),
+                    ],
+                ],
+            ];
+
+            $parts[] = ['label' => $label('transport'), 'value' => self::number($transportDinars, 0), 'color' => 'info'];
+        }
+
+        return [
+            'rates' => $rates,
+            'sections' => $sections,
+            'parts' => $parts,
+            'total' => $dinars((float) self::perDozen($line->final_unit_cost_iqd)),
+            'hasTransport' => $hasTransport,
+        ];
     }
 
     /**
