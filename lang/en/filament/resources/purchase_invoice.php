@@ -49,7 +49,13 @@ return [
 
     'exchange_rate_source_hint' => 'Source: :source',
     'dinar_rate_unit' => 'thousand IQD',
-    'dinar_rate_hint' => 'As the market writes it: 100 $ = 170 thousand. So 1 $ = :value IQD',
+    'dinar_rate' => [
+        'how_to_type' => 'Type the thousands of dinars in 100 dollars. For example, if 100 $ = 180 thousand, type 180',
+        'per_dollar' => '1 $ = :value IQD',
+        'per_hundred' => 'So 100 $ = :value IQD',
+        'out_of_range' => 'This number does not make sense. Type the thousands in 100 dollars, for example 180 (not 1800)',
+        'invalid' => 'Type the thousands of dinars in 100 dollars, between :min and :max. For example, 180 means 1 $ = 1,800 IQD',
+    ],
     'groups_hint' => 'Split the line\'s packets into groups: each group is some packets at one power (or without one) with the same colors, and their packets must add up to the number of packets. The same power can repeat with other colors. Leave it empty for a line without a power and without colors, such as sunglasses.',
     'no_colors' => 'No colors',
     'colors_hint' => 'How many pieces of each color one packet holds; they must add up to the packet size (:pieces). Leave it empty for a packet without colors.',

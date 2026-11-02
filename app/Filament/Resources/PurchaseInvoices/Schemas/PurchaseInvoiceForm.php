@@ -56,6 +56,14 @@ class PurchaseInvoiceForm
      */
     private const int DEFAULT_DINAR_RATE = 170;
 
+    /**
+     * The lowest and highest dollar rates that make sense, in thousands of dinars for 100 dollars. A number outside them is
+     * almost always typed in another unit, such as the dinars in one dollar (1800) instead of the thousands in 100 dollars (180).
+     */
+    private const int MIN_DINAR_RATE = 100;
+
+    private const int MAX_DINAR_RATE = 300;
+
     private const string ENTRY_IN_PACKETS = 'packets';
 
     private const string ENTRY_IN_DOZENS = 'dozens';
@@ -122,14 +130,18 @@ class PurchaseInvoiceForm
                     ->prefix('100 '.Currency::UsDollar->symbol().' =')
                     ->suffix(__('filament/resources/purchase_invoice.dinar_rate_unit'))
                     ->numeric()
-                    ->rule('gt:0')
+                    ->rule('between:'.self::MIN_DINAR_RATE.','.self::MAX_DINAR_RATE)
+                    ->validationMessages([
+                        'between' => __('filament/resources/purchase_invoice.dinar_rate.invalid', [
+                            'min' => self::MIN_DINAR_RATE,
+                            'max' => self::MAX_DINAR_RATE,
+                        ]),
+                    ])
                     ->default(self::DEFAULT_DINAR_RATE)
                     // So the dinar amounts of the lines and the invoice follow the typing.
                     ->live(debounce: 500)
                     ->required()
-                    ->helperText(fn (Get $get): string => __('filament/resources/purchase_invoice.dinar_rate_hint', [
-                        'value' => Number::format(self::dinarsPerDollar($get('dinar_rate')) ?? 0),
-                    ])),
+                    ->belowContent(fn (Get $get): array => self::dinarRateHint($get('dinar_rate'))),
                 // Typed by hand, and changed until the invoice first enters a container; from then on it is locked for good.
                 MoneyInput::make('cbm_price')
                     ->label(__('filament/resources/invoice.fields.cbm_price'))
@@ -1099,6 +1111,37 @@ class PurchaseInvoiceForm
         $rate = self::number($dinarRate);
 
         return $rate > 0 ? $rate * 1000 / 100 : null;
+    }
+
+    /**
+     * Under the dollar rate, what it means as it is typed, so a number in the wrong unit shows at once: a green badge with
+     * the dinars in one dollar and the dinars in 100 dollars beside it; a red badge and how to type it when the number is
+     * outside what makes sense; or how to type it while it is empty.
+     *
+     * @return list<Text>
+     */
+    private static function dinarRateHint(mixed $dinarRate): array
+    {
+        $rate = self::number($dinarRate);
+        $hint = fn (string $key, array $replace = []): string => __("filament/resources/purchase_invoice.dinar_rate.{$key}", $replace);
+
+        if ($rate <= 0) {
+            return [Text::make($hint('how_to_type'))];
+        }
+
+        $perDollar = $hint('per_dollar', ['value' => Number::format((float) self::dinarsPerDollar($rate))]);
+
+        if ($rate < self::MIN_DINAR_RATE || $rate > self::MAX_DINAR_RATE) {
+            return [
+                Text::make($perDollar)->badge()->color('danger')->icon(Heroicon::OutlinedExclamationTriangle),
+                Text::make($hint('out_of_range'))->color('danger'),
+            ];
+        }
+
+        return [
+            Text::make($perDollar)->badge()->color('success')->icon(Heroicon::OutlinedCheckCircle),
+            Text::make($hint('per_hundred', ['value' => Number::format($rate * 1000)])),
+        ];
     }
 
     /**

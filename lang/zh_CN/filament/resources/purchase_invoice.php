@@ -49,7 +49,13 @@ return [
 
     'exchange_rate_source_hint' => '来源：:source',
     'dinar_rate_unit' => '千 IQD',
-    'dinar_rate_hint' => '按市场的写法：100 $ = 170 千（即 17 万）。所以 1 $ = :value IQD',
+    'dinar_rate' => [
+        'how_to_type' => '请填写 100 美元等于多少千第纳尔。例如 100 $ = 180 千，就填 180',
+        'per_dollar' => '1 $ = :value IQD',
+        'per_hundred' => '即 100 $ = :value IQD',
+        'out_of_range' => '这个数字不合理。请填写 100 美元等于多少千，例如 180（不是 1800）',
+        'invalid' => '请填写 100 美元等于多少千第纳尔，范围 :min 到 :max。例如 180 表示 1 $ = 1,800 IQD',
+    ],
     'groups_hint' => '将该明细行的包分成若干组：每组由若干包组成，这些包为同一度数（或无度数）且颜色相同，各组包数之和必须等于包数。同一度数可以搭配其他颜色重复出现。若明细行既无度数也无颜色（如太阳镜），请留空。',
     'no_colors' => '无颜色',
     'colors_hint' => '一包中每种颜色各有多少副；合计必须等于每包副数（:pieces）。若包无颜色，请留空。',
