@@ -127,7 +127,7 @@ return [
         'groups_must_add_up' => 'باكيتات المجموعات (:spread) لازم تساوي باكيتات البند (:packets).',
         'colors_must_fill_the_packet' => 'قطع الألوان (:pieces) لازم تساوي تعبئة الباكيت (:packet).',
         'group_more_than_left' => 'باقي :left باكيت بس بالبند، فالمجموعة ما تاخذ أكثر منها.',
-        'line_sets_first' => 'اكتب عدد درازن البند أول.',
+        'line_quantity_first' => 'اكتب كمية البند أول (الباكيتات أو الدرازن).',
         'sets_not_whole_packets' => ':sets درزن بتعبئة :packet تطلع :packets باكيت، ولازم تطلع باكيتات كاملة.',
         'split_line_of_several_groups_goes_whole' => 'بند بيه أكثر من مجموعة يروح كامل أو ما يروح، لأن ما معروف ياهي المجموعات اللي بكل كارتونة.',
     ],

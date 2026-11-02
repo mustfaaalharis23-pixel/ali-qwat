@@ -25,6 +25,7 @@ use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Component;
@@ -55,10 +56,14 @@ class PurchaseInvoiceForm
      */
     private const int DEFAULT_DINAR_RATE = 170;
 
+    private const string ENTRY_IN_PACKETS = 'packets';
+
+    private const string ENTRY_IN_DOZENS = 'dozens';
+
     /**
      * The general description and type are not chosen here: a purchase invoice is always under the purchases description.
      * The name is not typed either: the model names the invoice after its supplier and the supplier's counter.
-     * Each line is an item with its whole packets (boxes_count), the pieces in one packet (pieces_per_packet, the item's, filled and locked
+     * Each line is an item with its whole packets (boxes_count, typed in packets or in dozens), the pieces in one packet (pieces_per_packet, the item's, filled and locked
      * when it is chosen), packets per carton, carton volume (CBM), and the unit cost of one piece;
      * the quantity in pieces (packets × pieces per packet), the cartons (packets ÷ packets per carton, rounded up) and the CBM (cartons × carton volume) are calculated by the model, and the line is saved with its unit cost as typed and its total price (its pieces × the unit cost).
      * The invoice's price of one CBM, in US dollars, gives the transport cost of every line, and its dollar rate in dinars
@@ -162,32 +167,72 @@ class PurchaseInvoiceForm
 
                                 if ($piecesPerPacket !== null) {
                                     $set('pieces_per_packet', $piecesPerPacket);
-                                    self::syncPacketsWithSets($get, $set);
+                                    self::syncTheOtherQuantity($get, $set);
                                 }
                             })
                             ->helperText(fn (mixed $state): ?View => self::itemHint($state)),
                         Fieldset::make(__('filament/resources/purchase_invoice.sections.line_packing'))
                             ->columns(5)
                             ->schema([
-                                // The line is typed in sets (a set is a dozen, 12 pieces). It is not stored: the packets are,
-                                // and they follow from the sets and the packet, so the sets of a saved line come back from its packets.
+                                // How the line's quantity is typed: in packets (the default) or in dozens of 12 pieces. Only one of
+                                // the two is typed, and the other follows from it and the packet. It is not stored, so a saved line
+                                // opens in packets.
+                                ToggleButtons::make('entry_unit')
+                                    ->label(__('filament/resources/invoice_item.fields.entry_unit'))
+                                    ->options([
+                                        self::ENTRY_IN_PACKETS => __('filament/resources/invoice_item.fields.boxes_count'),
+                                        self::ENTRY_IN_DOZENS => __('filament/resources/invoice_item.fields.sets'),
+                                    ])
+                                    ->default(self::ENTRY_IN_PACKETS)
+                                    ->grouped()
+                                    ->live()
+                                    ->dehydrated(false)
+                                    ->afterStateHydrated(function (ToggleButtons $component, mixed $state): void {
+                                        if (blank($state)) {
+                                            $component->state(self::ENTRY_IN_PACKETS);
+                                        }
+                                    })
+                                    ->afterStateUpdated(function (Get $get, Set $set): void {
+                                        self::syncTheOtherQuantity($get, $set);
+                                    })
+                                    ->columnSpanFull(),
+                                // The packets are stored. Typed while the line is entered in packets, and read only while it is
+                                // entered in dozens: then they are the dozens × 12 ÷ the packet, not cast to a whole number,
+                                // so dozens that do not make whole packets show it ("12.6") beside their error.
                                 // Live, so the line total under the unit cost follows the typing.
+                                TextInput::make('boxes_count')
+                                    ->label(__('filament/resources/invoice_item.fields.boxes_count'))
+                                    ->numeric()
+                                    ->rule('integer', fn (Get $get): bool => ! self::isEnteredInDozens($get))
+                                    ->rule('gt:0')
+                                    ->required()
+                                    ->live(debounce: 500)
+                                    ->disabled(fn (Get $get): bool => self::isEnteredInDozens($get))
+                                    ->dehydrated()
+                                    ->afterStateUpdated(function (Get $get, Set $set): void {
+                                        self::syncTheOtherQuantity($get, $set);
+                                    }),
+                                // The dozens are not stored: the packets are. Typed while the line is entered in dozens, and
+                                // read only otherwise, where they are the packets × the packet ÷ 12, and can have a fraction.
                                 TextInput::make('sets')
                                     ->label(__('filament/resources/invoice_item.fields.sets'))
                                     ->numeric()
-                                    ->rule('gt:0')
-                                    ->required(fn (Get $get): bool => blank($get('boxes_count')))
+                                    ->rule('gt:0', fn (Get $get): bool => self::isEnteredInDozens($get))
+                                    ->required(fn (Get $get): bool => self::isEnteredInDozens($get))
+                                    ->disabled(fn (Get $get): bool => ! self::isEnteredInDozens($get))
                                     ->dehydrated(false)
                                     ->live(debounce: 500)
                                     ->afterStateHydrated(function (TextInput $component, Get $get): void {
                                         $component->state(self::setsOf($get('boxes_count'), $get('pieces_per_packet')));
                                     })
                                     ->afterStateUpdated(function (Get $get, Set $set): void {
-                                        self::syncPacketsWithSets($get, $set);
+                                        self::syncTheOtherQuantity($get, $set);
                                     })
                                     ->rules([
                                         fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
-                                            self::ensureTheSetsMakeWholePackets($value, $get('pieces_per_packet'), $fail);
+                                            if (self::isEnteredInDozens($get)) {
+                                                self::ensureTheSetsMakeWholePackets($value, $get('pieces_per_packet'), $fail);
+                                            }
                                         },
                                     ]),
                                 // The item's packet, 20 or 24 pieces: it is filled from the item and locked, because an item's packet never changes.
@@ -200,15 +245,8 @@ class PurchaseInvoiceForm
                                     ->disabled(fn (Get $get): bool => self::itemOf($get('specific_description_id'))?->pieces_per_packet !== null)
                                     ->dehydrated()
                                     ->afterStateUpdated(function (Get $get, Set $set): void {
-                                        self::syncPacketsWithSets($get, $set);
+                                        self::syncTheOtherQuantity($get, $set);
                                     }),
-                                // Read only for now: the sets × 12 ÷ the packet. Not cast to a whole number, so sets that do not make
-                                // whole packets show it ("12.6") beside their error.
-                                TextInput::make('boxes_count')
-                                    ->label(__('filament/resources/invoice_item.fields.boxes_count'))
-                                    ->disabled()
-                                    ->dehydrated()
-                                    ->required(),
                                 TextInput::make('boxes_per_carton')
                                     ->label(__('filament/resources/invoice_item.fields.boxes_per_carton'))
                                     ->numeric()
@@ -636,7 +674,7 @@ class PurchaseInvoiceForm
                 ->rules([
                     fn (): Closure => function (string $attribute, mixed $value, Closure $fail) use ($packets, $left): void {
                         if ($packets <= 0) {
-                            $fail(__('invoices.validation.line_sets_first'));
+                            $fail(__('invoices.validation.line_quantity_first'));
                         } elseif (self::number($value) > $left() + 0.0001) {
                             $fail(__('invoices.validation.group_more_than_left', ['left' => self::count($left())]));
                         }
@@ -753,10 +791,25 @@ class PurchaseInvoiceForm
     }
 
     /**
-     * Writes the line's packets from its typed sets and its packet, once both are there.
+     * Whether the line's quantity is typed in dozens rather than in packets.
      */
-    private static function syncPacketsWithSets(Get $get, Set $set): void
+    private static function isEnteredInDozens(Get $get): bool
     {
+        return $get('entry_unit') === self::ENTRY_IN_DOZENS;
+    }
+
+    /**
+     * Writes the quantity that is not typed from the one that is: the packets from the dozens while the line is entered in dozens,
+     * or the dozens from the packets otherwise. The packets are left as they are until the dozens and the packet are both there.
+     */
+    private static function syncTheOtherQuantity(Get $get, Set $set): void
+    {
+        if (! self::isEnteredInDozens($get)) {
+            $set('sets', self::setsOf($get('boxes_count'), $get('pieces_per_packet')));
+
+            return;
+        }
+
         $packets = self::packetsOf($get('sets'), $get('pieces_per_packet'));
 
         if ($packets !== null) {

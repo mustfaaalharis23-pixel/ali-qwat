@@ -127,7 +127,7 @@ return [
         'groups_must_add_up' => 'The packets of the groups (:spread) must add up to the line\'s packets (:packets).',
         'colors_must_fill_the_packet' => 'The pieces of the colors (:pieces) must add up to the packet size (:packet).',
         'group_more_than_left' => 'Only :left packets of the line are left, so the group cannot take more.',
-        'line_sets_first' => 'Type the line\'s dozens first.',
+        'line_quantity_first' => 'Type the line\'s quantity first (packets or dozens).',
         'sets_not_whole_packets' => ':sets dozens in packets of :packet make :packets packets, and they must make whole packets.',
         'split_line_of_several_groups_goes_whole' => 'A line of several groups goes whole or not at all, because which groups are in each carton is not known.',
     ],

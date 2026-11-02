@@ -15,6 +15,7 @@ return [
         'pieces' => '包内副数',
         'price' => '价格',
         'quantity' => '数量（副）',
+        'entry_unit' => '录入方式',
         'sets' => '套数',
         'boxes_count' => '包数',
         'pieces_per_packet' => '每包副数',

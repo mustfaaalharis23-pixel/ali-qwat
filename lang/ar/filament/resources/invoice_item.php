@@ -15,6 +15,7 @@ return [
         'pieces' => 'القطع بالباكيت',
         'price' => 'السعر',
         'quantity' => 'الكمية (قطعة)',
+        'entry_unit' => 'الإدخال بـ',
         'sets' => 'عدد الدرازن',
         'boxes_count' => 'عدد الباكيتات',
         'pieces_per_packet' => 'تعبئة الباكيت',

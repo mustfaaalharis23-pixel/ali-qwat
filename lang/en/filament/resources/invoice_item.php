@@ -15,6 +15,7 @@ return [
         'pieces' => 'Pieces in a packet',
         'price' => 'Price',
         'quantity' => 'Quantity (pieces)',
+        'entry_unit' => 'Enter by',
         'sets' => 'Dozens',
         'boxes_count' => 'Number of packets',
         'pieces_per_packet' => 'Packet size',

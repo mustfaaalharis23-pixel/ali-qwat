@@ -127,7 +127,7 @@ return [
         'groups_must_add_up' => '各组的包数（:spread）之和必须等于该明细行的包数（:packets）。',
         'colors_must_fill_the_packet' => '各颜色的副数（:pieces）之和必须等于每包副数（:packet）。',
         'group_more_than_left' => '该明细行只剩 :left 包，因此该组不能再多取。',
-        'line_sets_first' => '请先输入该明细行的套数。',
+        'line_quantity_first' => '请先输入该明细行的数量（包数或套数）。',
         'sets_not_whole_packets' => ':sets 套按每包 :packet 副计算为 :packets 包，必须是整包。',
         'split_line_of_several_groups_goes_whole' => '包含多个组的明细行只能整行进入或整行不进入，因为不知道每箱里装的是哪些组。',
     ],
