@@ -10,8 +10,12 @@ return [
         'email' => 'Email',
         'password' => 'Password',
         'is_active' => 'Active',
-        'is_super' => 'Super user',
+        'is_super' => 'Super account',
         'is_cashier' => 'Cashier',
+    ],
+
+    'hints' => [
+        'is_super' => 'Gets all permissions',
     ],
 
     'sections' => [

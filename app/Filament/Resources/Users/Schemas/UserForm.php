@@ -64,6 +64,7 @@ class UserForm
                             ->label(__('filament/resources/user.fields.is_cashier')),
                         Toggle::make('is_super')
                             ->label(__('filament/resources/user.fields.is_super'))
+                            ->helperText(__('filament/resources/user.hints.is_super'))
                             ->superOnly(),
                     ]),
                 Section::make(__('permissions.section'))

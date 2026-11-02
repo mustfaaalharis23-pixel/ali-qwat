@@ -10,8 +10,12 @@ return [
         'email' => 'البريد الإلكتروني',
         'password' => 'كلمة المرور',
         'is_active' => 'فعّال',
-        'is_super' => 'مدير عام',
+        'is_super' => 'حساب سوبر',
         'is_cashier' => 'كاشير',
+    ],
+
+    'hints' => [
+        'is_super' => 'ياخذ جميع الصلاحيات',
     ],
 
     'sections' => [
