@@ -10,6 +10,7 @@ return [
         'delete' => 'Delete',
         'restore' => 'Restore',
         'transfer_cashier_money' => 'Transfer cashier money',
+        'edit_exchange_rate' => 'Edit the yuan exchange rate',
     ],
 
     'app' => [

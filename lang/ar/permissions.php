@@ -10,6 +10,7 @@ return [
         'delete' => 'حذف',
         'restore' => 'استرجاع',
         'transfer_cashier_money' => 'تحويل أموال الكاشيرية',
+        'edit_exchange_rate' => 'تعديل سعر صرف اليوان',
     ],
 
     'app' => [

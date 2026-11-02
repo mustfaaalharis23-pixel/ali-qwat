@@ -54,6 +54,15 @@ class InvoicePolicy extends ModelPolicy
     }
 
     /**
+     * Changing a purchase invoice's yuan rate is its own permission (invoice.edit_exchange_rate): on the create page, and after,
+     * on the edit page. Without it, the invoice takes the bank's rate, unless no bank gave one.
+     */
+    public function editExchangeRate(User $user): bool
+    {
+        return $this->hasPermission($user, __FUNCTION__);
+    }
+
+    /**
      * A side confirms a purchase invoice that is at its stage, with that side's permission.
      */
     protected function canConfirm(User $user, Invoice $invoice, InvoiceConfirmation $side): bool

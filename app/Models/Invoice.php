@@ -56,7 +56,7 @@ class Invoice extends BaseModel
     ];
 
     /**
-     * Whether the save in progress changes the invoice's price of one CBM or its dinar rate, which the lines' costs come from.
+     * Whether the save in progress changes the invoice's price of one CBM, its dinar rate, or its yuan rate, which the lines' costs come from.
      */
     protected bool $costRatesChanged = false;
 
@@ -88,9 +88,14 @@ class Invoice extends BaseModel
             $invoice->startPurchaseInvoiceInProduction();
         });
 
-        // Changing the price of one CBM or the dinar rate saves the lines again, so they keep their costs at the new rates.
+        // Changing the price of one CBM, the dinar rate, or the yuan rate saves the lines again, so they keep their costs at the new rates.
+        // A yuan rate changed after the invoice was made is no longer the bank's, so it is marked as typed by hand.
         static::saving(function (Invoice $invoice): void {
-            $invoice->costRatesChanged = $invoice->exists && $invoice->isDirty(['cbm_price', 'dinar_rate']);
+            $invoice->costRatesChanged = $invoice->exists && $invoice->isDirty(['cbm_price', 'dinar_rate', 'exchange_rate']);
+
+            if ($invoice->exists && $invoice->isDirty('exchange_rate')) {
+                $invoice->exchange_rate_source = ExchangeRateSource::Manual;
+            }
         });
 
         static::saved(function (Invoice $invoice): void {
@@ -100,7 +105,7 @@ class Invoice extends BaseModel
 
             // The original is synced only after this event, so without this the saves below would see the change again.
             $invoice->costRatesChanged = false;
-            $invoice->syncOriginalAttributes(['cbm_price', 'dinar_rate']);
+            $invoice->syncOriginalAttributes(['cbm_price', 'dinar_rate', 'exchange_rate']);
             $invoice->items()->each(fn (InvoiceItem $line) => $line->save());
             $invoice->recalculateAmounts();
         });

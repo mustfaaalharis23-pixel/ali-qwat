@@ -30,10 +30,12 @@ class InvoicePolicyTest extends TestCase
     }
 
     /**
-     * EN: The invoice permissions are the five basic ones and a confirm permission for each side, without update and delete counted twice.
-     * AR: صلاحيات الفاتورة هي الخمسة الأساسية ويا صلاحية تأكيد لكل جهة، بدون ما تنحسب update و delete مرتين.
+     * EN: The invoice permissions are the five basic ones, a confirm permission for each side, and editing the exchange rate,
+     *     without update and delete counted twice.
+     * AR: صلاحيات الفاتورة هي الخمسة الأساسية ويا صلاحية تأكيد لكل جهة وصلاحية تعديل سعر الصرف،
+     *     بدون ما تنحسب update و delete مرتين.
      */
-    public function test_invoice_permissions_are_the_basic_ones_and_a_confirm_for_each_side(): void
+    public function test_invoice_permissions_are_the_basic_ones_a_confirm_for_each_side_and_the_exchange_rate(): void
     {
         $permissions = (new PermissionDiscovery)->discover([Invoice::class]);
 
@@ -45,6 +47,7 @@ class InvoicePolicyTest extends TestCase
             'invoice.restore',
             'invoice.confirm_as_importer',
             'invoice.confirm_as_receiver',
+            'invoice.edit_exchange_rate',
         ], $permissions[Invoice::class]);
     }
 

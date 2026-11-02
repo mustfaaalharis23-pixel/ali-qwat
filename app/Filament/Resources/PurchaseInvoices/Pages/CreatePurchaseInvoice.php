@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\PurchaseInvoices\Pages;
 
+use App\Enums\ExchangeRateSource;
 use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
 use App\Invoices\ConfirmPurchaseInvoice;
 use App\Invoices\FetchExchangeRate;
 use App\Models\GeneralDescription;
+use App\Models\Invoice;
 use App\Models\Payoff;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -14,6 +16,7 @@ use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Arr;
+use Livewire\Attributes\Locked;
 
 class CreatePurchaseInvoice extends CreateRecord
 {
@@ -33,6 +36,16 @@ class CreatePurchaseInvoice extends CreateRecord
      * Whether the form was filled from the copy this browser kept of an invoice that was being typed, so it can be discarded.
      */
     public bool $hasRestoredDraft = false;
+
+    /**
+     * The yuan rate the banks gave when the page opened, and the bank it came from; both null when no bank answered.
+     * Locked, so the browser cannot change them: the invoice is saved at this rate unless the user may edit it.
+     */
+    #[Locked]
+    public ?float $bankExchangeRate = null;
+
+    #[Locked]
+    public ?string $bankExchangeRateSource = null;
 
     /**
      * Puts back what the user was typing before the page was left, from the copy this browser keeps under the user.
@@ -108,6 +121,8 @@ class CreatePurchaseInvoice extends CreateRecord
         $fetched = (new FetchExchangeRate)->handle();
 
         if ($fetched !== null) {
+            $this->bankExchangeRate = $fetched['rate'];
+            $this->bankExchangeRateSource = $fetched['source']->value;
             $this->data['exchange_rate'] = $fetched['rate'];
             $this->data['exchange_rate_source'] = $fetched['source']->value;
 
@@ -158,6 +173,7 @@ class CreatePurchaseInvoice extends CreateRecord
 
     /**
      * A purchase invoice is always under the purchases description, of type output, and the user who creates it is its creator.
+     * Its yuan rate is settled by withExchangeRate().
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -174,6 +190,25 @@ class CreatePurchaseInvoice extends CreateRecord
         $payment = $data['initial_payment'] ?? null;
         unset($data['initial_payment']);
         $this->initialPayment = blank($payment) ? null : (float) str_replace(',', '', (string) $payment);
+
+        return $this->withExchangeRate($data);
+    }
+
+    /**
+     * The invoice keeps the bank's rate, with that bank as its source, unless a user with the permission to edit the rate typed
+     * another one. A typed rate, or any rate when no bank answered, is manual. The bank's rate is taken from this page, never from the browser.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withExchangeRate(array $data): array
+    {
+        $typedRate = $data['exchange_rate'] ?? null;
+        $mayEditTheRate = auth()->user()?->can('editExchangeRate', Invoice::class) ?? false;
+        $keepsTheBankRate = $this->bankExchangeRate !== null && (! $mayEditTheRate || (float) $typedRate === $this->bankExchangeRate);
+
+        $data['exchange_rate'] = $keepsTheBankRate ? $this->bankExchangeRate : $typedRate;
+        $data['exchange_rate_source'] = $keepsTheBankRate ? $this->bankExchangeRateSource : ExchangeRateSource::Manual->value;
 
         return $data;
     }

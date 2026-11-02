@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Enums\ExchangeRateSource;
 use App\Invoices\SplitPurchaseInvoice;
 use App\Models\Container;
 use App\Models\Invoice;
@@ -242,6 +243,42 @@ class PurchaseLineCostsTest extends TestCase
 
         $this->assertEqualsWithDelta(1200, $line->fresh()->final_unit_cost_iqd, 0.0001);
         $this->assertEqualsWithDelta(14400, $line->item->fresh()->cost_price, 0.0001);
+    }
+
+    /**
+     * EN: Changing a saved invoice's yuan rate from 7 to 5 saves the costs again, and the rate is marked as typed by hand.
+     *     The line of 240 pieces at 3.5 yuan becomes 0.7 $ a piece and 168 $, which is 1,190 dinars a piece and 285,600 for the line;
+     *     its transport (425 dinars a piece) does not change, so a piece is 1,190 + 425 = 1,615 dinars and the item's dozen 19,380.
+     *     The invoice is then 168 $ and 285,600 dinars.
+     * AR: تغيير سعر اليوان لفاتورة محفوظة من 7 لـ 5 يحفظ الكلف من جديد، والسعر يتعلّم إنه مكتوب باليد.
+     *     بند 240 قطعة بـ 3.5 يوان يصير القطعة 0.7 $ والبند 168 $، يعني القطعة 1,190 دينار والبند 285,600؛
+     *     نقله (425 دينار للقطعة) ما يتغيّر، فالقطعة تصير 1,190 + 425 = 1,615 دينار ودرزن المادة 19,380.
+     *     والفاتورة تصير 168 $ و285,600 دينار.
+     */
+    public function test_changing_the_exchange_rate_saves_the_costs_again_as_manual(): void
+    {
+        $invoice = Invoice::factory()->purchase()->confirmed()->create([
+            'exchange_rate' => 7,
+            'exchange_rate_source' => ExchangeRateSource::AgriculturalBankOfChina,
+            'cbm_price' => 120,
+            'dinar_rate' => 170,
+        ]);
+        $line = $this->addLine($invoice, pieces: 240, unitCost: 3.5, cartons: 10, cartonCbm: 0.05);
+
+        $invoice->fresh()->update(['exchange_rate' => 5]);
+
+        $line = $line->fresh();
+        $this->assertEqualsWithDelta(0.7, $line->unit_cost_usd, 0.000001);
+        $this->assertEqualsWithDelta(168, $line->price_usd, 0.000001);
+        $this->assertEqualsWithDelta(1190, $line->unit_cost_iqd, 0.0001);
+        $this->assertEqualsWithDelta(285600, $line->price_iqd, 0.0001);
+        $this->assertEqualsWithDelta(1615, $line->final_unit_cost_iqd, 0.0001);
+        $this->assertEqualsWithDelta(19380, $line->item->fresh()->cost_price, 0.0001);
+
+        $invoice = $invoice->fresh();
+        $this->assertEqualsWithDelta(168, $invoice->amount_usd, 0.000001);
+        $this->assertEqualsWithDelta(285600, $invoice->amount_iqd, 0.0001);
+        $this->assertSame(ExchangeRateSource::Manual, $invoice->exchange_rate_source);
     }
 
     /**

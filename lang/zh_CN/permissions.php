@@ -10,6 +10,7 @@ return [
         'delete' => '删除',
         'restore' => '恢复',
         'transfer_cashier_money' => '收银员资金转账',
+        'edit_exchange_rate' => '修改人民币汇率',
     ],
 
     'app' => [

@@ -8,6 +8,7 @@ use App\Filament\Forms\Components\MoneyInput;
 use App\Filament\Resources\Colors\ColorResource;
 use App\Filament\Resources\InvoiceCategories\InvoiceCategoryResource;
 use App\Filament\Resources\LensPowers\LensPowerResource;
+use App\Filament\Resources\PurchaseInvoices\Pages\CreatePurchaseInvoice;
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Models\Color;
@@ -108,7 +109,7 @@ class PurchaseInvoiceForm
                     ->required(),
                 // The yuan in one US dollar. The create page fills it from the Agricultural Bank of China, or China Merchants Bank
                 // when the first does not answer, and it is typed by hand when neither does. Changing it by hand makes its source manual.
-                // It is kept as it was on the day the invoice was made, so it cannot be changed after.
+                // Only a user with the permission to edit it changes it, here and after on the edit page; see canChangeExchangeRate().
                 TextInput::make('exchange_rate')
                     ->label(__('filament/resources/invoice.fields.exchange_rate'))
                     ->prefix('1 '.Currency::UsDollar->symbol().' =')
@@ -117,8 +118,8 @@ class PurchaseInvoiceForm
                     ->rule('gt:0')
                     // So the dollar amounts of the lines and the invoice follow the typing.
                     ->live(debounce: 500)
-                    ->required(fn (string $operation): bool => $operation === 'create')
-                    ->disabled(fn (string $operation): bool => $operation !== 'create')
+                    ->required(fn (object $livewire): bool => self::canChangeExchangeRate($livewire))
+                    ->disabled(fn (object $livewire): bool => ! self::canChangeExchangeRate($livewire))
                     ->afterStateUpdated(fn (Set $set) => $set('exchange_rate_source', ExchangeRateSource::Manual->value))
                     ->helperText(fn (Get $get): ?HtmlString => self::exchangeRateSourceHint($get('exchange_rate_source'))),
                 Hidden::make('exchange_rate_source')
@@ -894,6 +895,16 @@ class PurchaseInvoiceForm
                 'packet' => Number::format($packet, maxPrecision: 2),
             ]));
         }
+    }
+
+    /**
+     * Whether the yuan rate can be typed on this page: by a user with the permission to edit it, on the create and the edit page,
+     * or by anyone on the create page when no bank gave a rate. Otherwise the field is locked, so it is never sent from the browser.
+     */
+    private static function canChangeExchangeRate(object $livewire): bool
+    {
+        return (auth()->user()?->can('editExchangeRate', Invoice::class) ?? false)
+            || ($livewire instanceof CreatePurchaseInvoice && $livewire->bankExchangeRate === null);
     }
 
     /**
