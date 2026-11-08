@@ -106,6 +106,51 @@ class Item extends BaseModel
     }
 
     /**
+     * The stock batches of this item that came in on the purchase invoices both sides confirmed: the stock itself.
+     * Eager load it with stockRelations() when a list of items shows their stock, so it is read once for the whole list.
+     */
+    public function confirmedBatches(): HasMany
+    {
+        return $this->hasMany(Batch::class)
+            ->whereHas('invoice', fn (Builder $query): Builder => $query->where('status', InvoiceStatus::Confirmed));
+    }
+
+    /**
+     * The lines of this item sold on the orders that are not deleted.
+     * Eager load it with stockRelations() when a list of items shows their stock, so it is read once for the whole list.
+     */
+    public function soldLines(): HasMany
+    {
+        return $this->hasMany(OrderItem::class)->whereHas('order');
+    }
+
+    /**
+     * What a list of items eager loads to show what is left of each one (its powers and its packet types) without reading
+     * the stock again for every item: its confirmed batches with their powers and colors, and its sold lines. When these are
+     * loaded the stock methods read them; when they are not, each method reads the database as it always did.
+     * Load them only to show the stock: an item that is being sold must read it fresh.
+     *
+     * @return array<string|int, mixed>
+     */
+    public static function stockRelations(): array
+    {
+        return [
+            'confirmedBatches' => fn (HasMany $query): HasMany => $query->orderBy('id'),
+            'confirmedBatches.lensPower' => fn (BelongsTo $query): BelongsTo => $query->withTrashed(),
+            'confirmedBatches.invoiceItem.colors.color' => fn (BelongsTo $query): BelongsTo => $query->withTrashed(),
+            'soldLines' => fn (HasMany $query): HasMany => $query->select(['id', 'item_id', 'lens_power_id', 'colors', 'pieces']),
+        ];
+    }
+
+    /**
+     * Whether the stock of this item was eager loaded with stockRelations().
+     */
+    protected function hasStockLoaded(): bool
+    {
+        return $this->relationLoaded('confirmedBatches') && $this->relationLoaded('soldLines');
+    }
+
+    /**
      * The active items. An inactive item is hidden across the system, so every list or count of items for work uses this.
      *
      * @param  Builder<self>  $query
@@ -234,6 +279,10 @@ class Item extends BaseModel
      */
     public function wasBoughtWithPowers(): bool
     {
+        if ($this->hasStockLoaded()) {
+            return $this->confirmedBatches->contains(fn (Batch $batch): bool => $batch->lens_power_id !== null);
+        }
+
         return $this->batchesOfInvoicesWith(InvoiceStatus::Confirmed)->whereNotNull('lens_power_id')->exists();
     }
 
@@ -250,21 +299,12 @@ class Item extends BaseModel
             return [];
         }
 
-        $bought = $this->batchesOfInvoicesWith(InvoiceStatus::Confirmed)
-            ->toBase()
-            ->selectRaw('lens_power_id, sum(quantity) as pieces')
-            ->groupBy('lens_power_id')
-            ->pluck('pieces', 'lens_power_id');
+        $bought = $this->piecesBoughtByPower();
+        $sold = $this->piecesSoldByPower();
 
-        $sold = OrderItem::query()
-            ->where('item_id', $this->id)
-            ->whereHas('order')
-            ->toBase()
-            ->selectRaw('lens_power_id, sum(pieces) as pieces')
-            ->groupBy('lens_power_id')
-            ->pluck('pieces', 'lens_power_id');
-
-        $values = LensPower::withTrashed()->whereIn('id', $bought->keys()->filter())->pluck('value', 'id');
+        $values = $this->hasStockLoaded()
+            ? $this->confirmedBatches->filter(fn (Batch $batch): bool => $batch->lensPower !== null)->mapWithKeys(fn (Batch $batch): array => [$batch->lens_power_id => $batch->lensPower->value])
+            : LensPower::withTrashed()->whereIn('id', $bought->keys()->filter())->pluck('value', 'id');
 
         return $bought
             ->map(fn (mixed $pieces, int|string $lensPowerId): array => [
@@ -279,6 +319,50 @@ class Item extends BaseModel
     }
 
     /**
+     * The pieces that came in of this item at each lens power on the purchase invoices both sides confirmed, keyed by the power
+     * (an empty key for the pieces without a power).
+     *
+     * @return Collection<int|string, float>
+     */
+    protected function piecesBoughtByPower(): Collection
+    {
+        if ($this->hasStockLoaded()) {
+            return $this->confirmedBatches
+                ->groupBy(fn (Batch $batch): string => (string) $batch->lens_power_id)
+                ->map(fn (Collection $batches): float => (float) $batches->sum('quantity'));
+        }
+
+        return $this->batchesOfInvoicesWith(InvoiceStatus::Confirmed)
+            ->toBase()
+            ->selectRaw('lens_power_id, sum(quantity) as pieces')
+            ->groupBy('lens_power_id')
+            ->pluck('pieces', 'lens_power_id');
+    }
+
+    /**
+     * The pieces sold of this item at each lens power on the orders that are not deleted, keyed by the power
+     * (an empty key for the pieces without a power).
+     *
+     * @return Collection<int|string, float>
+     */
+    protected function piecesSoldByPower(): Collection
+    {
+        if ($this->hasStockLoaded()) {
+            return $this->soldLines
+                ->groupBy(fn (OrderItem $line): string => (string) $line->lens_power_id)
+                ->map(fn (Collection $lines): float => (float) $lines->sum('pieces'));
+        }
+
+        return OrderItem::query()
+            ->where('item_id', $this->id)
+            ->whereHas('order')
+            ->toBase()
+            ->selectRaw('lens_power_id, sum(pieces) as pieces')
+            ->groupBy('lens_power_id')
+            ->pluck('pieces', 'lens_power_id');
+    }
+
+    /**
      * What came in of this item at each lens power, for its page: for every power its stock batches carry, the packets and pieces
      * that arrived (on the invoices both sides confirmed) and that are on their way (on the invoices only the importer confirmed),
      * and the pieces left of it (what arrived of it minus what was sold of it), from the lowest power to the highest,
@@ -289,33 +373,37 @@ class Item extends BaseModel
      */
     public function quantitiesByPower(): Collection
     {
-        $packetsOf = fn (Collection $batches): float => (float) $batches->sum(
-            fn (Batch $batch): float => $batch->invoiceItem->pieces_per_packet > 0 ? $batch->quantity / $batch->invoiceItem->pieces_per_packet : 0.0,
-        );
+        return once(function (): Collection {
+            $packetsOf = fn (Collection $batches): float => (float) $batches->sum(
+                fn (Batch $batch): float => $batch->invoiceItem->pieces_per_packet > 0 ? $batch->quantity / $batch->invoiceItem->pieces_per_packet : 0.0,
+            );
+            $bought = $this->piecesBoughtByPower();
+            $sold = $this->piecesSoldByPower();
 
-        return Batch::query()
-            ->where('item_id', $this->id)
-            ->whereHas('invoice', fn (Builder $query): Builder => $query
-                ->whereIn('status', [InvoiceStatus::Confirmed, InvoiceStatus::ImporterConfirmed]))
-            ->with(['invoice', 'invoiceItem', 'lensPower'])
-            ->get()
-            ->groupBy(fn (Batch $batch): string => (string) $batch->lens_power_id)
-            ->map(function (Collection $batches) use ($packetsOf): array {
-                [$arrived, $incoming] = $batches->partition(fn (Batch $batch): bool => $batch->invoice->status === InvoiceStatus::Confirmed);
+            return Batch::query()
+                ->where('item_id', $this->id)
+                ->whereHas('invoice', fn (Builder $query): Builder => $query
+                    ->whereIn('status', [InvoiceStatus::Confirmed, InvoiceStatus::ImporterConfirmed]))
+                ->with(['invoice', 'invoiceItem', 'lensPower'])
+                ->get()
+                ->groupBy(fn (Batch $batch): string => (string) $batch->lens_power_id)
+                ->map(function (Collection $batches) use ($packetsOf, $bought, $sold): array {
+                    [$arrived, $incoming] = $batches->partition(fn (Batch $batch): bool => $batch->invoice->status === InvoiceStatus::Confirmed);
 
-                $lensPowerId = $batches->first()->lens_power_id;
+                    $lensPowerId = $batches->first()->lens_power_id;
 
-                return [
-                    'power' => $batches->first()->lensPower?->value,
-                    'arrived_packets' => $packetsOf($arrived),
-                    'arrived_pieces' => (float) $arrived->sum('quantity'),
-                    'incoming_packets' => $packetsOf($incoming),
-                    'incoming_pieces' => (float) $incoming->sum('quantity'),
-                    'remaining_pieces' => $this->availablePiecesOfPower($lensPowerId === null ? null : (int) $lensPowerId),
-                ];
-            })
-            ->sortBy(fn (array $row): float => $row['power'] === null ? PHP_FLOAT_MAX : (float) $row['power'])
-            ->values();
+                    return [
+                        'power' => $batches->first()->lensPower?->value,
+                        'arrived_packets' => $packetsOf($arrived),
+                        'arrived_pieces' => (float) $arrived->sum('quantity'),
+                        'incoming_packets' => $packetsOf($incoming),
+                        'incoming_pieces' => (float) $incoming->sum('quantity'),
+                        'remaining_pieces' => (float) ($bought[(string) $lensPowerId] ?? 0) - (float) ($sold[(string) $lensPowerId] ?? 0),
+                    ];
+                })
+                ->sortBy(fn (array $row): float => $row['power'] === null ? PHP_FLOAT_MAX : (float) $row['power'])
+                ->values();
+        });
     }
 
     /**
@@ -390,8 +478,19 @@ class Item extends BaseModel
         }
 
         $sold = $this->piecesSoldByPacketType();
-        $names = Color::withTrashed()->pluck('name', 'id');
-        $powers = LensPower::withTrashed()->pluck('value', 'id');
+
+        if ($this->hasStockLoaded()) {
+            $names = $this->confirmedBatches
+                ->flatMap(fn (Batch $batch): Collection => $batch->invoiceItem?->colors ?? collect())
+                ->filter(fn (InvoiceItemColor $color): bool => $color->color !== null)
+                ->mapWithKeys(fn (InvoiceItemColor $color): array => [$color->color_id => $color->color->name]);
+            $powers = $this->confirmedBatches
+                ->filter(fn (Batch $batch): bool => $batch->lensPower !== null)
+                ->mapWithKeys(fn (Batch $batch): array => [$batch->lens_power_id => $batch->lensPower->value]);
+        } else {
+            $names = Color::withTrashed()->pluck('name', 'id');
+            $powers = LensPower::withTrashed()->pluck('value', 'id');
+        }
 
         return $this->piecesBoughtByPacketType()
             ->map(function (array $type, string $key) use ($sold, $piecesPerPacket, $names): array {
@@ -424,10 +523,11 @@ class Item extends BaseModel
      */
     protected function piecesBoughtByPacketType(): Collection
     {
-        return $this->batchesOfInvoicesWith(InvoiceStatus::Confirmed)
-            ->with('invoiceItem.colors')
-            ->orderBy('id')
-            ->get()
+        $batches = $this->hasStockLoaded()
+            ? $this->confirmedBatches
+            : $this->batchesOfInvoicesWith(InvoiceStatus::Confirmed)->with('invoiceItem.colors')->orderBy('id')->get();
+
+        return $batches
             ->groupBy(fn (Batch $batch): string => self::packetTypeKey($batch->lens_power_id === null ? null : (int) $batch->lens_power_id, $this->colorsOfBatch($batch)))
             ->map(fn (Collection $batches): array => [
                 'lens_power_id' => $batches->first()->lens_power_id === null ? null : (int) $batches->first()->lens_power_id,
@@ -444,10 +544,11 @@ class Item extends BaseModel
      */
     protected function piecesSoldByPacketType(): Collection
     {
-        return OrderItem::query()
-            ->where('item_id', $this->id)
-            ->whereHas('order')
-            ->get(['lens_power_id', 'colors', 'pieces'])
+        $lines = $this->hasStockLoaded()
+            ? $this->soldLines
+            : OrderItem::query()->where('item_id', $this->id)->whereHas('order')->get(['lens_power_id', 'colors', 'pieces']);
+
+        return $lines
             ->groupBy(fn (OrderItem $line): string => self::packetTypeKey($line->lens_power_id === null ? null : (int) $line->lens_power_id, $line->colors))
             ->map(fn (Collection $lines): float => (float) $lines->sum('pieces'));
     }
@@ -504,22 +605,59 @@ class Item extends BaseModel
      */
     public function quantitiesByColor(): Collection
     {
-        $batches = Batch::query()
-            ->where('item_id', $this->id)
-            ->whereHas('invoice', fn (Builder $query): Builder => $query
-                ->whereIn('status', [InvoiceStatus::Confirmed, InvoiceStatus::ImporterConfirmed]));
+        return once(function (): Collection {
+            $batches = Batch::query()
+                ->where('item_id', $this->id)
+                ->whereHas('invoice', fn (Builder $query): Builder => $query
+                    ->whereIn('status', [InvoiceStatus::Confirmed, InvoiceStatus::ImporterConfirmed]));
+            $sold = $this->piecesSoldByPowerAndColor();
 
-        return $this->colorRowsOf($batches)
-            ->groupBy(fn (array $row): string => $row['lens_power_id'].'|'.$row['color_id'])
-            ->sortBy(fn (Collection $rows): string => $rows->first()['sort'])
-            ->map(fn (Collection $rows): array => [
-                'power' => $rows->first()['power'],
-                'color' => $rows->first()['color'],
-                'arrived_pieces' => (float) $rows->where('arrived', true)->sum('pieces'),
-                'incoming_pieces' => (float) $rows->where('arrived', false)->sum('pieces'),
-                'remaining_pieces' => $this->availablePiecesOfColor($rows->first()['lens_power_id'], $rows->first()['color_id']),
-            ])
-            ->values();
+            return $this->colorRowsOf($batches)
+                ->groupBy(fn (array $row): string => $row['lens_power_id'].'|'.$row['color_id'])
+                ->sortBy(fn (Collection $rows): string => $rows->first()['sort'])
+                ->map(fn (Collection $rows, string $key): array => [
+                    'power' => $rows->first()['power'],
+                    'color' => $rows->first()['color'],
+                    'arrived_pieces' => (float) $rows->where('arrived', true)->sum('pieces'),
+                    'incoming_pieces' => (float) $rows->where('arrived', false)->sum('pieces'),
+                    'remaining_pieces' => (float) $rows->where('arrived', true)->sum('pieces') - (float) ($sold[$key] ?? 0),
+                ])
+                ->values();
+        });
+    }
+
+    /**
+     * The pieces of each color that left in the packets sold of this item on the orders that are not deleted, keyed by
+     * the lens power and the color ("power|color"). A sold packet takes its own colors with it, in the share of its mix.
+     * It is availablePiecesOfColor() for every power and color at once.
+     *
+     * @return array<string, float>
+     */
+    protected function piecesSoldByPowerAndColor(): array
+    {
+        $sold = [];
+
+        $lines = OrderItem::query()
+            ->where('item_id', $this->id)
+            ->whereNotNull('colors')
+            ->whereHas('order')
+            ->get(['lens_power_id', 'colors', 'pieces']);
+
+        foreach ($lines as $line) {
+            $mix = collect(self::colorMix($line->colors));
+            $packet = (float) $mix->sum('pieces');
+
+            if ($packet <= 0) {
+                continue;
+            }
+
+            foreach ($mix->groupBy('color_id') as $colorId => $colors) {
+                $key = ($line->lens_power_id === null ? '' : (int) $line->lens_power_id).'|'.$colorId;
+                $sold[$key] = ($sold[$key] ?? 0.0) + (float) $line->pieces * (float) $colors->sum('pieces') / $packet;
+            }
+        }
+
+        return $sold;
     }
 
     /**

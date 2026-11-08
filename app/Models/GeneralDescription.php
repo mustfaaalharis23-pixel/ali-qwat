@@ -22,7 +22,7 @@ class GeneralDescription extends BaseModel
      */
     public static function purchases(): self
     {
-        return static::query()->where('is_purchases_description', true)->firstOrFail();
+        return once(static fn (): self => static::query()->where('is_purchases_description', true)->firstOrFail());
     }
 
     /**

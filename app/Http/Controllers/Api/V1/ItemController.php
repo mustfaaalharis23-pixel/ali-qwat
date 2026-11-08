@@ -24,6 +24,7 @@ class ItemController extends Controller
                 ->whereLike('name', '%'.$request->string('search').'%', caseSensitive: false))
             ->orderByDesc(DB::raw('case when available_quantity > 0 then 1 else 0 end'))
             ->orderBy('name')
+            ->with(Item::stockRelations())
             ->paginate($request->integer('per_page') ?: 25)
             ->withQueryString();
 

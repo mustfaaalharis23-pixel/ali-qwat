@@ -230,6 +230,7 @@ trait InteractsWithCheckoutCart
             ->orderByRaw('available_quantity <= 0')
             ->orderBy('name')
             ->limit(30)
+            ->with(Item::stockRelations())
             ->get()
             ->map(fn (Item $item): array => $this->itemCard($item))
             ->all();
@@ -451,7 +452,7 @@ trait InteractsWithCheckoutCart
             ])
             ->keyBy('key');
 
-        $colorNames = Color::withTrashed()->pluck('name', 'id');
+        $colorNames = once(fn () => Color::withTrashed()->pluck('name', 'id'));
 
         foreach ($this->ownLinesOf($item) as $line) {
             if ($line['lens_power_id'] !== $lensPowerId) {

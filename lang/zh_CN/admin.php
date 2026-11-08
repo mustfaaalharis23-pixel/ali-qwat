@@ -1,0 +1,47 @@
+<?php
+
+return [
+    'actions' => [
+        'close' => '关闭', 'cancel' => '取消', 'confirm' => '确认', 'info' => '更多信息', 'save' => '保存', 'save_changes' => '保存更改',
+        'create' => '创建', 'new' => '新建', 'edit' => '编辑', 'view' => '查看', 'delete' => '删除', 'restore' => '恢复',
+        'force_delete' => '永久删除', 'back' => '返回', 'print' => '打印', 'download' => '下载', 'add' => '添加', 'remove' => '移除',
+        'search' => '搜索', 'apply' => '应用', 'reset' => '重置', 'export' => '导出', 'saved' => '已保存', 'deleted' => '已删除',
+        'restored' => '已恢复', 'created' => '已创建', 'updated' => '已更新', 'yes' => '是', 'no' => '否', 'more' => '更多',
+    ],
+    'confirm' => [
+        'are_you_sure' => '确定要执行此操作吗？',
+        'delete' => '删除此记录？',
+        'delete_description' => '之后可以从已删除记录中恢复。',
+        'force_delete_description' => '此操作无法撤销。',
+    ],
+    'table' => [
+        'search' => '搜索…', 'empty' => '暂无数据', 'empty_hint' => '请尝试其他搜索或清除筛选。', 'actions' => '操作',
+        'showing' => '第 :from–:to 条，共 :total 条', 'per_page' => '每页', 'previous' => '上一页', 'next' => '下一页',
+        'clear_filters' => '清除筛选', 'trashed_without' => '不含已删除', 'trashed_with' => '包含已删除', 'trashed_only' => '仅已删除',
+        'selected' => '已选择 :count 项', 'all' => '全部', 'total' => '合计',
+    ],
+    'form' => ['choose' => '请选择…', 'optional' => '可选', 'required' => '必填', 'none' => '无', 'from' => '从', 'until' => '至'],
+    'metrics' => ['example' => '示例'],
+    'layout' => ['menu' => '菜单', 'theme' => '切换浅色或深色', 'logout' => '退出登录', 'search' => '搜索…', 'command_placeholder' => '跳转到页面…', 'subtitle' => '管理后台', 'theme_light' => '浅色', 'theme_dark' => '深色', 'theme_system' => '跟随系统'],
+    'login' => [
+        'title' => '登录', 'subtitle' => '欢迎回来，请登录以继续。', 'email' => '电子邮箱', 'password' => '密码',
+        'remember' => '保持登录', 'submit' => '登录',
+    ],
+    'errors' => [
+        'not_found' => '找不到此页面', 'forbidden' => '您没有权限打开此页面', 'failed' => '出现错误',
+        'go_home' => '返回首页',
+    ],
+    'home' => [
+        'action_new_order' => '新建订单',
+        'action_new_order_hint' => '从库存销售',
+        'action_new_purchase' => '新建采购发票',
+        'action_new_purchase_hint' => '向供应商采购',
+        'action_payment' => '登记付款',
+        'action_payment_hint' => '客户偿还欠款',
+        'action_financial_hint' => '资金、费用与欠款',
+        'greeting' => '您好，:name', 'subtitle' => '以下是今天需要您关注的事项。',
+        'reminders_all' => '全部', 'reminders_today' => '今日到期', 'reminders_late' => '逾期',
+        'late_since' => '自 :date 起逾期', 'next_due' => ':date 到期', 'remaining_weeks' => '剩余 :weeks 周',
+    ],
+    'monitoring' => ['open_list' => '打开列表'],
+];

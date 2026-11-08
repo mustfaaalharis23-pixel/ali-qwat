@@ -1,0 +1,77 @@
+<?php
+
+namespace Tests\Feature\Admin\System;
+
+use App\Models\Audit;
+use App\Models\Color;
+use App\Models\GeneralDescription;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class AuditApiTest extends TestCase
+{
+    use ActsAsAdmin, RefreshDatabase;
+
+    /**
+     * EN: The audits list needs the audit view permission, is newest first, and is filtered by event and record type.
+     * AR: قائمة السجلات تحتاج صلاحية عرض السجل، الأحدث أول، وتتفلتر بالحدث ونوع السجل.
+     */
+    public function test_the_list_is_filtered(): void
+    {
+        $user = $this->userWith('audit.view');
+        $nobody = $this->userWith();
+        $this->actingAs($user);
+        $color = Color::factory()->create(['name' => 'Red']);
+        $color->update(['name' => 'Blue']);
+        GeneralDescription::factory()->create();
+
+        $this->actingAs($nobody)->getJson('/admin-api/audits')->assertForbidden();
+        $this->actingAs($user);
+
+        $this->getJson('/admin-api/audits?filter[event]=updated&filter[subject_type]='.urlencode(Color::class))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.event.value', 'updated')
+            ->assertJsonPath('data.0.causer.name', $user->name)
+            ->assertJsonPath('data.0.subject_id', $color->id);
+
+        $this->getJson('/admin-api/audits?filter[subject_type]='.urlencode(Color::class))->assertJsonCount(2, 'data');
+        $this->getJson("/admin-api/audits?filter[causer]={$user->id}")->assertJsonCount(3, 'data');
+        $this->getJson('/admin-api/audits?created_from='.today()->addDay()->toDateString())->assertJsonCount(0, 'data');
+
+        $filters = $this->getJson('/admin-api/audits/filters')->assertOk();
+        $this->assertContains(Color::class, array_column($filters->json('subject_types'), 'value'));
+    }
+
+    /**
+     * EN: The audits of one record, for the audits tab of any record page, by its type and number.
+     * AR: سجلات سجل واحد، لتبويب السجلات بأي صفحة، بنوعه ورقمه.
+     */
+    public function test_the_audits_of_one_record(): void
+    {
+        $this->actingAs($this->userWith('audit.view'));
+        $red = Color::factory()->create();
+        $red->update(['name' => 'Crimson']);
+        Color::factory()->create();
+
+        $this->getJson('/admin-api/audits?subject_type=color&subject_id='.$red->id)->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/admin-api/audits?subject_type='.urlencode(Color::class).'&subject_id='.$red->id)->assertJsonCount(2, 'data');
+    }
+
+    /**
+     * EN: An audit's page lists each changed field with its label, the value before, and the value after.
+     * AR: صفحة السجل تطلع كل حقل تغيّر بعنوانه، والقيمة قبل، والقيمة بعد.
+     */
+    public function test_show_lists_the_changes(): void
+    {
+        $this->actingAs($this->userWith('audit.view'));
+        $color = Color::factory()->create(['name' => 'Red']);
+        $color->update(['name' => 'Blue']);
+        $audit = Audit::query()->where('event', 'updated')->where('subject_type', Color::class)->firstOrFail();
+
+        $response = $this->getJson("/admin-api/audits/{$audit->id}")->assertOk();
+        $name = collect($response->json('data.changes'))->firstWhere('attribute', __('filament/resources/color.fields.name'));
+        $this->assertSame(['attribute' => __('filament/resources/color.fields.name'), 'old' => 'Red', 'new' => 'Blue'], $name);
+        $response->assertJsonPath('data.subject_type_label', __('filament/resources/color.label'));
+    }
+}

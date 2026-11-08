@@ -6,6 +6,7 @@ use App\Enums\CustomerPaymentType;
 use Carbon\CarbonInterface;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -120,7 +121,22 @@ class Customer extends BaseModel
      */
     public function debt(): float
     {
+        if (array_key_exists('open_debt', $this->attributes)) {
+            return (float) $this->attributes['open_debt'];
+        }
+
         return (float) $this->orders()->debts()->sum('remaining');
+    }
+
+    /**
+     * Loads the debt of every customer of a list in the list's own query, so debt() does not ask the database once per customer.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public static function withDebt(Builder $query): Builder
+    {
+        return $query->withSum(['orders as open_debt' => fn (Builder $orders): Builder => $orders->debts()], 'remaining');
     }
 
     /**

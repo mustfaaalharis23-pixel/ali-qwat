@@ -923,7 +923,8 @@ class PurchaseInvoiceForm
     {
         $amount = self::linesTotal($get('items'));
         $remaining = $amount - (float) str_replace(',', '', (string) $get('initial_payment'));
-        $supplier = Supplier::query()->find($get('supplier_id'));
+        $supplierId = $get('supplier_id');
+        $supplier = blank($supplierId) ? null : once(fn (): ?Supplier => Supplier::query()->find($supplierId));
 
         $facts = [];
 
@@ -1036,7 +1037,7 @@ class PurchaseInvoiceForm
             return null;
         }
 
-        return SpecificDescription::query()->find($descriptionId)?->item;
+        return once(fn (): ?Item => SpecificDescription::query()->with('item')->find($descriptionId)?->item);
     }
 
     /**

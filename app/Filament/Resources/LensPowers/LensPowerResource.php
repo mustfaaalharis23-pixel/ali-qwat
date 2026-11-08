@@ -80,7 +80,9 @@ class LensPowerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withCount('invoiceItemGroups'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withCount('invoiceItemGroups')
+                ->withExists(['invoiceItemGroups as is_used' => fn (Builder $query): Builder => $query->withTrashed()]))
             ->defaultSort('value')
             ->columns([
                 IdColumn::make('id'),
@@ -98,7 +100,7 @@ class LensPowerResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make()
-                    ->hidden(fn (LensPower $record): bool => $record->invoiceItemGroups()->withTrashed()->exists()),
+                    ->hidden(fn (LensPower $record): bool => (bool) $record->is_used),
                 RestoreAction::make(),
             ])
             ->toolbarActions([

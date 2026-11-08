@@ -14,6 +14,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\On;
 
 class ViewPurchaseInvoice extends ViewRecord
@@ -24,6 +25,14 @@ class ViewPurchaseInvoice extends ViewRecord
      * The page uses the full width, so the lines and payoffs tables have room.
      */
     protected Width|string|null $maxContentWidth = Width::Full;
+
+    /**
+     * The invoice with its lines' items, descriptions, powers and colors, read together for the lines table instead of once per line.
+     */
+    protected function resolveRecord(int|string $key): Model
+    {
+        return parent::resolveRecord($key)->load(['items.item', 'items.specificDescription', 'items.groups.lensPower', 'items.colors.color']);
+    }
 
     /**
      * The invoice's name alone, so the heading keeps its room next to the actions.

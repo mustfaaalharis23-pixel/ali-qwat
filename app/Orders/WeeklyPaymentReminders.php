@@ -176,10 +176,20 @@ class WeeklyPaymentReminders
      */
     private function openOrders(): Collection
     {
-        return Order::query()
+        return self::openOrdersOfThisRequest();
+    }
+
+    /**
+     * The open debts with a weekly payment, read once a request however many reminder lists show on the page.
+     *
+     * @return Collection<int, Order>
+     */
+    private static function openOrdersOfThisRequest(): Collection
+    {
+        return once(static fn (): Collection => Order::query()
             ->debts()
             ->whereNotNull('weekly_payment')
             ->with('customer')
-            ->get();
+            ->get());
     }
 }

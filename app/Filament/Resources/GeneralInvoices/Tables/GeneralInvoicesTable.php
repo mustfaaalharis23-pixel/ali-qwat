@@ -21,6 +21,7 @@ class GeneralInvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => Invoice::withMoneyTransferFlag($query))
             ->defaultSort('date', 'desc')
             ->columns([
                 IdColumn::make('id'),

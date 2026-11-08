@@ -183,10 +183,27 @@ class Invoice extends BaseModel
      */
     public function isMoneyTransfer(): bool
     {
+        if (array_key_exists('is_money_transfer', $this->attributes)) {
+            return (bool) $this->attributes['is_money_transfer'];
+        }
+
         return $this->items()
             ->withTrashed()
             ->whereHas('specificDescription', fn (Builder $query): Builder => $query->withTrashed()->whereNotNull('transfer_type'))
             ->exists();
+    }
+
+    /**
+     * Loads isMoneyTransfer() of every invoice of a list in the list's own query, so it does not ask the database once per invoice.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public static function withMoneyTransferFlag(Builder $query): Builder
+    {
+        return $query->withExists(['items as is_money_transfer' => fn (Builder $items): Builder => $items
+            ->withTrashed()
+            ->whereHas('specificDescription', fn (Builder $description): Builder => $description->withTrashed()->whereNotNull('transfer_type'))]);
     }
 
     /**

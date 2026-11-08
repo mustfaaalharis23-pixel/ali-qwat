@@ -44,10 +44,25 @@ class User extends Authenticatable implements FilamentUser
      */
     public function hasPermission(string $permission): bool
     {
-        return DB::table('user_permissions')
-            ->where('user_id', $this->id)
-            ->where('permission', $permission)
-            ->exists();
+        $request = app()->bound('request') ? request() : null;
+
+        // While a request is being handled its permissions are read once, so a list that checks every row's abilities
+        // does not ask the database again for each one. Outside a request (a command, a test calling a policy) they are
+        // always read fresh.
+        if ($request?->route() === null) {
+            return DB::table('user_permissions')
+                ->where('user_id', $this->id)
+                ->where('permission', $permission)
+                ->exists();
+        }
+
+        $key = "user_permissions.{$this->id}";
+
+        if (! $request->attributes->has($key)) {
+            $request->attributes->set($key, DB::table('user_permissions')->where('user_id', $this->id)->pluck('permission')->all());
+        }
+
+        return in_array($permission, $request->attributes->get($key), true);
     }
 
     /**

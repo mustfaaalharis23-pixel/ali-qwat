@@ -79,7 +79,9 @@ class ColorResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withCount('invoiceItemColors'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withCount('invoiceItemColors')
+                ->withExists(['invoiceItemColors as is_used' => fn (Builder $query): Builder => $query->withTrashed()]))
             ->defaultSort('name')
             ->columns([
                 IdColumn::make('id'),
@@ -98,7 +100,7 @@ class ColorResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make()
-                    ->hidden(fn (Color $record): bool => $record->invoiceItemColors()->withTrashed()->exists()),
+                    ->hidden(fn (Color $record): bool => (bool) $record->is_used),
                 RestoreAction::make(),
             ])
             ->toolbarActions([

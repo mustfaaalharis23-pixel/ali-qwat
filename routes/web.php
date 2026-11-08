@@ -43,3 +43,10 @@ Route::get('/purchase-invoices/{invoice}/print', PrintPurchaseInvoiceController:
 Route::get('/purchase-invoices/{invoice}/label', DownloadPurchaseLabelController::class)
     ->middleware(['auth', SetLocale::class])
     ->name('purchase-invoices.label');
+
+/**
+ * The admin application: one page, and React draws every screen in the browser from /admin-api.
+ */
+Route::view('/app/{path?}', 'admin')
+    ->where('path', '.*')
+    ->name('app');

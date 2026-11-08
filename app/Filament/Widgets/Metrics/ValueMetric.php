@@ -105,6 +105,28 @@ abstract class ValueMetric extends Widget
     }
 
     /**
+     * The card as the admin application shows it: its label, its number at the chosen range, the ranges it offers, and its info.
+     *
+     * @return array{label: string, value: array{number: string, currency: ?string, raw: float}, range: string, ranges: list<array{value: string, label: string}>, explanation: string, example: string}
+     */
+    public function toPayload(?string $range = null): array
+    {
+        $this->range = $range ?? $this->range ?? $this->defaultRange()->value;
+        $selected = $this->selectedRange();
+        $raw = $this->calculation()->calculate($selected->period());
+        $value = FormattedValue::of($raw, $this->currency());
+
+        return [
+            'label' => $this->label(),
+            'value' => ['number' => $value->number, 'currency' => $value->currency, 'raw' => $raw],
+            'range' => $selected->value,
+            'ranges' => array_map(fn (MetricRange $range): array => ['value' => $range->value, 'label' => $range->getLabel()], $this->ranges()),
+            'explanation' => $this->explanation(),
+            'example' => $this->example(),
+        ];
+    }
+
+    /**
      * @return array{label: string, value: FormattedValue, ranges: list<MetricRange>, explanation: string, example: string}
      */
     protected function getViewData(): array

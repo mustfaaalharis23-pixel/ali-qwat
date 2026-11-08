@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Customers\Tables;
 use App\Enums\CustomerPaymentType;
 use App\Filament\Resources\Customers\Actions\PayDebtAction;
 use App\Filament\Tables\Columns\IdColumn;
+use App\Models\Customer;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -16,12 +17,14 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CustomersTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => Customer::withDebt($query))
             ->columns([
                 IdColumn::make('id'),
                 TextColumn::make('name')

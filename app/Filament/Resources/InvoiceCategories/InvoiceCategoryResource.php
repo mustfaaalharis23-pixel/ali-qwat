@@ -84,7 +84,9 @@ class InvoiceCategoryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withCount('invoices'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withCount('invoices')
+                ->withExists(['invoices as is_used' => fn (Builder $query): Builder => $query->withTrashed()]))
             ->defaultSort('id', 'desc')
             ->columns([
                 IdColumn::make('id'),
@@ -102,7 +104,7 @@ class InvoiceCategoryResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make()
-                    ->hidden(fn (InvoiceCategory $record): bool => $record->invoices()->withTrashed()->exists()),
+                    ->hidden(fn (InvoiceCategory $record): bool => (bool) $record->is_used),
                 RestoreAction::make(),
             ])
             ->toolbarActions([

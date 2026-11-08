@@ -100,7 +100,7 @@ class OrderForm
      */
     private static function hasPayments(?Order $record): bool
     {
-        return $record?->allocations()->exists() ?? false;
+        return $record === null ? false : once(fn (): bool => $record->allocations()->exists());
     }
 
     /**

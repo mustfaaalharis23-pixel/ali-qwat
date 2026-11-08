@@ -1,0 +1,47 @@
+<?php
+
+return [
+    'actions' => [
+        'close' => 'إغلاق', 'cancel' => 'إلغاء', 'confirm' => 'تأكيد', 'info' => 'معلومات أكثر', 'save' => 'حفظ', 'save_changes' => 'حفظ التغييرات',
+        'create' => 'إنشاء', 'new' => 'جديد', 'edit' => 'تعديل', 'view' => 'عرض', 'delete' => 'حذف', 'restore' => 'استرجاع',
+        'force_delete' => 'حذف نهائي', 'back' => 'رجوع', 'print' => 'طباعة', 'download' => 'تنزيل', 'add' => 'إضافة', 'remove' => 'إزالة',
+        'search' => 'بحث', 'apply' => 'تطبيق', 'reset' => 'إعادة تعيين', 'export' => 'تصدير', 'saved' => 'تم الحفظ', 'deleted' => 'تم الحذف',
+        'restored' => 'تم الاسترجاع', 'created' => 'تم الإنشاء', 'updated' => 'تم التحديث', 'yes' => 'نعم', 'no' => 'لا', 'more' => 'المزيد',
+    ],
+    'confirm' => [
+        'are_you_sure' => 'هل أنت متأكد من تنفيذ هذا الإجراء؟',
+        'delete' => 'حذف هذا السجل؟',
+        'delete_description' => 'يمكن استرجاعه لاحقاً من السجلات المحذوفة.',
+        'force_delete_description' => 'لا يمكن التراجع عن هذا الإجراء.',
+    ],
+    'table' => [
+        'search' => 'بحث…', 'empty' => 'لا توجد بيانات بعد', 'empty_hint' => 'جرّب بحثاً آخر أو امسح عوامل التصفية.', 'actions' => 'الإجراءات',
+        'showing' => ':from–:to من :total', 'per_page' => 'لكل صفحة', 'previous' => 'الصفحة السابقة', 'next' => 'الصفحة التالية',
+        'clear_filters' => 'مسح التصفية', 'trashed_without' => 'بدون المحذوفة', 'trashed_with' => 'مع المحذوفة', 'trashed_only' => 'المحذوفة فقط',
+        'selected' => 'تم تحديد :count', 'all' => 'الكل', 'total' => 'المجموع',
+    ],
+    'form' => ['choose' => 'اختر…', 'optional' => 'اختياري', 'required' => 'مطلوب', 'none' => 'لا شيء', 'from' => 'من', 'until' => 'إلى'],
+    'metrics' => ['example' => 'مثال'],
+    'layout' => ['menu' => 'القائمة', 'theme' => 'تبديل الوضع الفاتح أو الداكن', 'logout' => 'تسجيل الخروج', 'search' => 'بحث…', 'command_placeholder' => 'انتقل إلى صفحة…', 'subtitle' => 'لوحة الإدارة', 'theme_light' => 'فاتح', 'theme_dark' => 'داكن', 'theme_system' => 'حسب النظام'],
+    'login' => [
+        'title' => 'تسجيل الدخول', 'subtitle' => 'أهلاً بعودتك. سجّل الدخول للمتابعة.', 'email' => 'البريد الإلكتروني', 'password' => 'كلمة المرور',
+        'remember' => 'تذكرني', 'submit' => 'دخول',
+    ],
+    'errors' => [
+        'not_found' => 'لم يتم العثور على هذه الصفحة', 'forbidden' => 'ليست لديك صلاحية لفتح هذه الصفحة', 'failed' => 'حدث خطأ ما',
+        'go_home' => 'العودة إلى الصفحة الرئيسية',
+    ],
+    'home' => [
+        'action_new_order' => 'طلب جديد',
+        'action_new_order_hint' => 'بيع من المخزن',
+        'action_new_purchase' => 'فاتورة شراء جديدة',
+        'action_new_purchase_hint' => 'شراء من مورد',
+        'action_payment' => 'تسجيل تسديد',
+        'action_payment_hint' => 'زبون يسدد ديناً',
+        'action_financial_hint' => 'الصناديق والمصاريف والديون',
+        'greeting' => 'أهلاً، :name', 'subtitle' => 'هذا ما يحتاج انتباهك اليوم.',
+        'reminders_all' => 'الكل', 'reminders_today' => 'مستحق اليوم', 'reminders_late' => 'متأخر',
+        'late_since' => 'متأخر منذ :date', 'next_due' => 'يستحق في :date', 'remaining_weeks' => 'متبقي :weeks أسابيع',
+    ],
+    'monitoring' => ['open_list' => 'فتح القائمة'],
+];

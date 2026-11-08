@@ -13,6 +13,7 @@ use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
 class ViewOrder extends ViewRecord
@@ -23,6 +24,14 @@ class ViewOrder extends ViewRecord
      * The page uses the full width, so the lines table has room.
      */
     protected Width|string|null $maxContentWidth = Width::Full;
+
+    /**
+     * The order with its lines' items and powers, read together for the lines table instead of once per line.
+     */
+    protected function resolveRecord(int|string $key): Model
+    {
+        return parent::resolveRecord($key)->load(['items.item', 'items.lensPower']);
+    }
 
     /**
      * The order's invoice opens in a new tab to print, as a full page or as the small printer's receipt, the same as on the
