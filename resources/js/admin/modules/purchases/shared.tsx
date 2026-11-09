@@ -8,6 +8,7 @@ import { cn, number } from '../../lib/format';
 import { useT } from '../../lib/i18n';
 import { Badge, Button, buttonClass, Card, CardHeader, Skeleton, toast, toneOf, type Tone } from '../../components/ui';
 import type { Abilities } from '../../components/RecordActions';
+import { useImageEditor } from '../../components/ImageEditor';
 
 /** An enum as the server sends it: its value, its label, and its Filament color. */
 export interface EnumValue {
@@ -177,7 +178,8 @@ export function FileField({
     const input = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
 
-    const upload = async (list: FileList | null) => {
+    const imageEditor = useImageEditor();
+    const upload = async (list: FileList | File[] | null) => {
         if (!list || list.length === 0) return;
         setUploading(true);
         const added: { path: string; url: string }[] = [];
@@ -234,7 +236,20 @@ export function FileField({
             )}
             {(multiple || files.length === 0) && (
                 <>
-                    <input ref={input} type="file" accept={accept} multiple={multiple} className="hidden" onChange={(event) => upload(event.target.files)} />
+                    <input
+                        ref={input}
+                        type="file"
+                        accept={accept}
+                        multiple={multiple}
+                        className="hidden"
+                        onChange={async (event) => {
+                            const picked = Array.from(event.target.files ?? []);
+                            event.target.value = '';
+                            const edited = await imageEditor.editAll(picked);
+                            if (edited.length > 0) upload(edited);
+                        }}
+                    />
+                    {imageEditor.editor}
                     <Button size="sm" loading={uploading} icon={images ? <Upload className="size-4" /> : <Paperclip className="size-4" />} onClick={() => input.current?.click()}>
                         {t('admin/purchases.upload.choose')}
                     </Button>

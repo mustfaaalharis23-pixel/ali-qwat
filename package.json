@@ -27,6 +27,7 @@
         "puppeteer": "^25.11.0",
         "react": "19.3.1",
         "react-dom": "19.3.1",
+        "react-easy-crop": "6.2.4",
         "react-router": "8.5.1",
         "recharts": "3.10.1"
     }

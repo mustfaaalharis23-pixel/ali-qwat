@@ -6,6 +6,7 @@ import { cn, date as formatDate, money, number } from '../../lib/format';
 import { useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
 import { Button, Field, Input, Modal, Select, Skeleton, Textarea } from '../../components/ui';
+import { useImageEditor } from '../../components/ImageEditor';
 
 interface FormOrder {
     id: number;
@@ -57,6 +58,7 @@ export function PayDebtModal({ customerId, orderId, onClose }: { customerId?: nu
     const [paymentDate, setPaymentDate] = useState(today());
     const [notes, setNotes] = useState('');
     const [image, setImage] = useState<File | null>(null);
+    const imageEditor = useImageEditor();
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [receipt, setReceipt] = useState<string | null>(null);
 
@@ -210,8 +212,9 @@ export function PayDebtModal({ customerId, orderId, onClose }: { customerId?: nu
                         {(id) => <Input id={id} type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />}
                     </Field>
                     <Field label={t(`${key}image`)} error={errors.image}>
-                        {(id) => <Input id={id} type="file" accept="image/jpeg,image/png,image/webp" className="py-1.5" onChange={(event) => setImage(event.target.files?.[0] ?? null)} />}
+                        {(id) => <Input id={id} type="file" accept="image/jpeg,image/png,image/webp" className="py-1.5" onChange={async (event) => { const picked = event.target.files?.[0] ?? null; if (!picked) { setImage(null); return; } const file = await imageEditor.edit(picked); if (file) setImage(file); else event.target.value = ''; }} />}
                     </Field>
+                    {imageEditor.editor}
                 </div>
                 <Field label={t(`${key}notes`)} error={errors.notes}>
                     {(id) => <Textarea id={id} rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />}

@@ -8,6 +8,7 @@ import { cn, date, money, number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
 import { Badge, Button, ButtonLink, DescriptionList, Empty, Field, Input, PageSpinner, Skeleton, Spinner, Textarea, toast } from '../../components/ui';
+import { useImageEditor } from '../../components/ImageEditor';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect, type SearchOption } from '../../components/SearchSelect';
@@ -214,7 +215,8 @@ function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
         { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => navigate(`${PATH}/${result.data.id}`), onError: form.fail },
     );
 
-    const upload = async (files: FileList | null) => {
+    const imageEditor = useImageEditor();
+    const upload = async (files: FileList | File[] | null) => {
         for (const file of Array.from(files ?? [])) {
             setUploading((count) => count + 1);
             try {
@@ -383,7 +385,21 @@ function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
                                             ))}
                                         </div>
                                     )}
-                                    <input id={fieldId} ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(event) => upload(event.target.files)} />
+                                    <input
+                                        id={fieldId}
+                                        ref={fileInput}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        multiple
+                                        className="hidden"
+                                        onChange={async (event) => {
+                                            const picked = Array.from(event.target.files ?? []);
+                                            event.target.value = '';
+                                            const edited = await imageEditor.editAll(picked);
+                                            if (edited.length > 0) upload(edited);
+                                        }}
+                                    />
+                                    {imageEditor.editor}
                                     <Button size="sm" icon={uploading > 0 ? <Spinner className="size-4" /> : <ImagePlus className="size-4" />} disabled={uploading > 0} onClick={() => fileInput.current?.click()}>
                                         {t('admin/system.general_invoices.add_images')}
                                     </Button>

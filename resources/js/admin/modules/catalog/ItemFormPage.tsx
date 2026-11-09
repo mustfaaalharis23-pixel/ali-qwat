@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Archive, Banknote, Box, ImageUp, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, Banknote, Box, ImageUp, RotateCcw, Trash2, Wand2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
@@ -10,6 +10,7 @@ import { Badge, Button, Card, CardBody, CardHeader, Field, Input, PageSpinner, S
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { useRecordActions } from '../../components/RecordActions';
+import { useImageEditor } from '../../components/ImageEditor';
 import { QueryError } from '../../pages/NotFound';
 import { ITEM_INVALIDATE } from './ItemActions';
 import { ItemThumb, type ItemRow } from './ItemsPage';
@@ -34,6 +35,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
     const navigate = useNavigate();
     const fileInput = useRef<HTMLInputElement>(null);
     const [image, setImage] = useState<File | null>(null);
+    const imageEditor = useImageEditor();
     const [preview, setPreview] = useState<string | null>(item?.image_url ?? null);
     const form = useForm<ItemValues>({
         name: item?.name ?? '',
@@ -122,16 +124,35 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
                                         className="hidden"
-                                        onChange={(event) => {
-                                            const file = event.target.files?.[0] ?? null;
+                                        onChange={async (event) => {
+                                            const picked = event.target.files?.[0] ?? null;
+                                            event.target.value = '';
+                                            const file = picked ? await imageEditor.edit(picked, { aspect: 1 }) : null;
+                                            if (!file) return;
                                             setImage(file);
-                                            if (file) setPreview(URL.createObjectURL(file));
+                                            setPreview(URL.createObjectURL(file));
                                             form.setErrors((current) => ({ ...current, image: '' }));
                                         }}
                                     />
                                     <Button type="button" icon={<ImageUp className="size-4" />} onClick={() => fileInput.current?.click()}>
                                         {preview ? t('admin/catalog.change_image') : t('admin/catalog.choose_image')}
                                     </Button>
+                                    {image && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            icon={<Wand2 className="size-4" />}
+                                            onClick={async () => {
+                                                const file = await imageEditor.edit(image, { aspect: 1 });
+                                                if (!file) return;
+                                                setImage(file);
+                                                setPreview(URL.createObjectURL(file));
+                                            }}
+                                        >
+                                            {t('admin.image_editor.edit')}
+                                        </Button>
+                                    )}
+                                    {imageEditor.editor}
                                 </div>
                             )}
                         </Field>

@@ -7,6 +7,7 @@ import { cn } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
 import { Button, Card, CardBody, CardHeader, Field, Input, PageSpinner, Toggle } from '../../components/ui';
+import { useImageEditor } from '../../components/ImageEditor';
 import { PageHeader } from '../../components/PageHeader';
 import { QueryError } from '../../pages/NotFound';
 import type { Customer } from './types';
@@ -32,6 +33,7 @@ function CustomerForm({ customer }: { customer: Customer | null }) {
         is_invoice_by_invoice: customer?.is_invoice_by_invoice ?? false,
     });
     const [contract, setContract] = useState<File | null>(null);
+    const imageEditor = useImageEditor();
     const [removeContract, setRemoveContract] = useState(false);
 
     const save = useSave(
@@ -117,8 +119,9 @@ function CustomerForm({ customer }: { customer: Customer | null }) {
                             </div>
                         )}
                         <Field error={form.errors.contract} hint={t('admin/sales.customers.contract_hint')}>
-                            {(id) => <Input id={id} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="py-1.5" onChange={(event) => setContract(event.target.files?.[0] ?? null)} />}
+                            {(id) => <Input id={id} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="py-1.5" onChange={async (event) => { const picked = event.target.files?.[0] ?? null; if (!picked) { setContract(null); return; } const file = await imageEditor.edit(picked); if (file) setContract(file); else event.target.value = ''; }} />}
                         </Field>
+                    {imageEditor.editor}
                     </CardBody>
                 </Card>
 
