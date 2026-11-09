@@ -2,8 +2,8 @@
 
 namespace App\Enums;
 
+use App\Enums\Contracts\HasLabel;
 use App\Models\Item;
-use Filament\Support\Contracts\HasLabel;
 use Illuminate\Support\Number;
 
 /**

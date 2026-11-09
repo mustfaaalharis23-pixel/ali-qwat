@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Admin\Purchases;
 
-use App\Filament\Resources\Suppliers\Widgets\SupplierDebtMetric;
-use App\Filament\Resources\Suppliers\Widgets\SupplierItemsCountMetric;
-use App\Filament\Resources\Suppliers\Widgets\SupplierPaidMetric;
-use App\Filament\Resources\Suppliers\Widgets\SupplierPurchasesMetric;
-use App\Filament\Resources\Suppliers\Widgets\SupplierTotalMetric;
-use App\Filament\Widgets\Metrics\TotalDebtMetric;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Admin\Purchases\Concerns\StoresUploads;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Purchases\PurchaseInvoiceResource;
 use App\Http\Resources\Admin\Purchases\SupplierResource;
 use App\Invoices\DistributeSupplierPayoff;
+use App\Metrics\Cards\Suppliers\SupplierDebtMetric;
+use App\Metrics\Cards\Suppliers\SupplierItemsCountMetric;
+use App\Metrics\Cards\Suppliers\SupplierPaidMetric;
+use App\Metrics\Cards\Suppliers\SupplierPurchasesMetric;
+use App\Metrics\Cards\Suppliers\SupplierTotalMetric;
+use App\Metrics\Cards\TotalDebtMetric;
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Models\Invoice;
@@ -134,7 +134,6 @@ class SupplierController extends Controller
         Gate::authorize('viewAny', Supplier::class);
 
         $card = app(TotalDebtMetric::class);
-        $card->mount();
 
         return response()->json(['key' => 'total_debt', ...$card->toPayload($request->query('range'))]);
     }
@@ -166,7 +165,6 @@ class SupplierController extends Controller
 
         $card = app(self::METRICS[$key]);
         $card->record = $record;
-        $card->mount();
 
         return response()->json(['key' => $key, ...$card->toPayload($request->query('range'))]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\System;
 
+use App\Admin\Pages\Page;
 use App\Enums\AppPermission;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
@@ -9,7 +10,6 @@ use App\Http\Resources\Admin\System\UserResource;
 use App\Models\User;
 use App\Permissions\PermissionDiscovery;
 use App\Permissions\SyncUserPermissions;
-use Filament\Pages\Page;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -187,7 +187,7 @@ class UserController extends Controller
     private function groupLabel(string $class): string
     {
         if (is_subclass_of($class, Page::class)) {
-            return (string) $class::getNavigationLabel();
+            return $class::label();
         }
 
         $key = 'filament/resources/'.Str::snake(class_basename($class)).'.plural_label';

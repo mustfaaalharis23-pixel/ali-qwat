@@ -6,6 +6,7 @@ use App\Http\Controllers\PrintPaymentReceiptController;
 use App\Http\Controllers\PrintPurchaseInvoiceController;
 use App\Http\Controllers\SwitchLocaleController;
 use App\Http\Middleware\SetLocale;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -50,3 +51,15 @@ Route::get('/purchase-invoices/{invoice}/label', DownloadPurchaseLabelController
 Route::view('/app/{path?}', 'admin')
     ->where('path', '.*')
     ->name('app');
+
+/**
+ * The old admin panel's addresses lead to the same screen of the admin application, for the links and bookmarks
+ * people still have: /admin to /app, and /admin/orders/5 to /app/orders/5 (the sign-in page included), with their query string.
+ */
+Route::get('/admin/{path?}', function (Request $request, ?string $path = null) {
+    $query = $request->getQueryString();
+
+    return redirect()->to('/app'.($path === null ? '' : "/{$path}").($query === null ? '' : "?{$query}"), 301);
+})
+    ->where('path', '.*')
+    ->name('admin.redirect');

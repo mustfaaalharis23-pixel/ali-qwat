@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
+use App\Enums\Contracts\HasLabel;
 
 /**
  * The two sides that confirm a purchase invoice: the importer confirms it first, and the receiver confirms it after.

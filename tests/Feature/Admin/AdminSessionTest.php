@@ -104,4 +104,17 @@ class AdminSessionTest extends TestCase
         $this->getJson('/admin-api/options/users?ids[]='.$user->id)->assertJsonPath('data.0.value', $user->id);
         $this->getJson('/admin-api/options/nothing')->assertNotFound();
     }
+
+    /**
+     * EN: The old panel's addresses lead for good to the same screen of the admin application: /admin to /app,
+     *     a screen with its query string to the same screen, and the old sign-in page to the new one.
+     * AR: روابط اللوحة القديمة توديك بشكل دائم لنفس الشاشة بتطبيق الإدارة: /admin لـ /app،
+     *     والشاشة ويا الـ query string مالها لنفس الشاشة، وصفحة الدخول القديمة للجديدة.
+     */
+    public function test_the_old_panel_addresses_redirect_to_the_app(): void
+    {
+        $this->get('/admin')->assertStatus(301)->assertRedirect('/app');
+        $this->get('/admin/orders/5?tab=items')->assertStatus(301)->assertRedirect('/app/orders/5?tab=items');
+        $this->get('/admin/login')->assertStatus(301)->assertRedirect('/app/login');
+    }
 }

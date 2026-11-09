@@ -4,11 +4,6 @@ namespace App\Providers;
 
 use App\Models\Audit;
 use App\Models\User;
-use Filament\Actions\Action;
-use Filament\Schemas\Components\Component as SchemaComponent;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\Column;
-use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
@@ -16,17 +11,8 @@ use Illuminate\Support\ServiceProvider;
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * How a date is written across the panel.
-     */
-    private const DATE_FORMAT = 'Y/m/d';
-
-    /**
-     * How a date and time is written across the panel.
-     */
-    private const DATE_TIME_FORMAT = 'Y/m/d H:i';
-
-    /**
-     * The language numbers are written in across the system, so they always have English digits.
+     * The language numbers are written in across the system (what Laravel's Number helper formats: the screens, the printed
+     * invoices, the metrics), so they always have English digits (0-9), whatever the language.
      */
     private const NUMBER_LOCALE = 'en';
 
@@ -43,9 +29,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerSuperOnlyMacros();
-        $this->registerDateFormats();
-        $this->registerNumberFormats();
+        Number::useLocale(self::NUMBER_LOCALE);
 
         Gate::before(function (User $user, string $ability, array $arguments): ?bool {
             if (! $user->is_super) {
@@ -60,50 +44,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::define('viewLens', fn (User $user, string $lens): bool => $user->hasPermission($lens::permission()));
-    }
-
-    /**
-     * Every date in the panel is shown as year/month/day, and every date and time as year/month/day hour:minute,
-     * instead of the month name Filament writes by default, so tables, details pages, and the date field all read the same.
-     */
-    private function registerDateFormats(): void
-    {
-        Table::configureUsing(fn (Table $table): Table => $table
-            ->defaultDateDisplayFormat(self::DATE_FORMAT)
-            ->defaultDateTimeDisplayFormat(self::DATE_TIME_FORMAT));
-
-        Schema::configureUsing(fn (Schema $schema): Schema => $schema
-            ->defaultDateDisplayFormat(self::DATE_FORMAT)
-            ->defaultDateTimeDisplayFormat(self::DATE_TIME_FORMAT));
-    }
-
-    /**
-     * Every number in the system is written in English digits (0-9), whatever the language: what Laravel's Number helper formats
-     * (the screens, the printed invoices, the metrics), and the numbers, money, and summaries of Filament's tables and details pages.
-     * The date field already writes its dates in English digits in every language.
-     */
-    private function registerNumberFormats(): void
-    {
-        Number::useLocale(self::NUMBER_LOCALE);
-
-        Table::configureUsing(fn (Table $table): Table => $table->defaultNumberLocale(self::NUMBER_LOCALE));
-
-        Schema::configureUsing(fn (Schema $schema): Schema => $schema->defaultNumberLocale(self::NUMBER_LOCALE));
-    }
-
-    /**
-     * Adds ->superOnly() to Filament form components (fields and sections), table columns, and actions, so they are shown only to super users.
-     */
-    private function registerSuperOnlyMacros(): void
-    {
-        $superOnly = function (): static {
-            /** @var SchemaComponent|Column|Action $this */
-            return $this->visible(fn (): bool => auth()->user()?->is_super === true);
-        };
-
-        SchemaComponent::macro('superOnly', $superOnly);
-        Column::macro('superOnly', $superOnly);
-        Action::macro('superOnly', $superOnly);
     }
 
     /**

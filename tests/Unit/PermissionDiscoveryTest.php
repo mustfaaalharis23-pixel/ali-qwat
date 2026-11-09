@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Filament\Pages\FinancialDashboard;
+use App\Admin\Pages\FinancialDashboard;
 use App\Models\Audit;
 use App\Permissions\PermissionDiscovery;
 use Illuminate\Support\Facades\Gate;
@@ -110,5 +110,100 @@ class PermissionDiscoveryTest extends TestCase
 
         $this->assertNotEmpty($uriKeys);
         $this->assertSame($uriKeys->count(), $uriKeys->unique()->count());
+    }
+
+    /**
+     * EN: Every permission the app discovers, models and pages first, then the lenses, is exactly the list that was stored
+     *     before the panel was removed, so no user loses or gains a permission name stored in user_permissions.
+     * AR: كل صلاحية يكتشفها النظام، الموديلات والصفحات أول، وبعدين العدسات، هي نفس القائمة اللي كانت محفوظة
+     *     قبل ما تنشال اللوحة بالضبط، حتى ماكو يوزر يخسر أو ياخذ اسم صلاحية محفوظ بـ user_permissions.
+     */
+    public function test_the_discovered_permission_names_are_unchanged(): void
+    {
+        $discovery = new PermissionDiscovery;
+
+        $this->assertSame([
+            'audit.view',
+            'batch.view',
+            'color.view',
+            'color.create',
+            'color.update',
+            'color.delete',
+            'color.restore',
+            'container.view',
+            'container.create',
+            'container.update',
+            'container.delete',
+            'container.restore',
+            'customer.view',
+            'customer.create',
+            'customer.update',
+            'customer.delete',
+            'customer.restore',
+            'customer_payment.view',
+            'customer_payment.create',
+            'customer_payment.delete',
+            'general_description.view',
+            'general_description.create',
+            'general_description.update',
+            'general_description.delete',
+            'general_description.restore',
+            'invoice.view',
+            'invoice.create',
+            'invoice.update',
+            'invoice.delete',
+            'invoice.restore',
+            'invoice.confirm_as_importer',
+            'invoice.confirm_as_receiver',
+            'invoice.edit_exchange_rate',
+            'invoice_category.view',
+            'invoice_category.create',
+            'invoice_category.update',
+            'invoice_category.delete',
+            'invoice_category.restore',
+            'item.view',
+            'item.create',
+            'item.update',
+            'item.delete',
+            'item.restore',
+            'item.view_cost_price',
+            'lens_power.view',
+            'lens_power.create',
+            'lens_power.update',
+            'lens_power.delete',
+            'lens_power.restore',
+            'order.view',
+            'order.update',
+            'payoff.view',
+            'payoff.create',
+            'payoff.update',
+            'payoff.delete',
+            'payoff.restore',
+            'specific_description.view',
+            'specific_description.create',
+            'specific_description.update',
+            'specific_description.delete',
+            'specific_description.restore',
+            'supplier.view',
+            'supplier.create',
+            'supplier.update',
+            'supplier.delete',
+            'supplier.restore',
+            'user.view',
+            'user.create',
+            'user.update',
+            'user.delete',
+            'user.restore',
+            'financial_dashboard.view',
+            'financial_dashboard.transfer_cashier_money',
+            'invoice_printing.view',
+            'monitoring_dashboard.view',
+            'lenses.inactive_items_with_stock',
+            'lenses.items_sold_at_a_loss',
+            'lenses.items_with_a_low_margin',
+            'lenses.items_with_a_negative_quantity',
+            'lenses.items_without_sales',
+            'lenses.items_without_supplier',
+        ], [...array_merge(...array_values($discovery->discoverInApp())), ...array_values($discovery->discoverLensesInApp())]);
     }
 }

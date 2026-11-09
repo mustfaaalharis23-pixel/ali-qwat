@@ -23,8 +23,8 @@ class ModelPolicyTest extends TestCase
     }
 
     /**
-     * EN: Each ability Filament calls, and the permission it needs.
-     * AR: كل ability يناديها Filament، والصلاحية اللي تحتاجها.
+     * EN: Each ability the admin application checks, and the permission it needs.
+     * AR: كل ability يفحصها تطبيق الإدارة، والصلاحية اللي تحتاجها.
      *
      * @return array<string, array{string, string}>
      */

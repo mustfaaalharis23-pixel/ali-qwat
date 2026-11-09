@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Admin\Purchases;
 
 use App\Enums\InvoiceStatus;
-use App\Filament\Resources\Containers\Widgets\ContainerCbmMetric;
-use App\Filament\Resources\Containers\Widgets\ContainerTotalMetric;
-use App\Filament\Resources\Containers\Widgets\ContainerTransportCostMetric;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Purchases\ContainerResource;
 use App\Http\Resources\Admin\Purchases\PurchaseInvoiceResource;
 use App\Invoices\SplitPurchaseInvoice;
+use App\Metrics\Cards\Containers\ContainerCbmMetric;
+use App\Metrics\Cards\Containers\ContainerTotalMetric;
+use App\Metrics\Cards\Containers\ContainerTransportCostMetric;
 use App\Models\Container;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -135,7 +135,6 @@ class ContainerController extends Controller
 
         $card = app(self::METRICS[$key]);
         $card->record = $record;
-        $card->mount();
 
         return response()->json(['key' => $key, ...$card->toPayload($request->query('range'))]);
     }

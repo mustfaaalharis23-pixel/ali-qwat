@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Admin\System;
 
-use App\Filament\Resources\Audits\AuditResource as FilamentAuditResource;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Admin\System\AuditLabels;
 use App\Http\Resources\Admin\System\AuditResource;
 use App\Models\Audit;
 use App\Models\User;
@@ -72,12 +72,12 @@ class AuditController extends Controller
         Gate::authorize('viewAny', Audit::class);
 
         return response()->json([
-            'events' => array_map(fn (string $event): array => ['value' => $event, 'label' => FilamentAuditResource::eventLabel($event)], FilamentAuditResource::EVENTS),
+            'events' => array_map(fn (string $event): array => ['value' => $event, 'label' => AuditLabels::eventLabel($event)], AuditLabels::EVENTS),
             'subject_types' => Audit::query()
                 ->whereNotNull('subject_type')
                 ->distinct()
                 ->pluck('subject_type')
-                ->map(fn (string $type): array => ['value' => $type, 'label' => FilamentAuditResource::subjectTypeLabel($type)])
+                ->map(fn (string $type): array => ['value' => $type, 'label' => AuditLabels::subjectTypeLabel($type)])
                 ->sortBy('label')
                 ->values(),
             'causers' => User::withTrashed()->orderBy('name')->get(['id', 'name'])

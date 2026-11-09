@@ -3,22 +3,20 @@
 namespace App\Http\Controllers\Admin\Sales;
 
 use App\Enums\CustomerPaymentType;
-use App\Filament\Resources\Customers\Widgets\CustomerAverageOrderMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerDaysSinceMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerDebtMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerItemsCountMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerLastOrderMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerLastPaymentMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerOrdersCountMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerPaidMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerSalesMetric;
-use App\Filament\Resources\Customers\Widgets\CustomerTotalMetric;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Sales\CustomerPaymentResource;
 use App\Http\Resources\Admin\Sales\CustomerResource;
 use App\Http\Resources\Admin\Sales\SalesPayload;
-use App\Metrics\FormattedValue;
+use App\Metrics\Cards\Customers\CustomerAverageOrderMetric;
+use App\Metrics\Cards\Customers\CustomerDebtMetric;
+use App\Metrics\Cards\Customers\CustomerItemsCountMetric;
+use App\Metrics\Cards\Customers\CustomerLastOrderMetric;
+use App\Metrics\Cards\Customers\CustomerLastPaymentMetric;
+use App\Metrics\Cards\Customers\CustomerOrdersCountMetric;
+use App\Metrics\Cards\Customers\CustomerPaidMetric;
+use App\Metrics\Cards\Customers\CustomerSalesMetric;
+use App\Metrics\Cards\Customers\CustomerTotalMetric;
 use App\Models\Customer;
 use App\Models\CustomerPayment;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,8 +28,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
- * The customers (the panel's CustomerResource): the list with each customer's debt, the form with its contract file, the page with
- * its total cards and its payments, delete, restore, and delete forever. The cards are the panel's own widgets, served as JSON.
+ * The customers: the list with each customer's debt, the form with its contract file, the page with
+ * its total cards and its payments, delete, restore, and delete forever. The cards are the classes of app/Metrics/Cards/Customers, served as JSON.
  */
 class CustomerController extends Controller
 {
@@ -99,7 +97,7 @@ class CustomerController extends Controller
 
     /**
      * One total card of a customer. The days since cards show the date of the last event beside the days, or a dash without one,
-     * as the panel shows them.
+     * as the card itself works it out.
      */
     public function metric(int $customer, string $key): JsonResponse
     {
@@ -109,16 +107,8 @@ class CustomerController extends Controller
 
         $card = app(self::METRICS[$key]);
         $card->record = $record;
-        $card->mount();
-        $payload = $card->toPayload();
 
-        if ($card instanceof CustomerDaysSinceMetric) {
-            /** @var FormattedValue $value */
-            $value = (fn (): FormattedValue => $this->getViewData()['value'])->call($card);
-            $payload['value'] = ['number' => $value->number, 'currency' => $value->currency, 'raw' => $payload['value']['raw']];
-        }
-
-        return response()->json(['key' => $key, ...$payload]);
+        return response()->json(['key' => $key, ...$card->toPayload()]);
     }
 
     /**

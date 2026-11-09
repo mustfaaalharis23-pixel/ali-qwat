@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
+use App\Enums\Contracts\HasLabel;
 
 /**
  * Where a purchase invoice's exchange rate came from: one of the two banks it is fetched from, or typed by hand.

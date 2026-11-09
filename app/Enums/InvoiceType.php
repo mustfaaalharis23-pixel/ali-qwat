@@ -2,8 +2,8 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasLabel;
+use App\Enums\Contracts\HasColor;
+use App\Enums\Contracts\HasLabel;
 
 enum InvoiceType: string implements HasColor, HasLabel
 {

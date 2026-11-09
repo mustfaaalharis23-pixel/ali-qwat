@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\User;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -80,30 +79,34 @@ class UserTest extends TestCase
     }
 
     /**
-     * EN: An active user that is not deleted can access the panel.
-     * AR: اليوزر الـ is_active وغير المحذوف يدخل لوحة التحكم.
+     * EN: An active user that is not deleted can sign in to the admin application.
+     * AR: اليوزر الـ is_active وغير المحذوف يدخل لتطبيق الإدارة.
      */
     public function test_active_user_can_access_the_panel(): void
     {
         $user = User::factory()->create(['is_active' => true]);
 
-        $this->assertTrue($user->canAccessPanel(Filament::getPanel('admin')));
+        $this->postJson('/admin-api/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertOk()
+            ->assertJsonPath('user.id', $user->id);
     }
 
     /**
-     * EN: A user whose is_active is false cannot access the panel.
-     * AR: اليوزر اللي is_active مالته false ما يدخل لوحة التحكم.
+     * EN: A user whose is_active is false cannot sign in to the admin application.
+     * AR: اليوزر اللي is_active مالته false ما يدخل لتطبيق الإدارة.
      */
     public function test_inactive_user_cannot_access_the_panel(): void
     {
         $user = User::factory()->create(['is_active' => false]);
 
-        $this->assertFalse($user->canAccessPanel(Filament::getPanel('admin')));
+        $this->postJson('/admin-api/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertJsonValidationErrors('email');
+        $this->assertGuest();
     }
 
     /**
-     * EN: A deleted user cannot access the panel, even if active.
-     * AR: اليوزر المحذوف ما يدخل لوحة التحكم، حتى لو is_active.
+     * EN: A deleted user cannot sign in to the admin application, even if active.
+     * AR: اليوزر المحذوف ما يدخل لتطبيق الإدارة، حتى لو is_active.
      */
     public function test_deleted_user_cannot_access_the_panel(): void
     {
@@ -111,6 +114,8 @@ class UserTest extends TestCase
 
         $user->delete();
 
-        $this->assertFalse($user->canAccessPanel(Filament::getPanel('admin')));
+        $this->postJson('/admin-api/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertJsonValidationErrors('email');
+        $this->assertGuest();
     }
 }

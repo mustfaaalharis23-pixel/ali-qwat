@@ -2,10 +2,10 @@
 
 namespace App\Http\Resources\Admin\Sales;
 
+use App\Enums\Contracts\HasColor;
+use App\Enums\Contracts\HasLabel;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Models\Item;
-use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasLabel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;

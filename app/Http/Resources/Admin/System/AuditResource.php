@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Admin\System;
 
-use App\Filament\Resources\Audits\AuditResource as FilamentAuditResource;
 use App\Models\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -29,11 +28,11 @@ class AuditResource extends JsonResource
             'id' => $this->id,
             'event' => [
                 'value' => $this->event,
-                'label' => FilamentAuditResource::eventLabel($this->event),
-                'color' => FilamentAuditResource::eventColor($this->event),
+                'label' => AuditLabels::eventLabel($this->event),
+                'color' => AuditLabels::eventColor($this->event),
             ],
             'subject_type' => $this->subject_type,
-            'subject_type_label' => FilamentAuditResource::subjectTypeLabel($this->subject_type),
+            'subject_type_label' => AuditLabels::subjectTypeLabel($this->subject_type),
             'subject_id' => $this->subject_id,
             'causer' => $this->causer === null ? null : ['id' => $this->causer->getKey(), 'name' => $this->causer->name ?? null],
             'created_at' => $this->created_at?->toIso8601String(),
@@ -54,7 +53,7 @@ class AuditResource extends JsonResource
 
         return collect(array_keys($old + $new))
             ->map(fn (string $attribute): array => [
-                'attribute' => FilamentAuditResource::attributeLabel($this->subject_type, $attribute),
+                'attribute' => AuditLabels::attributeLabel($this->subject_type, $attribute),
                 'old' => self::formatValue($old[$attribute] ?? null),
                 'new' => self::formatValue($new[$attribute] ?? null),
             ])

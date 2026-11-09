@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'home' => 'لوحة التحكم',
     'groups' => [
         'sales' => 'المبيعات',
         'purchases' => 'المشتريات',

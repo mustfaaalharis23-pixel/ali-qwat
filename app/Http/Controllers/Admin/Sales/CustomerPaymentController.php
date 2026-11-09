@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 
 /**
- * The customer payments page (the panel's CustomerPayments page and its tabs): the payments, the account statement of a customer,
- * the weekly payments due today and the late ones, and the payment window (the panel's PayDebtAction) that records a payment on
+ * The customer payments page and its tabs: the payments, the account statement of a customer,
+ * the weekly payments due today and the late ones, and the payment window that records a payment on
  * the orders it is for through PayCustomerDebt. Anyone who can view customer payments opens the page; recording one takes
  * customer_payment.create (and invoice.create, checked by PayCustomerDebt), and a payment is never edited, only deleted.
  */

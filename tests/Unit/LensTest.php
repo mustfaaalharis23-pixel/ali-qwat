@@ -3,8 +3,8 @@
 namespace Tests\Unit;
 
 use App\Models\User;
+use App\Permissions\PermissionDiscovery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Fixtures\BestSellingItemsLens;
@@ -59,12 +59,21 @@ class LensTest extends TestCase
     }
 
     /**
-     * EN: The lens address is built from its uriKey under lenses: lenses/best-selling-items.
-     * AR: رابط العدسة مبني من الـ uriKey مالها تحت lenses: lenses/best-selling-items.
+     * EN: The address of every lens in the sidebar is built from its uriKey under lenses, such as /lenses/items-without-supplier,
+     *     and its rows are read from the same uriKey: /admin-api/lenses/items-without-supplier.
+     * AR: رابط كل عدسة بالقائمة الجانبية مبني من الـ uriKey مالها تحت lenses، مثل /lenses/items-without-supplier،
+     *     وصفوفها تنقرا من نفس الـ uriKey: /admin-api/lenses/items-without-supplier.
      */
     public function test_lens_address_is_built_from_its_uri_key(): void
     {
-        $this->assertSame('lenses/best-selling-items', BestSellingItemsLens::getSlug());
+        $this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]));
+        $lensPaths = collect($this->getJson('/admin-api/navigation')->assertOk()->json('groups'))
+            ->firstWhere('key', 'lenses')['items'];
+
+        foreach (array_keys((new PermissionDiscovery)->discoverLensesInApp()) as $lens) {
+            $this->assertContains('/lenses/'.$lens::uriKey(), array_column($lensPaths, 'path'));
+            $this->getJson('/admin-api/lenses/'.$lens::uriKey())->assertOk()->assertJsonPath('lens.key', $lens::uriKey());
+        }
     }
 
     /**
@@ -88,9 +97,14 @@ class LensTest extends TestCase
     #[DataProvider('groupLabels')]
     public function test_lens_is_listed_under_the_lenses_group_in_the_current_language(string $locale, string $group): void
     {
-        App::setLocale($locale);
+        $lensesGroup = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]))
+            ->withSession(['locale' => $locale])
+            ->getJson('/admin-api/navigation')
+            ->assertOk()
+            ->json('groups'))->firstWhere('key', 'lenses');
 
-        $this->assertSame($group, BestSellingItemsLens::getNavigationGroup());
+        $this->assertSame($group, $lensesGroup['label']);
+        $this->assertCount(count((new PermissionDiscovery)->discoverLensesInApp()), $lensesGroup['items']);
     }
 
     /**

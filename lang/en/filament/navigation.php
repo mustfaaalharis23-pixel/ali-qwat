@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'home' => 'Dashboard',
     'groups' => [
         'sales' => 'Sales',
         'purchases' => 'Purchases',

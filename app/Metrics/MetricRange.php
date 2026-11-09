@@ -2,8 +2,8 @@
 
 namespace App\Metrics;
 
+use App\Enums\Contracts\HasLabel;
 use Carbon\CarbonImmutable;
-use Filament\Support\Contracts\HasLabel;
 
 /**
  * The ranges a metric card can offer. Each range knows its label and its period at the current time.

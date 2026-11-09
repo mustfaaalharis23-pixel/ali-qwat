@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
+use App\Enums\Contracts\HasLabel;
 use Illuminate\Support\Str;
 
 /**

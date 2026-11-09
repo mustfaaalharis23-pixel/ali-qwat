@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources\Admin\System;
 
+use App\Enums\Contracts\HasColor;
+use App\Enums\Contracts\HasLabel;
 use BackedEnum;
-use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasLabel;
 
 /**
  * An enum case as the browser shows it: its value, its label in the current language, and its badge color.

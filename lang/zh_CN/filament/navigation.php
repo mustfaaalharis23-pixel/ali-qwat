@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'home' => '仪表板',
     'groups' => [
         'sales' => '销售',
         'purchases' => '采购',

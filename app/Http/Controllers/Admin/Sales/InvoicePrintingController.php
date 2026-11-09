@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Admin\Sales;
 
+use App\Admin\Pages\InvoicePrinting;
 use App\Enums\OrderPaymentType;
-use App\Filament\Pages\InvoicePrinting;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Sales\OrderResource;
@@ -15,7 +15,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * The invoice printing page (the panel's InvoicePrinting page): every order, newest first, to look one up and print it as a full
+ * The invoice printing page: every order, newest first, to look one up and print it as a full
  * page or as the small printer's receipt. The period, the customer, the cashier, and the payment type narrow the list. What the
  * order cost us, its profit, and its margin go only to a user who may see the cost. It takes invoice_printing.view.
  */

@@ -2,9 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Filament\Pages\FinancialDashboard;
+use App\Admin\Pages\FinancialDashboard;
 use App\Models\User;
-use Filament\Pages\Dashboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +21,7 @@ class FinancialDashboardTest extends TestCase
     public function test_user_with_the_permission_can_open_the_financial_dashboard(): void
     {
         $this->actingAs($this->userWithPermission())
-            ->get('/admin/financial-dashboard')
+            ->getJson('/admin-api/dashboard/financial')
             ->assertOk();
     }
 
@@ -33,7 +32,7 @@ class FinancialDashboardTest extends TestCase
     public function test_user_without_the_permission_cannot_open_the_financial_dashboard(): void
     {
         $this->actingAs(User::factory()->create(['is_active' => true]))
-            ->get('/admin/financial-dashboard')
+            ->getJson('/admin-api/dashboard/financial')
             ->assertForbidden();
     }
 
@@ -44,7 +43,7 @@ class FinancialDashboardTest extends TestCase
     public function test_super_user_can_open_the_financial_dashboard_without_the_permission(): void
     {
         $this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]))
-            ->get('/admin/financial-dashboard')
+            ->getJson('/admin-api/dashboard/financial')
             ->assertOk();
     }
 
@@ -56,9 +55,9 @@ class FinancialDashboardTest extends TestCase
     {
         $this->actingAs($this->userWithPermission())
             ->withSession(['locale' => 'en'])
-            ->get('/admin')
+            ->getJson('/admin-api/navigation')
             ->assertOk()
-            ->assertSee('Financial dashboard');
+            ->assertJsonPath('groups.0.items.1', ['key' => 'financial-dashboard', 'label' => 'Financial dashboard', 'icon' => 'o-banknotes', 'path' => '/financial-dashboard']);
     }
 
     /**
@@ -69,9 +68,10 @@ class FinancialDashboardTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['is_active' => true]))
             ->withSession(['locale' => 'en'])
-            ->get('/admin')
+            ->getJson('/admin-api/navigation')
             ->assertOk()
-            ->assertDontSee('Financial dashboard');
+            ->assertDontSee('Financial dashboard')
+            ->assertDontSee('/financial-dashboard');
     }
 
     /**
@@ -80,13 +80,18 @@ class FinancialDashboardTest extends TestCase
      */
     public function test_link_comes_right_after_the_home_dashboard(): void
     {
-        $this->assertNull(FinancialDashboard::getNavigationGroup());
-        $this->assertGreaterThan(Dashboard::getNavigationSort(), FinancialDashboard::getNavigationSort());
+        $firstGroup = $this->actingAs($this->userWithPermission())
+            ->getJson('/admin-api/navigation')
+            ->assertOk()
+            ->json('groups.0');
+
+        $this->assertNull($firstGroup['key']);
+        $this->assertSame(['home', 'financial-dashboard'], array_column($firstGroup['items'], 'key'));
     }
 
     /**
-     * EN: The financial dashboard labels in each language: the page title and the sidebar link.
-     * AR: عناوين اللوحة المالية بكل لغة: عنوان الصفحة ورابط القائمة الجانبية.
+     * EN: The financial dashboard label in each language: the page title and the sidebar link.
+     * AR: عنوان اللوحة المالية بكل لغة: عنوان الصفحة ورابط القائمة الجانبية.
      *
      * @return array<string, array{string, string}>
      */
@@ -107,8 +112,7 @@ class FinancialDashboardTest extends TestCase
     {
         App::setLocale($locale);
 
-        $this->assertSame($label, (new FinancialDashboard)->getTitle());
-        $this->assertSame($label, FinancialDashboard::getNavigationLabel());
+        $this->assertSame($label, FinancialDashboard::label());
     }
 
     /**

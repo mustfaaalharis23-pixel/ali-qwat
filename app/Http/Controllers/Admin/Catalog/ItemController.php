@@ -2,23 +2,23 @@
 
 namespace App\Http\Controllers\Admin\Catalog;
 
-use App\Filament\Resources\Items\Widgets\AvailableQuantityMetric;
-use App\Filament\Resources\Items\Widgets\AveragePurchasePriceMetric;
-use App\Filament\Resources\Items\Widgets\HighestPurchasePriceMetric;
-use App\Filament\Resources\Items\Widgets\IncomingQuantityMetric;
-use App\Filament\Resources\Items\Widgets\ItemMetric;
-use App\Filament\Resources\Items\Widgets\LastPurchasePriceMetric;
-use App\Filament\Resources\Items\Widgets\LowestPurchasePriceMetric;
-use App\Filament\Resources\Items\Widgets\ProfitMarginMetric;
-use App\Filament\Resources\Items\Widgets\SoldQuantityMetric;
-use App\Filament\Widgets\Metrics\ActiveItemCountMetric;
-use App\Filament\Widgets\Metrics\InactiveItemCountMetric;
-use App\Filament\Widgets\Metrics\ItemCountMetric;
-use App\Filament\Widgets\Metrics\ItemWithoutSupplierCountMetric;
-use App\Filament\Widgets\Metrics\ValueMetric;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Catalog\ItemResource;
+use App\Metrics\Cards\ActiveItemCountMetric;
+use App\Metrics\Cards\InactiveItemCountMetric;
+use App\Metrics\Cards\ItemCountMetric;
+use App\Metrics\Cards\Items\AvailableQuantityMetric;
+use App\Metrics\Cards\Items\AveragePurchasePriceMetric;
+use App\Metrics\Cards\Items\HighestPurchasePriceMetric;
+use App\Metrics\Cards\Items\IncomingQuantityMetric;
+use App\Metrics\Cards\Items\ItemMetric;
+use App\Metrics\Cards\Items\LastPurchasePriceMetric;
+use App\Metrics\Cards\Items\LowestPurchasePriceMetric;
+use App\Metrics\Cards\Items\ProfitMarginMetric;
+use App\Metrics\Cards\Items\SoldQuantityMetric;
+use App\Metrics\Cards\ItemWithoutSupplierCountMetric;
+use App\Metrics\Cards\ValueMetric;
 use App\Models\Item;
 use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Builder;
@@ -321,8 +321,6 @@ class ItemController extends Controller
         if ($card instanceof ItemMetric) {
             $card->record = $item;
         }
-
-        $card->mount();
 
         return ['key' => Str::snake(Str::beforeLast(class_basename($metric), 'Metric')), ...$card->toPayload()];
     }

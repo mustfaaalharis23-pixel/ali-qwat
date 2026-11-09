@@ -2,9 +2,9 @@
 
 namespace App\Permissions;
 
-use App\Filament\Lenses\Lens;
+use App\Admin\Pages\Page;
+use App\Lenses\Lens;
 use App\Policies\ModelPolicy;
-use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use ReflectionClass;
@@ -13,7 +13,7 @@ use ReflectionMethod;
 class PermissionDiscovery
 {
     /**
-     * Permissions of every model in app/Models and every page in app/Filament/Pages whose Policy extends ModelPolicy.
+     * Permissions of every model in app/Models and every screen in app/Admin/Pages whose Policy extends ModelPolicy.
      *
      * @return array<class-string<Model|Page>, list<string>>
      */
@@ -21,18 +21,18 @@ class PermissionDiscovery
     {
         return $this->discover([
             ...$this->classesIn('Models', Model::class),
-            ...$this->classesIn('Filament/Pages', Page::class),
+            ...$this->classesIn('Admin/Pages', Page::class),
         ]);
     }
 
     /**
-     * The permission of every lens in app/Filament/Lenses.
+     * The permission of every lens in app/Lenses.
      *
      * @return array<class-string<Lens>, string>
      */
     public function discoverLensesInApp(): array
     {
-        return $this->discoverLenses($this->classesIn('Filament/Lenses', Lens::class));
+        return $this->discoverLenses($this->classesIn('Lenses', Lens::class));
     }
 
     /**

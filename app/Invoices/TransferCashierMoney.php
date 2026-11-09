@@ -2,8 +2,8 @@
 
 namespace App\Invoices;
 
+use App\Admin\Pages\FinancialDashboard;
 use App\Enums\OrderPaymentType;
-use App\Filament\Pages\FinancialDashboard;
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Metrics\Period;

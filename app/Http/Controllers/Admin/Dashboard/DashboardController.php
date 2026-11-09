@@ -2,27 +2,27 @@
 
 namespace App\Http\Controllers\Admin\Dashboard;
 
-use App\Filament\Lenses\InactiveItemsWithStockLens;
-use App\Filament\Lenses\ItemsSoldAtALossLens;
-use App\Filament\Lenses\ItemsWithALowMarginLens;
-use App\Filament\Lenses\ItemsWithANegativeQuantityLens;
-use App\Filament\Lenses\ItemsWithoutSalesLens;
-use App\Filament\Lenses\ItemsWithoutSupplierLens;
-use App\Filament\Lenses\Lens;
-use App\Filament\Pages\FinancialDashboard;
-use App\Filament\Pages\MonitoringDashboard;
-use App\Filament\Widgets\Metrics\AccountantBalanceMetric;
-use App\Filament\Widgets\Metrics\CashSalesBoxMetric;
-use App\Filament\Widgets\Metrics\GeneralExpensesMetric;
-use App\Filament\Widgets\Metrics\InvoiceCountMetric;
-use App\Filament\Widgets\Metrics\PostpaidSalesBoxMetric;
-use App\Filament\Widgets\Metrics\PurchaseExpensesMetric;
-use App\Filament\Widgets\Metrics\RevenuesMetric;
-use App\Filament\Widgets\Metrics\StockValueMetric;
-use App\Filament\Widgets\Metrics\TotalDebtMetric;
-use App\Filament\Widgets\Metrics\ValueMetric;
+use App\Admin\Pages\FinancialDashboard;
+use App\Admin\Pages\MonitoringDashboard;
 use App\Http\Controllers\Controller;
 use App\Invoices\TransferCashierMoney;
+use App\Lenses\InactiveItemsWithStockLens;
+use App\Lenses\ItemsSoldAtALossLens;
+use App\Lenses\ItemsWithALowMarginLens;
+use App\Lenses\ItemsWithANegativeQuantityLens;
+use App\Lenses\ItemsWithoutSalesLens;
+use App\Lenses\ItemsWithoutSupplierLens;
+use App\Lenses\Lens;
+use App\Metrics\Cards\AccountantBalanceMetric;
+use App\Metrics\Cards\CashSalesBoxMetric;
+use App\Metrics\Cards\GeneralExpensesMetric;
+use App\Metrics\Cards\InvoiceCountMetric;
+use App\Metrics\Cards\PostpaidSalesBoxMetric;
+use App\Metrics\Cards\PurchaseExpensesMetric;
+use App\Metrics\Cards\RevenuesMetric;
+use App\Metrics\Cards\StockValueMetric;
+use App\Metrics\Cards\TotalDebtMetric;
+use App\Metrics\Cards\ValueMetric;
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Models\CustomerPayment;
@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * The dashboards of the admin application: the financial cards, the monitoring lens counts, the cashier money transfer,
- * and the weekly payment reminders of the home page. The numbers come from the same cards and classes the panel uses.
+ * and the weekly payment reminders of the home page. The numbers come from the cards of app/Metrics/Cards and the lenses of app/Lenses.
  */
 class DashboardController extends Controller
 {
@@ -93,7 +93,6 @@ class DashboardController extends Controller
         abort_unless(array_key_exists($key, self::FINANCIAL_CARDS), 404);
 
         $card = app(self::FINANCIAL_CARDS[$key]);
-        $card->mount();
 
         return response()->json(['key' => $key, ...$card->toPayload($request->query('range'))]);
     }

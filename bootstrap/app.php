@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAppPermission;
+use App\Http\Middleware\RelativeStorageUrls;
 use App\Http\Middleware\SetApiLocale;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -16,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function (): void {
-            Route::middleware('web')
+            Route::middleware(['web', RelativeStorageUrls::class])
                 ->prefix('admin-api')
                 ->name('admin-api.')
                 ->group(base_path('routes/admin.php'));

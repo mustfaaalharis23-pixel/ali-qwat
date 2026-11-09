@@ -2,12 +2,12 @@
 
 namespace App\Http\Resources\Admin\Purchases;
 
+use App\Enums\Contracts\HasColor;
+use App\Enums\Contracts\HasLabel;
 use App\Enums\InvoiceConfirmation;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Models\Container;
 use App\Models\Invoice;
-use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;

@@ -12,7 +12,6 @@ use App\Models\Order;
 use App\Models\Payoff;
 use App\Models\Supplier;
 use App\Models\User;
-use Filament\Resources\Pages\Page as ResourcePage;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -32,7 +31,7 @@ use Throwable;
 /**
  * Times every request of the application and counts its queries.
  *
- * Every GET route (the panel's pages, the API, the print pages) and the API's POST routes are sent through a fresh copy
+ * Every GET route (the admin application's API, the sales API, the print pages) and the API's POST routes are sent through a fresh copy
  * of the application, as a signed-in super user, the same way a real request is: the framework boots, the middleware runs,
  * the page renders. Writes run inside a transaction that is rolled back, so the database stays as it was.
  *
@@ -56,7 +55,7 @@ class BenchmarkRequests extends Command
      *
      * @var array<int, string>
      */
-    private const SKIPPED_URIS = ['up', 'locale/{locale}', 'admin/login', 'admin/logout', 'sanctum/csrf-cookie', 'storage/{path}'];
+    private const SKIPPED_URIS = ['up', 'locale/{locale}', 'admin/{path?}', 'sanctum/csrf-cookie', 'storage/{path}'];
 
     private User $user;
 
@@ -97,7 +96,7 @@ class BenchmarkRequests extends Command
         foreach (app('router')->getRoutes() as $route) {
             $uri = $route->uri();
 
-            if (in_array($uri, self::SKIPPED_URIS, true) || Str::startsWith($uri, ['livewire', '_boost', 'filament/', 'storage'])) {
+            if (in_array($uri, self::SKIPPED_URIS, true) || Str::startsWith($uri, ['_boost', 'storage'])) {
                 continue;
             }
 
@@ -183,7 +182,6 @@ class BenchmarkRequests extends Command
             $parameter === 'order' => Order::class,
             $parameter === 'payment' => CustomerPayment::class,
             $parameter === 'invoice' => Invoice::class,
-            $parameter === 'record' && is_subclass_of($route->getActionName(), ResourcePage::class) => $route->getActionName()::getResource()::getModel(),
             class_exists('App\\Models\\'.Str::studly($parameter)) => 'App\\Models\\'.Str::studly($parameter),
             $parameter === 'payoff' => Payoff::class,
             default => null,

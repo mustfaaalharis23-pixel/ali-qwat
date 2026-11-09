@@ -2,13 +2,15 @@
 
 namespace Tests\Unit;
 
-use App\Filament\Resources\Items\ItemResource;
-use Illuminate\Support\Facades\App;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ItemResourceTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * EN: The items screen labels in each language: one item, many items, and the sidebar link.
      * AR: عناوين شاشة الأصناف بكل لغة: صنف واحد، وأكثر من صنف، ورابط القائمة الجانبية.
@@ -30,10 +32,15 @@ class ItemResourceTest extends TestCase
     #[DataProvider('labels')]
     public function test_labels_are_shown_in_the_current_language(string $locale, string $model, string $pluralModel, string $navigation): void
     {
-        App::setLocale($locale);
+        $this->assertSame($model, __('filament/resources/item.label', locale: $locale));
+        $this->assertSame($pluralModel, __('filament/resources/item.plural_label', locale: $locale));
 
-        $this->assertSame($model, ItemResource::getModelLabel());
-        $this->assertSame($pluralModel, ItemResource::getPluralModelLabel());
-        $this->assertSame($navigation, ItemResource::getNavigationLabel());
+        $items = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]))
+            ->withSession(['locale' => $locale])
+            ->getJson('/admin-api/navigation')
+            ->assertOk()
+            ->json('groups'))->flatMap(fn (array $group): array => $group['items']);
+
+        $this->assertSame($navigation, $items->firstWhere('key', 'items')['label']);
     }
 }

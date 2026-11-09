@@ -2,7 +2,7 @@
 
 namespace Tests\Fixtures;
 
-use App\Filament\Lenses\Lens;
+use App\Lenses\Lens;
 use App\Models\Item;
 use Illuminate\Database\Eloquent\Builder;
 

@@ -2,22 +2,20 @@
 
 namespace App\Http\Controllers\Admin\Reports;
 
-use App\Filament\Reports\ProfitAndLoss\ProfitAndLossReport;
-use App\Filament\Resources\GeneralInvoices\GeneralInvoiceResource;
 use App\Http\Controllers\Controller;
 use App\Metrics\CompanyValue;
 use App\Metrics\ProfitAndLoss;
+use App\Reports\ProfitAndLossReport;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use ReflectionClassConstant;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The profit and loss report of one whole month, with the descriptions the reader left out.
  *
- * The statement is App\Metrics\ProfitAndLoss, worked out once per request by the panel's report class: the sums of the
+ * The statement is App\Metrics\ProfitAndLoss, worked out once per request by App\Reports\ProfitAndLossReport: the sums of the
  * month and the two company values are read in a fixed number of queries, whatever the number of lines.
  */
 class ProfitAndLossController extends Controller
@@ -27,14 +25,12 @@ class ProfitAndLossController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
-        [$runner, $month] = $this->open($request);
+        [$report, $month] = $this->open($request);
 
-        $report = $runner->report;
-        $cards = $runner->formattedTotals();
+        $cards = $report->formattedTotals();
 
         /** @var ProfitAndLoss $statement */
-        $statement = $runner->call('fetchedStatement');
-        $invoiceSlug = GeneralInvoiceResource::getSlug();
+        $statement = $report->fetchedStatement();
 
         return response()->json([
             'title' => $report::label(),
@@ -69,7 +65,7 @@ class ProfitAndLossController extends Controller
                         'invoice_id' => $line['invoice_id'],
                         'invoice_name' => $line['invoice_name'],
                         'invoice_date' => $line['invoice_date'],
-                        'invoice_path' => "/{$invoiceSlug}/{$line['invoice_id']}",
+                        'invoice_path' => "/general-invoices/{$line['invoice_id']}",
                     ], $statement->linesOf($group['id'])),
                 ], $statement->expenseGroups),
                 'total' => $statement->totalExpenses(),
@@ -97,16 +93,16 @@ class ProfitAndLossController extends Controller
      */
     public function excel(Request $request): StreamedResponse
     {
-        [$runner] = $this->open($request);
+        [$report] = $this->open($request);
 
-        return $runner->download();
+        return $report->download();
     }
 
     /**
      * The report run on the asked month, the month that just ended when none is asked, with its exclusions.
      * A month that has not begun, or one before the first year of the picker, is refused.
      *
-     * @return array{0: ReportRunner<ProfitAndLossReport>, 1: string}
+     * @return array{0: ProfitAndLossReport, 1: string}
      */
     private function open(Request $request): array
     {
@@ -133,20 +129,20 @@ class ProfitAndLossController extends Controller
         $month = $validated['month'] ?? app(ProfitAndLossReport::class)->defaultMonth()->format('Y-m');
         $start = CarbonImmutable::parse($month.'-01');
 
-        $runner = ReportRunner::open(ProfitAndLossReport::class, $start->startOfMonth()->toDateString(), $start->endOfMonth()->toDateString());
-        $runner->report->month = $month;
-        $runner->report->excludedRevenues = array_values(array_unique(array_map('intval', $validated['excluded_revenues'] ?? [])));
-        $runner->report->excludedExpenses = array_values(array_unique(array_map('intval', $validated['excluded_expenses'] ?? [])));
+        $report = ProfitAndLossReport::open($start->startOfMonth()->toDateString(), $start->endOfMonth()->toDateString());
+        $report->month = $month;
+        $report->excludedRevenues = array_values(array_unique(array_map('intval', $validated['excluded_revenues'] ?? [])));
+        $report->excludedExpenses = array_values(array_unique(array_map('intval', $validated['excluded_expenses'] ?? [])));
 
-        return [$runner, $month];
+        return [$report, $month];
     }
 
     /**
-     * The oldest year the month picker can go back to, as the panel's report says.
+     * The oldest year the month picker can go back to, as the report says.
      */
     private function firstYear(): int
     {
-        return (int) (new ReflectionClassConstant(ProfitAndLossReport::class, 'FIRST_YEAR'))->getValue();
+        return ProfitAndLossReport::FIRST_YEAR;
     }
 
     /**

@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Resources\PurchaseInvoices\Pages\CreatePurchaseInvoice;
+use App\Invoices\FetchDollarRate;
+use App\Invoices\FetchMerchantsBankDollarRate;
 use App\Models\Batch;
 use App\Models\Color;
 use App\Models\Invoice;
@@ -12,14 +13,10 @@ use App\Models\Item;
 use App\Models\LensPower;
 use App\Models\Supplier;
 use App\Models\User;
-use Filament\Forms\Components\Repeater;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Features\SupportTesting\Testable;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -28,12 +25,12 @@ class CreatePurchaseInvoiceGroupsTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * EN: A line of 10 packets of 24 pieces is spread on the create page as 3 packets of 0.50, 3 of 1.00, and 4 of 1.50.
+     * EN: A line of 10 packets of 24 pieces is spread on the new invoice as 3 packets of 0.50, 3 of 1.00, and 4 of 1.50.
      *     Then the line is saved with its spread, and it has a stock batch for each power: 72 pieces of 0.50, 72 of 1.00, and 96 of 1.50.
-     * AR: بند بيه 10 باكيتات، كل باكيت 24 قطعة، يتوزع بصفحة الإنشاء 3 باكيتات 0.50، و3 باكيتات 1.00، و4 باكيتات 1.50.
+     * AR: بند بيه 10 باكيتات، كل باكيت 24 قطعة، يتوزع بالفاتورة الجديدة 3 باكيتات 0.50، و3 باكيتات 1.00، و4 باكيتات 1.50.
      *     فالبند ينحفظ بتوزيعه، وإله دفعة لكل درجة: 72 قطعة 0.50، و72 قطعة 1.00، و96 قطعة 1.50.
      */
-    public function test_a_line_spread_over_powers_is_saved_from_the_create_page(): void
+    public function test_a_line_spread_over_powers_is_saved_on_a_new_invoice(): void
     {
         [$lowPower, $middlePower, $highPower] = [
             LensPower::factory()->create(['value' => 0.5]),
@@ -45,7 +42,7 @@ class CreatePurchaseInvoiceGroupsTest extends TestCase
             ['lens_power_id' => $lowPower->id, 'boxes_count' => 3],
             ['lens_power_id' => $middlePower->id, 'boxes_count' => 3],
             ['lens_power_id' => $highPower->id, 'boxes_count' => 4],
-        ])->assertHasNoFormErrors();
+        ])->assertCreated();
 
         $line = InvoiceItem::query()->sole();
         $this->assertEquals(
@@ -88,22 +85,22 @@ class CreatePurchaseInvoiceGroupsTest extends TestCase
             'boxes_count' => $count,
         ])->all();
 
-        $this->createWithSpread($spread)->assertHasFormErrors(['items.0.groups']);
+        $this->createWithSpread($spread)->assertJsonValidationErrors('items.0.groups');
 
         $this->assertSame(0, Invoice::query()->count());
     }
 
     /**
-     * EN: A line of 10 packets of 24 pieces is saved from the create page with its packet's colors chosen once for the whole line,
+     * EN: A line of 10 packets of 24 pieces is saved on a new invoice with its packet's colors chosen once for the whole line,
      *     10 red pieces and 14 blue, and its packets spread over two powers: 4 packets of 1.00 and 6 of 1.50.
      *     Then the line is saved with its colors once, its groups hold only their powers and packets,
      *     and the batch of each power has the line's colors in each of its packets: 1.00 has 40 red and 56 blue, 1.50 has 60 red and 84 blue.
-     * AR: بند بيه 10 باكيتات، كل باكيت 24 قطعة، ينحفظ من صفحة الإنشاء وألوان باكيته تنختار مرة وحدة للبند كله،
+     * AR: بند بيه 10 باكيتات، كل باكيت 24 قطعة، ينحفظ بفاتورة جديدة وألوان باكيته تنختار مرة وحدة للبند كله،
      *     10 قطع أحمر و14 أزرق، وباكيتاته تتوزع على درجتين: 4 باكيتات 1.00 و6 باكيتات 1.50.
      *     فالبند ينحفظ بألوانه مرة وحدة، ومجموعاته بيها بس درجاتها وباكيتاتها،
      *     ودفعة كل درجة بكل باكيت منها ألوان البند: 1.00 بيها 40 أحمر و56 أزرق، و1.50 بيها 60 أحمر و84 أزرق.
      */
-    public function test_a_line_colors_are_saved_once_from_the_create_page(): void
+    public function test_a_line_colors_are_saved_once_on_a_new_invoice(): void
     {
         $red = Color::factory()->create(['name' => 'Red']);
         $blue = Color::factory()->create(['name' => 'Blue']);
@@ -119,7 +116,7 @@ class CreatePurchaseInvoiceGroupsTest extends TestCase
                 ['color_id' => $red->id, 'pieces' => 10],
                 ['color_id' => $blue->id, 'pieces' => 14],
             ],
-        )->assertHasNoFormErrors();
+        )->assertCreated();
 
         $line = InvoiceItem::query()->sole();
         $this->assertEquals([$red->id => 10, $blue->id => 14], $line->colors()->pluck('pieces', 'color_id')->all());
@@ -164,53 +161,48 @@ class CreatePurchaseInvoiceGroupsTest extends TestCase
             'pieces' => $count,
         ])->all();
 
-        $this->createWithSpread([], colors: $colors)->assertHasFormErrors(['items.0.colors']);
+        $this->createWithSpread([], colors: $colors)->assertJsonValidationErrors('items.0.colors');
 
         $this->assertSame(0, Invoice::query()->count());
     }
 
     /**
-     * EN: Fills the create page with one line of an item whose packet holds 24 pieces: 10 packets, 5 packets per carton,
-     *     at 2 a piece, spread over powers as given, with the given colors in each packet, and creates it.
-     * AR: يعبّي صفحة الإنشاء ببند واحد لمادة باكيتها بيه 24 قطعة: 10 باكيتات، و5 باكيتات بالكارتونة،
-     *     والقطعة بـ 2، موزع على الدرجات مثل ما انطى، وبكل باكيت الألوان المنطاة، وينشئها.
+     * EN: Sends a new invoice to the admin API with one line of an item whose packet holds 24 pieces: 10 packets, 5 packets per carton,
+     *     at 2 a piece, spread over powers as given, with the given colors in each packet.
+     * AR: يبعث فاتورة جديدة للـ API بالبند الواحد لمادة باكيتها بيه 24 قطعة: 10 باكيتات، و5 باكيتات بالكارتونة،
+     *     والقطعة بـ 2، موزع على الدرجات مثل ما انطى، وبكل باكيت الألوان المنطاة.
      *
      * @param  list<array{lens_power_id?: int, boxes_count: float}>  $spread
      * @param  list<array{color_id: int, pieces: float}>  $colors
      */
-    private function createWithSpread(array $spread, array $colors = []): Testable
+    private function createWithSpread(array $spread, array $colors = []): TestResponse
     {
         Storage::fake('public');
-        // The create page asks the banks for the exchange rate when it opens; the test never goes out to them.
-        Process::fake();
-        Http::fake();
-        $undoRepeaterFake = Repeater::fake();
-        $this->actingAs(User::factory()->create(['is_super' => true]));
+        // The new invoice asks the banks for the exchange rate when it opens; the test never goes out to them.
+        $this->mock(FetchDollarRate::class, fn (MockInterface $mock) => $mock->shouldReceive('handle')->andReturn(6.7));
+        $this->mock(FetchMerchantsBankDollarRate::class, fn (MockInterface $mock) => $mock->shouldReceive('handle')->andReturn(null));
+        $this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]));
+        $this->getJson('/admin-api/purchase-invoices/create')->assertOk();
 
-        $page = Livewire::test(CreatePurchaseInvoice::class)
-            ->fillForm([
-                'name' => 'Reading glasses order',
-                'supplier_id' => Supplier::factory()->create()->id,
-                'invoice_category_id' => InvoiceCategory::factory()->create()->id,
-                'date' => '2026-10-19',
-                'exchange_rate' => 6.7,
-                'cbm_price' => 120,
-                'items' => [[
-                    'specific_description_id' => Item::factory()->create(['pieces_per_packet' => 24])->specificDescription->id,
-                    'boxes_count' => 10,
-                    'pieces_per_packet' => 24,
-                    'boxes_per_carton' => 5,
-                    'carton_cbm' => 0.1,
-                    'unit_cost' => 2,
-                    'groups' => $spread,
-                    'colors' => $colors,
-                ]],
-                'images' => [UploadedFile::fake()->image('invoice.jpg')],
-            ])
-            ->call('create');
-
-        $undoRepeaterFake();
-
-        return $page;
+        return $this->postJson('/admin-api/purchase-invoices', [
+            'name' => 'Reading glasses order',
+            'supplier_id' => Supplier::factory()->create()->id,
+            'invoice_category_id' => InvoiceCategory::factory()->create()->id,
+            'date' => '2026-10-19',
+            'exchange_rate' => 6.7,
+            'dinar_rate' => 170,
+            'cbm_price' => 120,
+            'items' => [[
+                'specific_description_id' => Item::factory()->create(['pieces_per_packet' => 24])->specificDescription->id,
+                'entry_unit' => 'packets',
+                'boxes_count' => 10,
+                'pieces_per_packet' => 24,
+                'boxes_per_carton' => 5,
+                'carton_cbm' => 0.1,
+                'unit_cost' => 2,
+                'groups' => $spread,
+                'colors' => $colors,
+            ]],
+        ]);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasLabel;
+use App\Enums\Contracts\HasColor;
+use App\Enums\Contracts\HasLabel;
 
 /**
  * Where a purchase invoice's goods are, from the factory to us. The cases are in their order, and a stage only moves forward, one step at a time,

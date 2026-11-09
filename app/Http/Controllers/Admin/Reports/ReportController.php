@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Admin\Reports;
 
-use App\Filament\Reports\Golden\GoldenReport;
-use App\Filament\Reports\ItemSales\ItemSalesReport;
-use App\Filament\Reports\Purchases\PurchasesReport;
-use App\Filament\Reports\Report;
-use App\Filament\Reports\Sales\SalesReport;
 use App\Http\Controllers\Controller;
 use App\Metrics\Currency;
 use App\Metrics\FormattedValue;
 use App\Models\Supplier;
+use App\Reports\GoldenReport;
+use App\Reports\ItemSalesReport;
+use App\Reports\PurchasesReport;
+use App\Reports\Report;
+use App\Reports\SalesReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,14 +19,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * The period reports of the admin application: sales, purchases, item sales, and the golden report.
  *
- * Every report is the panel's own report class run by ReportRunner, so the rows and the totals are worked out there.
+ * Every report is its own class in app/Reports, so the rows and the totals are worked out there.
  * A report opens on the last three months until today, a period is a single day when it has no end, and a day after
- * today is never asked for, like the panel's period field. Who may open a report is what the panel's page allows.
+ * today is never asked for. Who may open a report is what the report allows (canAccess).
  */
 class ReportController extends Controller
 {
     /**
-     * The reports by their address, which is the panel's own.
+     * The reports by their address.
      *
      * @var array<string, class-string<Report>>
      */
@@ -38,7 +38,7 @@ class ReportController extends Controller
     ];
 
     /**
-     * How many months back a report opens on, as in the panel.
+     * How many months back a report opens on.
      */
     private const DEFAULT_MONTHS = 3;
 
@@ -47,23 +47,23 @@ class ReportController extends Controller
      */
     public function show(Request $request, string $report): JsonResponse
     {
-        [$runner, $period, $filters] = $this->open($request, $report);
+        [$opened, $period, $filters] = $this->open($request, $report);
 
-        $rows = $runner->rows();
+        $rows = $opened->fetchedRows();
         $payload = [
             'key' => $report,
-            'title' => $runner->report::label(),
+            'title' => $opened::label(),
             'from' => $period['from'],
             'to' => $period['to'],
             'filters' => $filters,
-            'columns' => $runner->columns(),
+            'columns' => $opened->columns(),
             'rows' => $rows,
-            'totals' => $runner->hasTotalsCards() ? $runner->formattedTotals() : [],
+            'totals' => $opened->hasTotalsCards() ? $opened->formattedTotals() : [],
             'excel_url' => route('admin-api.reports.excel', ['report' => $report, ...$period, ...$filters]),
         ];
 
-        if ($runner->report instanceof GoldenReport) {
-            $payload += $this->goldenSummary($runner->report->summary());
+        if ($opened instanceof GoldenReport) {
+            $payload += $this->goldenSummary($opened->summary());
         }
 
         return response()->json($payload);
@@ -74,9 +74,9 @@ class ReportController extends Controller
      */
     public function excel(Request $request, string $report): StreamedResponse
     {
-        [$runner] = $this->open($request, $report);
+        [$opened] = $this->open($request, $report);
 
-        return $runner->download();
+        return $opened->download();
     }
 
     /**
@@ -84,11 +84,11 @@ class ReportController extends Controller
      */
     public function supplierItems(Request $request, int $supplier): JsonResponse
     {
-        [$runner] = $this->open($request, 'purchases');
+        /** @var PurchasesReport $opened */
+        [$opened] = $this->open($request, 'purchases');
         $name = Supplier::withTrashed()->findOrFail($supplier)->name_ar;
 
-        /** @var list<array{name: string, quantity: float, amount: float}> $items */
-        $items = $runner->call('itemsBoughtFrom', $supplier);
+        $items = $opened->itemsBoughtFrom($supplier);
         $total = (float) array_sum(array_column($items, 'amount'));
 
         return response()->json([
@@ -102,7 +102,7 @@ class ReportController extends Controller
     /**
      * The report run on the asked period with its validated filters, after checking the user may open it.
      *
-     * @return array{0: ReportRunner<Report>, 1: array{from: string, to: string}, 2: array<string, mixed>}
+     * @return array{0: Report, 1: array{from: string, to: string}, 2: array<string, mixed>}
      */
     private function open(Request $request, string $report): array
     {
@@ -121,7 +121,7 @@ class ReportController extends Controller
         $to = $validated['to'] ?? (isset($validated['from']) ? $from : $today->toDateString());
         $filters = $this->filters($report, $validated);
 
-        return [ReportRunner::open($class, $from, $to, $filters), ['from' => $from, 'to' => $to], $filters];
+        return [$class::open($from, $to, $filters), ['from' => $from, 'to' => $to], $filters];
     }
 
     /**
@@ -143,7 +143,7 @@ class ReportController extends Controller
     }
 
     /**
-     * A report's own filters with the panel's defaults: the most sold quantity, and every list with ten items each.
+     * A report's own filters with their defaults: the most sold quantity, and every list with ten items each.
      *
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
@@ -161,7 +161,7 @@ class ReportController extends Controller
     }
 
     /**
-     * The summary line of the golden report, as numbers and as the texts the panel shows.
+     * The summary line of the golden report, as numbers and as the texts shown.
      *
      * @param  array<string, float>|null  $summary
      * @return array{summary: array<string, float>|null, summary_text: array<string, string>|null}

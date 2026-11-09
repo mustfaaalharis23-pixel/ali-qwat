@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Sales;
 
-use App\Filament\Pages\InvoicePrinting;
+use App\Admin\Pages\InvoicePrinting;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Sales\SalesPayload;
 use App\Models\Customer;

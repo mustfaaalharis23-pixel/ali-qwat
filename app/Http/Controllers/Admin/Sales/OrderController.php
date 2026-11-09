@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Admin\Sales;
 
+use App\Admin\Pages\InvoicePrinting;
 use App\Enums\OrderPaymentType;
-use App\Filament\Pages\InvoicePrinting;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\Sales\OrderResource;
@@ -15,6 +15,7 @@ use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Orders\Checkout\Checkout;
+use App\Orders\Checkout\CheckoutCart;
 use App\Orders\Checkout\CheckoutData;
 use App\Orders\UpdateOrder;
 use App\Orders\WeeklyPaymentReminders;
@@ -29,7 +30,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The orders (the panel's OrderResource): the list, an order's page, the sale and its edit on the checkout cart, and delete.
+ * The orders: the list, an order's page, the sale and its edit on the checkout cart, and delete.
  * A sale is made through the app's Checkout and edited through UpdateOrder, so every sale rule and its message are theirs.
  * Viewing and editing take order.view and order.update; adding, deleting, and restoring are for super users (OrderPolicy).
  * What an order cost us and its profit go only to a user with item.view_cost_price.

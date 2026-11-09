@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\NavigationController;
 use App\Http\Controllers\Admin\OptionController;
 use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\Admin\TranslationController;
+use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -16,7 +17,7 @@ Route::post('login', [SessionController::class, 'login'])->name('login');
 Route::post('locale', [SessionController::class, 'locale'])->name('locale');
 Route::get('translations/{locale}', TranslationController::class)->name('translations');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
     Route::post('logout', [SessionController::class, 'logout'])->name('logout');
     Route::get('navigation', NavigationController::class)->name('navigation');
     Route::get('options/{type}', OptionController::class)->name('options');

@@ -3,9 +3,6 @@
 namespace App\Http\Controllers\Admin\Purchases;
 
 use App\Enums\ExchangeRateSource;
-use App\Filament\Resources\PurchaseInvoices\Widgets\ImporterConfirmedPurchaseInvoicesMetric;
-use App\Filament\Resources\PurchaseInvoices\Widgets\PendingPurchaseInvoicesMetric;
-use App\Filament\Widgets\Metrics\ValueMetric;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Admin\Purchases\Concerns\StoresUploads;
 use App\Http\Controllers\Controller;
@@ -13,6 +10,9 @@ use App\Http\Requests\Admin\Purchases\PurchaseInvoiceRequest;
 use App\Http\Resources\Admin\Purchases\PurchaseInvoiceResource;
 use App\Invoices\ConfirmPurchaseInvoice;
 use App\Invoices\RevertInvoiceConfirmation;
+use App\Metrics\Cards\PurchaseInvoices\ImporterConfirmedPurchaseInvoicesMetric;
+use App\Metrics\Cards\PurchaseInvoices\PendingPurchaseInvoicesMetric;
+use App\Metrics\Cards\ValueMetric;
 use App\Models\Color;
 use App\Models\Container;
 use App\Models\Invoice;
@@ -234,7 +234,6 @@ class PurchaseInvoiceController extends Controller
         abort_unless(array_key_exists($key, self::METRICS), 404);
 
         $card = app(self::METRICS[$key]);
-        $card->mount();
 
         return response()->json(['key' => $key, ...$card->toPayload($request->query('range'))]);
     }

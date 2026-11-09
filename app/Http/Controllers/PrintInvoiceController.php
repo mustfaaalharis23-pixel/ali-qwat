@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Filament\Pages\InvoicePrinting;
+use App\Admin\Pages\InvoicePrinting;
 use App\Invoices\InvoiceDocument;
 use App\Models\Order;
 use Illuminate\Contracts\View\View;
