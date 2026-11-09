@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 use Illuminate\Validation\Rule;
@@ -62,7 +63,7 @@ class OrderController extends Controller
         );
 
         return OrderResource::collection($orders)->additional([
-            'can' => ['create' => Gate::allows('create', Order::class), 'see_cost' => SalesPayload::seesCost()],
+            'can' => ['create' => Gate::allows('create', Order::class), 'see_cost' => SalesPayload::seesCost(), 'delete_any' => Gate::allows('deleteAny', Order::class)],
             'payment_types' => array_map(fn (OrderPaymentType $type): ?array => SalesPayload::enum($type), OrderPaymentType::cases()),
         ]);
     }
@@ -229,6 +230,36 @@ class OrderController extends Controller
         $order->delete();
 
         return response()->json(status: 204);
+    }
+
+    /**
+     * Deletes the chosen orders together (the panel's delete bulk action). Every order is checked against its policy before any is
+     * deleted; an order with payments on it is refused by the order itself, so it is skipped and counted.
+     */
+    public function bulk(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $orders = Order::query()->whereKey($data['ids'])->get();
+        $orders->each(fn (Order $order) => Gate::authorize('delete', $order));
+
+        $deleted = 0;
+        $skipped = 0;
+
+        foreach ($orders as $order) {
+            try {
+                DB::transaction(fn () => $order->delete());
+                $deleted++;
+            } catch (ValidationException) {
+                $skipped++;
+            }
+        }
+
+        return response()->json(['count' => $deleted, 'skipped' => $skipped]);
     }
 
     public function restore(int $order): JsonResponse

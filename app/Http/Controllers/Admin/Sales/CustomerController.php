@@ -26,6 +26,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -68,7 +69,12 @@ class CustomerController extends Controller
         );
 
         return CustomerResource::collection($customers)->additional([
-            'can' => ['create' => Gate::allows('create', Customer::class)],
+            'can' => [
+                'create' => Gate::allows('create', Customer::class),
+                'delete_any' => Gate::allows('deleteAny', Customer::class),
+                'restore_any' => Gate::allows('restoreAny', Customer::class),
+                'force_delete_any' => Gate::allows('forceDeleteAny', Customer::class),
+            ],
             'payment_types' => array_map(fn (CustomerPaymentType $type): ?array => SalesPayload::enum($type), CustomerPaymentType::cases()),
         ]);
     }
@@ -163,6 +169,37 @@ class CustomerController extends Controller
         $customer->delete();
 
         return response()->json(status: 204);
+    }
+
+    /**
+     * Deletes, restores, or deletes forever the chosen customers together (the panel's bulk actions). Every customer is checked
+     * against its policy before any is changed; one not in the state the action needs is left as it is.
+     */
+    public function bulk(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['delete', 'restore', 'force_delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $ability = Str::camel($data['action']);
+        $customers = Customer::withTrashed()->whereKey($data['ids'])->get();
+        $customers->each(fn (Customer $customer) => Gate::authorize($ability, $customer));
+
+        $changed = $customers
+            ->filter(fn (Customer $customer): bool => match ($data['action']) {
+                'delete' => ! $customer->trashed(),
+                'restore' => $customer->trashed(),
+                default => true,
+            })
+            ->each(fn (Customer $customer) => match ($data['action']) {
+                'delete' => $customer->delete(),
+                'restore' => $customer->restore(),
+                default => $customer->forceDelete(),
+            });
+
+        return response()->json(['count' => $changed->count()]);
     }
 
     public function restore(int $customer): CustomerResource

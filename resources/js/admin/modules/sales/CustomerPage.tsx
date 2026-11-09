@@ -14,6 +14,7 @@ import { QueryError } from '../../pages/NotFound';
 import { PayDebtModal } from './PayDebtModal';
 import { EnumBadgeView, statementPath } from './shared';
 import type { Customer, CustomerPayment } from './types';
+import { AuditsSection } from '../system/AuditsPanel';
 
 interface CustomerShow {
     data: Customer;
@@ -158,6 +159,8 @@ export function CustomerPage() {
                     />
                 </>
             )}
+
+            <AuditsSection subjectType="customer" subjectId={customer.id} />
 
             {paying && <PayDebtModal customerId={customer.id} onClose={() => setPaying(false)} />}
             {actions.dialogs}

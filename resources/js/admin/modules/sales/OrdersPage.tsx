@@ -9,6 +9,7 @@ import { SearchSelect } from '../../components/SearchSelect';
 import { useRecordActions } from '../../components/RecordActions';
 import { EnumBadgeView } from './shared';
 import { useSalesAbilities } from './useSalesAbilities';
+import { useBulkActions } from './BulkActions';
 import type { OrderRow } from './types';
 
 /** The orders list (the panel's OrdersTable): newest first, searched by the customer, filtered by the customer and the payment type. */
@@ -20,6 +21,7 @@ export function OrdersPage() {
     const customerId = params.get('customer_id');
     const actions = useRecordActions<OrderRow & { id: number }>('/orders', { label: (order) => `#${order.id}` });
     const field = (name: string) => t(`filament/resources/order.fields.${name}`);
+    const bulk = useBulkActions('/orders', { delete: abilities?.delete_orders });
 
     const setCustomer = (value: number | string | null) =>
         setParams((current) => {
@@ -61,6 +63,8 @@ export function OrdersPage() {
                     </>
                 )}
                 rowHref={(order) => `/orders/${order.id}`}
+                selectable={bulk.selectable}
+                bulkActions={bulk.buttons}
                 columns={[
                     { key: 'id', header: '#', sortable: true, className: 'w-16', cell: (order) => <span className="text-muted tabular-nums">{order.id}</span> },
                     {
@@ -97,6 +101,7 @@ export function OrdersPage() {
                 ]}
             />
             {actions.dialogs}
+            {bulk.dialog}
         </>
     );
 }

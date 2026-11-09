@@ -12,12 +12,14 @@ use Illuminate\Support\Facades\Route;
  */
 Route::get('sales/abilities', AbilitiesController::class)->name('sales.abilities');
 
+Route::post('orders/bulk', [OrderController::class, 'bulk'])->name('orders.bulk');
 Route::post('orders/checkout', [OrderController::class, 'checkout'])->name('orders.checkout');
 Route::get('orders/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
 Route::post('orders/{order}/restore', [OrderController::class, 'restore'])->name('orders.restore');
 Route::get('orders/{order}', [OrderController::class, 'show'])->whereNumber('order')->name('orders.show');
 Route::apiResource('orders', OrderController::class)->except('show');
 
+Route::post('customers/bulk', [CustomerController::class, 'bulk'])->name('customers.bulk');
 Route::get('customers/{customer}/metrics/{key}', [CustomerController::class, 'metric'])->name('customers.metric');
 Route::get('customers/{customer}/payments', [CustomerController::class, 'payments'])->name('customers.payments');
 Route::post('customers/{customer}/restore', [CustomerController::class, 'restore'])->name('customers.restore');

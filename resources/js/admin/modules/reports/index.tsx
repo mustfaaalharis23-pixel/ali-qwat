@@ -1,9 +1,9 @@
-import { defineModule } from '../../lib/modules';
-import { SalesReportPage } from './SalesReportPage';
-import { PurchasesReportPage } from './PurchasesReportPage';
-import { ItemSalesReportPage } from './ItemSalesReportPage';
-import { GoldenReportPage } from './GoldenReportPage';
-import { ProfitAndLossPage } from './ProfitAndLossPage';
+import { defineModule, page } from '../../lib/modules';
+const SalesReportPage = page(() => import('./SalesReportPage'), 'SalesReportPage');
+const PurchasesReportPage = page(() => import('./PurchasesReportPage'), 'PurchasesReportPage');
+const ItemSalesReportPage = page(() => import('./ItemSalesReportPage'), 'ItemSalesReportPage');
+const GoldenReportPage = page(() => import('./GoldenReportPage'), 'GoldenReportPage');
+const ProfitAndLossPage = page(() => import('./ProfitAndLossPage'), 'ProfitAndLossPage');
 
 /** The reports, at the panel's own addresses. */
 export default defineModule({

@@ -18,7 +18,7 @@ return [
         'search' => 'Search…', 'empty' => 'Nothing here yet', 'empty_hint' => 'Try another search or clear the filters.', 'actions' => 'Actions',
         'showing' => ':from–:to of :total', 'per_page' => 'Per page', 'previous' => 'Previous page', 'next' => 'Next page',
         'clear_filters' => 'Clear filters', 'trashed_without' => 'Without deleted', 'trashed_with' => 'With deleted', 'trashed_only' => 'Only deleted',
-        'selected' => ':count selected', 'all' => 'All', 'total' => 'Total',
+        'selected' => ':count selected', 'all' => 'All', 'columns' => 'Columns', 'total' => 'Total',
     ],
     'form' => ['choose' => 'Choose…', 'optional' => 'Optional', 'required' => 'Required', 'none' => 'None', 'from' => 'From', 'until' => 'Until'],
     'metrics' => ['example' => 'Example'],

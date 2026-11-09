@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -37,7 +37,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { QueryError } from '../../pages/NotFound';
 import { dinars, dollars, errorsUnder, Facts, FileField, toNumber, yuan, type EnumValue, type Fact } from './shared';
-import type { PageAbilities, PurchaseInvoice } from './PurchaseInvoicePage';
+import type { InlineCreateAbilities, PageAbilities, PurchaseInvoice } from './PurchaseInvoicePage';
 
 const DOZEN = 12;
 const MIN_DINAR_RATE = 100;
@@ -45,6 +45,9 @@ const MAX_DINAR_RATE = 300;
 const CBM_DECIMALS = 3;
 
 type EntryUnit = 'packets' | 'dozens';
+
+/** Which choices the form may add from inside it (a color, a category, a lens power), as the server says; nothing until it does. */
+const InlineCreate = createContext<InlineCreateAbilities>({ colors: false, invoice_categories: false, lens_powers: false });
 
 interface ColorRow {
     key: string;
@@ -105,6 +108,7 @@ interface CreateDefaults {
     bank_answered: boolean;
     can_change_exchange_rate: boolean;
     can_view_cost_price: boolean;
+    can_create_options: InlineCreateAbilities;
 }
 
 interface ItemFacts {
@@ -118,7 +122,8 @@ interface ItemFacts {
 
 let nextKey = 1;
 const newKey = () => `k${nextKey++}`;
-const text = (value: number | null | undefined) => (value === null || value === undefined ? '' : String(value));
+/** A number as the form shows it, without the float noise of the database (6.6739999999999995 is 6.674). */
+const text = (value: number | null | undefined) => (value === null || value === undefined ? '' : String(Number(Number(value).toFixed(6))));
 
 const emptyLine = (): LineState => ({
     key: newKey(),
@@ -206,22 +211,43 @@ function UnitInput({ value, onChange, prefix, suffix, disabled, invalid, id, aut
     );
 }
 
-/** A small dialog that adds a choice of a select (a category, a color) by its name, then picks it. */
-function QuickCreate({ endpoint, title, label, onCreated }: { endpoint: string; title: string; label: string; onCreated: (option: { value: number; label: string }) => void }) {
+/**
+ * A small dialog that adds a choice of a select (a category, a color by its name; a lens power by its value), then picks it.
+ * Its form sits inside the invoice's form, so its submit stops here and never saves the invoice.
+ */
+function QuickCreate({
+    endpoint,
+    title,
+    label,
+    onCreated,
+    field = 'name',
+    numeric = false,
+    optionLabel = (record) => String(record.name ?? ''),
+}: {
+    endpoint: string;
+    title: string;
+    label: string;
+    onCreated: (option: { value: number; label: string }) => void;
+    field?: string;
+    numeric?: boolean;
+    optionLabel?: (record: Record<string, unknown>) => string;
+}) {
     const t = useT();
     const client = useQueryClient();
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [error, setError] = useState<string | undefined>();
-    const save = useSave((body: { name: string }) => api.post<{ data: { id: number; name: string } }>(endpoint, body), {
+    const save = useSave((value: string) => api.post<{ data: { id: number } & Record<string, unknown> }>(endpoint, { [field]: value }), {
         onSuccess: (result) => {
             client.invalidateQueries({ queryKey: ['options'] });
-            onCreated({ value: result.data.id, label: result.data.name });
+            client.invalidateQueries({ queryKey: ['list'] });
+            onCreated({ value: result.data.id, label: optionLabel(result.data) });
             setOpen(false);
             setName('');
+            setError(undefined);
         },
         onError: (failure) => {
-            if (failure instanceof ApiError && failure.status === 422) setError(failure.first('name'));
+            if (failure instanceof ApiError && failure.status === 422) setError(failure.first(field));
             else toast.error(failure instanceof ApiError ? failure.message : String(failure));
         },
     });
@@ -236,7 +262,7 @@ function QuickCreate({ endpoint, title, label, onCreated }: { endpoint: string; 
                 footer={
                     <>
                         <Button onClick={() => setOpen(false)}>{t('admin.actions.cancel')}</Button>
-                        <Button variant="primary" loading={save.isPending} onClick={() => save.mutate({ name })}>
+                        <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(name)}>
                             {t('admin.actions.create')}
                         </Button>
                     </>
@@ -245,11 +271,21 @@ function QuickCreate({ endpoint, title, label, onCreated }: { endpoint: string; 
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
-                        save.mutate({ name });
+                        event.stopPropagation();
+                        save.mutate(name);
                     }}
                 >
                     <Field label={label} error={error} required>
-                        {(id) => <Input id={id} autoFocus value={name} onChange={(event) => setName(event.target.value)} invalid={Boolean(error)} />}
+                        {(id) => (
+                            <Input
+                                id={id}
+                                autoFocus
+                                value={name}
+                                onChange={(event) => setName(event.target.value)}
+                                invalid={Boolean(error)}
+                                {...(numeric ? { type: 'number', step: '0.01', dir: 'ltr' } : {})}
+                            />
+                        )}
                     </Field>
                 </form>
             </Modal>
@@ -261,6 +297,7 @@ function QuickCreate({ endpoint, title, label, onCreated }: { endpoint: string; 
 function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: GroupRow | null; onSave: (group: GroupRow, another: boolean) => void; onClose: () => void }) {
     const t = useT();
     const leftFact = useLeftFact();
+    const canCreate = useContext(InlineCreate);
     const [powerId, setPowerId] = useState<number | null>(group?.lens_power_id ?? null);
     const [powerLabel, setPowerLabel] = useState<string | null>(group?.lens_power_label ?? null);
     const [packets, setPackets] = useState(group?.boxes_count ?? '');
@@ -307,17 +344,35 @@ function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: 
             >
                 <Field label={t('filament/resources/invoice_item.fields.lens_power_id')}>
                     {(id) => (
-                        <SearchSelect
-                            id={id}
-                            endpoint="/purchase-invoices/lens-power-options"
-                            value={powerId}
-                            initialLabel={powerLabel}
-                            placeholder={t('filament/resources/lens_power.none')}
-                            onChange={(value, option) => {
-                                setPowerId(value === null ? null : Number(value));
-                                setPowerLabel(option?.label ?? null);
-                            }}
-                        />
+                        <div className="flex gap-1.5">
+                            <div className="min-w-0 flex-1">
+                                <SearchSelect
+                                    id={id}
+                                    endpoint="/purchase-invoices/lens-power-options"
+                                    value={powerId}
+                                    initialLabel={powerLabel}
+                                    placeholder={t('filament/resources/lens_power.none')}
+                                    onChange={(value, option) => {
+                                        setPowerId(value === null ? null : Number(value));
+                                        setPowerLabel(option?.label ?? null);
+                                    }}
+                                />
+                            </div>
+                            {canCreate.lens_powers && (
+                                <QuickCreate
+                                    endpoint="/lens-powers"
+                                    field="value"
+                                    numeric
+                                    title={t('admin/purchases.form.new_lens_power')}
+                                    label={t('filament/resources/lens_power.fields.value')}
+                                    optionLabel={(record) => String(Math.round(Number(record.value) * 100))}
+                                    onCreated={(option) => {
+                                        setPowerId(option.value);
+                                        setPowerLabel(option.label);
+                                    }}
+                                />
+                            )}
+                        </div>
                     )}
                 </Field>
                 <Field label={t('filament/resources/invoice_item.fields.boxes_count')} error={error} required hint={<Facts facts={[leftFact(left - toNumber(packets), 'packets', total)]} />}>
@@ -348,6 +403,7 @@ function LineCard({
     onRemove: () => void;
 }) {
     const t = useT();
+    const canCreate = useContext(InlineCreate);
     const client = useQueryClient();
     const fact = useFact();
     const leftFact = useLeftFact();
@@ -556,12 +612,14 @@ function LineCard({
                             >
                                 {t('filament/resources/purchase_invoice.actions.add_color')}
                             </Button>
-                            <QuickCreate
-                                endpoint="/colors"
-                                title={t('admin/purchases.form.new_color')}
-                                label={t('filament/resources/color.fields.name')}
-                                onCreated={(option) => update({ colors: [...line.colors, { key: newKey(), color_id: option.value, color_label: option.label, pieces: '' }] })}
-                            />
+                            {canCreate.colors && (
+                                <QuickCreate
+                                    endpoint="/colors"
+                                    title={t('admin/purchases.form.new_color')}
+                                    label={t('filament/resources/color.fields.name')}
+                                    onCreated={(option) => update({ colors: [...line.colors, { key: newKey(), color_id: option.value, color_label: option.label, pieces: '' }] })}
+                                />
+                            )}
                             <Facts facts={[leftFact(packet - colorPieces, 'colors', packet)]} />
                         </div>
                         {error('colors') && <p className="mt-1.5 text-xs text-danger">{error('colors')}</p>}
@@ -698,8 +756,9 @@ function toPayload(values: FormValues, creating: boolean) {
     };
 }
 
-function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, cbmLocked, paidAmount, draftKey, bankAnswered }: {
+function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canCreate, cbmLocked, paidAmount, draftKey, bankAnswered }: {
     initial: FormValues;
+    canCreate: InlineCreateAbilities;
     invoiceId?: number;
     canChangeRate: boolean;
     canViewCostPrice: boolean;
@@ -740,13 +799,15 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, cbmL
         if (!draftKey) return;
         const timer = setTimeout(() => {
             try {
-                window.localStorage.setItem(draftKey, JSON.stringify({ ...values, images: [] }));
+                // Only what the user changed is kept: an untouched form leaves no draft to bring back.
+                if (JSON.stringify({ ...values, images: [] }) === JSON.stringify({ ...initial, images: [] })) window.localStorage.removeItem(draftKey);
+                else window.localStorage.setItem(draftKey, JSON.stringify({ ...values, images: [] }));
             } catch {
                 // Storage may be unavailable; the draft is only a convenience.
             }
         }, 600);
         return () => clearTimeout(timer);
-    }, [draftKey, values]);
+    }, [draftKey, values, initial]);
 
     const forgetDraft = () => {
         try {
@@ -799,224 +860,228 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, cbmL
     );
 
     return (
-        <form
-            onSubmit={(event) => {
-                event.preventDefault();
-                save.mutate(toPayload(values, creating));
-            }}
-            className="space-y-5"
-        >
-            {creating && !bankAnswered && (
-                <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft p-3.5 text-sm">
-                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                    <div>
-                        <p className="font-medium">{t('filament/resources/purchase_invoice.notifications.exchange_rate_unavailable.title')}</p>
-                        <p className="text-muted">{t('filament/resources/purchase_invoice.notifications.exchange_rate_unavailable.body')}</p>
+        <InlineCreate.Provider value={canCreate}>
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    save.mutate(toPayload(values, creating));
+                }}
+                className="space-y-5"
+            >
+                {creating && !bankAnswered && (
+                    <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft p-3.5 text-sm">
+                        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+                        <div>
+                            <p className="font-medium">{t('filament/resources/purchase_invoice.notifications.exchange_rate_unavailable.title')}</p>
+                            <p className="text-muted">{t('filament/resources/purchase_invoice.notifications.exchange_rate_unavailable.body')}</p>
+                        </div>
                     </div>
-                </div>
-            )}
-            {restored && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info-soft p-3.5 text-sm">
-                    <span className="flex items-center gap-2">
-                        <Info className="size-4 text-info" />
-                        {t('filament/resources/purchase_invoice.notifications.draft_restored.title')}
-                    </span>
-                    <Button size="sm" icon={<Trash2 className="size-4" />} onClick={() => setDiscarding(true)}>
-                        {t('filament/resources/purchase_invoice.actions.discard_draft.label')}
-                    </Button>
-                </div>
-            )}
+                )}
+                {restored && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info-soft p-3.5 text-sm">
+                        <span className="flex items-center gap-2">
+                            <Info className="size-4 text-info" />
+                            {t('filament/resources/purchase_invoice.notifications.draft_restored.title')}
+                        </span>
+                        <Button size="sm" icon={<Trash2 className="size-4" />} onClick={() => setDiscarding(true)}>
+                            {t('filament/resources/purchase_invoice.actions.discard_draft.label')}
+                        </Button>
+                    </div>
+                )}
 
-            <Card>
-                <CardHeader title={t('filament/resources/purchase_invoice.sections.details')} icon={<FileText className="size-4.5" />} />
-                <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Field label={field('supplier_id')} error={errors.supplier_id} required>
-                        {(id) => (
-                            <SearchSelect
-                                id={id}
-                                endpoint="/options/suppliers"
-                                value={values.supplier_id}
-                                initialLabel={values.supplier_label}
-                                invalid={Boolean(errors.supplier_id)}
-                                onChange={(value, option) => {
-                                    form.set('supplier_id', value === null ? null : Number(value));
-                                    form.set('supplier_label', option?.label ?? null);
-                                }}
-                            />
-                        )}
-                    </Field>
-                    <Field label={field('invoice_category_id')} error={errors.invoice_category_id} required>
-                        {(id) => (
-                            <div className="flex gap-1.5">
-                                <div className="min-w-0 flex-1">
-                                    <SearchSelect
-                                        id={id}
-                                        endpoint="/options/invoice-categories"
-                                        value={values.invoice_category_id}
-                                        initialLabel={values.category_label}
-                                        invalid={Boolean(errors.invoice_category_id)}
-                                        onChange={(value, option) => {
-                                            form.set('invoice_category_id', value === null ? null : Number(value));
-                                            form.set('category_label', option?.label ?? null);
-                                        }}
-                                    />
-                                </div>
-                                <QuickCreate
-                                    endpoint="/invoice-categories"
-                                    title={t('admin/purchases.form.new_category')}
-                                    label={t('filament/resources/invoice_category.fields.name')}
-                                    onCreated={(option) => {
-                                        form.set('invoice_category_id', option.value);
-                                        form.set('category_label', option.label);
+                <Card>
+                    <CardHeader title={t('filament/resources/purchase_invoice.sections.details')} icon={<FileText className="size-4.5" />} />
+                    <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <Field label={field('supplier_id')} error={errors.supplier_id} required>
+                            {(id) => (
+                                <SearchSelect
+                                    id={id}
+                                    endpoint="/options/suppliers"
+                                    value={values.supplier_id}
+                                    initialLabel={values.supplier_label}
+                                    invalid={Boolean(errors.supplier_id)}
+                                    onChange={(value, option) => {
+                                        form.set('supplier_id', value === null ? null : Number(value));
+                                        form.set('supplier_label', option?.label ?? null);
                                     }}
                                 />
-                            </div>
-                        )}
-                    </Field>
-                    <Field label={field('date')} error={errors.date} required>
-                        {(id) => <Input id={id} type="date" dir="ltr" value={values.date} onChange={(event) => form.set('date', event.target.value)} invalid={Boolean(errors.date)} />}
-                    </Field>
-                    <Field label={field('exchange_rate')} error={errors.exchange_rate} required={canChangeRate} hint={sourceHint}>
-                        {(id) => (
-                            <UnitInput
-                                id={id}
-                                prefix="1 $ ="
-                                suffix="¥"
-                                value={values.exchange_rate}
-                                disabled={!canChangeRate}
-                                invalid={Boolean(errors.exchange_rate)}
-                                onChange={(value) => {
-                                    form.set('exchange_rate', value);
-                                    form.set('exchange_rate_source', { value: 'manual', label: t('filament/resources/invoice.exchange_rate_sources.manual'), color: null });
-                                    form.set('exchange_rate_source_url', null);
-                                }}
-                            />
-                        )}
-                    </Field>
-                    <Field
-                        label={field('dinar_rate')}
-                        error={errors.dinar_rate}
-                        required
-                        hint={
-                            dinarRate <= 0 ? (
-                                t('filament/resources/purchase_invoice.dinar_rate.how_to_type')
-                            ) : (
-                                <span className="flex flex-wrap items-center gap-1.5">
-                                    <Badge tone={dinarRateOk ? 'success' : 'danger'} icon={dinarRateOk ? <CircleCheck className="size-3" /> : <TriangleAlert className="size-3" />}>
-                                        {t('filament/resources/purchase_invoice.dinar_rate.per_dollar', { value: number(perDollar) })}
-                                    </Badge>
-                                    <span className={dinarRateOk ? '' : 'text-danger'}>
-                                        {dinarRateOk ? t('filament/resources/purchase_invoice.dinar_rate.per_hundred', { value: number(dinarRate * 1000) }) : t('filament/resources/purchase_invoice.dinar_rate.out_of_range')}
-                                    </span>
-                                </span>
-                            )
-                        }
-                    >
-                        {(id) => <UnitInput id={id} prefix="100 $ =" suffix={t('filament/resources/purchase_invoice.dinar_rate_unit')} value={values.dinar_rate} invalid={Boolean(errors.dinar_rate)} onChange={(value) => form.set('dinar_rate', value)} />}
-                    </Field>
-                    <Field
-                        label={field('cbm_price')}
-                        error={errors.cbm_price}
-                        required={!cbmLocked}
-                        hint={cbmLocked ? t('filament/resources/purchase_invoice.cbm_price_locked_hint') : t('filament/resources/purchase_invoice.cbm_price_hint')}
-                    >
-                        {(id) => <UnitInput id={id} suffix="$" value={values.cbm_price} disabled={cbmLocked} invalid={Boolean(errors.cbm_price)} onChange={(value) => form.set('cbm_price', value)} />}
-                    </Field>
-                </CardBody>
-            </Card>
-
-            <div className="space-y-3">
-                <h2 className="text-[15px] font-semibold">{t('filament/resources/purchase_invoice.fields.items')}</h2>
-                {values.items.map((line, index) => (
-                    <LineCard
-                        key={line.key}
-                        line={line}
-                        index={index}
-                        values={values}
-                        errors={errors}
-                        canViewCostPrice={canViewCostPrice}
-                        canRemove={values.items.length > 1}
-                        onChange={(next) => setLine(index, next)}
-                        onRemove={() => form.set('items', values.items.filter((_, position) => position !== index))}
-                    />
-                ))}
-                {generalErrors.length > 0 && <p className="text-sm text-danger">{generalErrors.join(' ')}</p>}
-                <Button icon={<Plus className="size-4" />} onClick={() => form.set('items', [...values.items, emptyLine()])}>
-                    {t('filament/resources/purchase_invoice.actions.add_line')}
-                </Button>
-            </div>
-
-            <Card>
-                <CardHeader title={t('filament/resources/purchase_invoice.sections.amounts')} icon={<Banknote className="size-4.5" />} />
-                <CardBody className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-                    <Figure label={field('amount')} value={yuan(total)} tone="accent" />
-                    <Figure label={field('amount_usd')} value={rate > 0 ? dollars(total / rate) : '—'} tone="accent" />
-                    <Figure label={field('amount_iqd')} value={rate > 0 && perDollar !== null ? dinars((total / rate) * perDollar) : '—'} tone="accent" />
-                    <Figure label={field('paid_amount')} value={yuan(paidAmount)} tone="success" />
-                    <Figure label={field('remaining')} value={yuan(remaining)} tone={remaining > 0 ? 'danger' : 'success'} />
-                    <Figure label={field('cbm')} value={number(totalCbm, CBM_DECIMALS)} tone="info" />
-                </CardBody>
-            </Card>
-
-            {creating && (
-                <Card>
-                    <CardBody className="space-y-3">
-                        <Field label={t('filament/resources/purchase_invoice.fields.initial_payment')} error={errors.initial_payment} className="max-w-xl">
-                            {(id) => <UnitInput id={id} suffix="¥" value={values.initial_payment} invalid={Boolean(errors.initial_payment)} onChange={(value) => form.set('initial_payment', value)} />}
+                            )}
                         </Field>
-                        <Facts
-                            facts={[
-                                ...(supplierDebt !== undefined ? [fact('supplier_debt', supplierDebt, supplierDebt > 0 ? 'danger' : 'success', <Store className="size-3" />)] : []),
-                                fact('invoice_amount', total, 'info', <Receipt className="size-3" />),
-                                fact('remaining_after_payment', afterPayment, afterPayment < 0 ? 'danger' : afterPayment > 0 ? 'warning' : 'success', <Receipt className="size-3" />),
-                                ...(supplierDebt !== undefined
-                                    ? [fact('supplier_debt_after', supplierDebt + Math.max(afterPayment, 0), supplierDebt + Math.max(afterPayment, 0) > 0 ? 'danger' : 'success', <Scale className="size-3" />)]
-                                    : []),
-                            ]}
-                        />
-                        <div className="flex items-start gap-3 rounded-lg bg-info-soft p-3 text-sm">
-                            <Info className="mt-0.5 size-4 shrink-0 text-info" />
-                            <div>
-                                <p className="font-medium">{t('filament/resources/purchase_invoice.initial_payment_note.heading')}</p>
-                                <p className="text-muted">{t('filament/resources/purchase_invoice.initial_payment_note.description')}</p>
-                            </div>
-                        </div>
+                        <Field label={field('invoice_category_id')} error={errors.invoice_category_id} required>
+                            {(id) => (
+                                <div className="flex gap-1.5">
+                                    <div className="min-w-0 flex-1">
+                                        <SearchSelect
+                                            id={id}
+                                            endpoint="/options/invoice-categories"
+                                            value={values.invoice_category_id}
+                                            initialLabel={values.category_label}
+                                            invalid={Boolean(errors.invoice_category_id)}
+                                            onChange={(value, option) => {
+                                                form.set('invoice_category_id', value === null ? null : Number(value));
+                                                form.set('category_label', option?.label ?? null);
+                                            }}
+                                        />
+                                    </div>
+                                    {canCreate.invoice_categories && (
+                                        <QuickCreate
+                                            endpoint="/invoice-categories"
+                                            title={t('admin/purchases.form.new_category')}
+                                            label={t('filament/resources/invoice_category.fields.name')}
+                                            onCreated={(option) => {
+                                                form.set('invoice_category_id', option.value);
+                                                form.set('category_label', option.label);
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </Field>
+                        <Field label={field('date')} error={errors.date} required>
+                            {(id) => <Input id={id} type="date" dir="ltr" value={values.date} onChange={(event) => form.set('date', event.target.value)} invalid={Boolean(errors.date)} />}
+                        </Field>
+                        <Field label={field('exchange_rate')} error={errors.exchange_rate} required={canChangeRate} hint={sourceHint}>
+                            {(id) => (
+                                <UnitInput
+                                    id={id}
+                                    prefix="1 $ ="
+                                    suffix="¥"
+                                    value={values.exchange_rate}
+                                    disabled={!canChangeRate}
+                                    invalid={Boolean(errors.exchange_rate)}
+                                    onChange={(value) => {
+                                        form.set('exchange_rate', value);
+                                        form.set('exchange_rate_source', { value: 'manual', label: t('filament/resources/invoice.exchange_rate_sources.manual'), color: null });
+                                        form.set('exchange_rate_source_url', null);
+                                    }}
+                                />
+                            )}
+                        </Field>
+                        <Field
+                            label={field('dinar_rate')}
+                            error={errors.dinar_rate}
+                            required
+                            hint={
+                                dinarRate <= 0 ? (
+                                    t('filament/resources/purchase_invoice.dinar_rate.how_to_type')
+                                ) : (
+                                    <span className="flex flex-wrap items-center gap-1.5">
+                                        <Badge tone={dinarRateOk ? 'success' : 'danger'} icon={dinarRateOk ? <CircleCheck className="size-3" /> : <TriangleAlert className="size-3" />}>
+                                            {t('filament/resources/purchase_invoice.dinar_rate.per_dollar', { value: number(perDollar) })}
+                                        </Badge>
+                                        <span className={dinarRateOk ? '' : 'text-danger'}>
+                                            {dinarRateOk ? t('filament/resources/purchase_invoice.dinar_rate.per_hundred', { value: number(dinarRate * 1000) }) : t('filament/resources/purchase_invoice.dinar_rate.out_of_range')}
+                                        </span>
+                                    </span>
+                                )
+                            }
+                        >
+                            {(id) => <UnitInput id={id} prefix="100 $ =" suffix={t('filament/resources/purchase_invoice.dinar_rate_unit')} value={values.dinar_rate} invalid={Boolean(errors.dinar_rate)} onChange={(value) => form.set('dinar_rate', value)} />}
+                        </Field>
+                        <Field
+                            label={field('cbm_price')}
+                            error={errors.cbm_price}
+                            required={!cbmLocked}
+                            hint={cbmLocked ? t('filament/resources/purchase_invoice.cbm_price_locked_hint') : t('filament/resources/purchase_invoice.cbm_price_hint')}
+                        >
+                            {(id) => <UnitInput id={id} suffix="$" value={values.cbm_price} disabled={cbmLocked} invalid={Boolean(errors.cbm_price)} onChange={(value) => form.set('cbm_price', value)} />}
+                        </Field>
                     </CardBody>
                 </Card>
-            )}
 
-            <Card>
-                <CardBody className="grid gap-5 md:grid-cols-2">
-                    <Field label={field('images')} error={errorsUnder(errors, 'images')[0]}>
-                        {() => <FileField endpoint="/purchase-invoices/uploads" extra={{ kind: 'images' }} accept="image/jpeg,image/png,image/webp" multiple images files={values.images} onChange={(files) => form.set('images', files)} />}
-                    </Field>
-                    <Field label={field('notes')} error={errors.notes}>
-                        {(id) => <Textarea id={id} rows={4} value={values.notes} onChange={(event) => form.set('notes', event.target.value)} />}
-                    </Field>
-                </CardBody>
-            </Card>
+                <div className="space-y-3">
+                    <h2 className="text-[15px] font-semibold">{t('filament/resources/purchase_invoice.fields.items')}</h2>
+                    {values.items.map((line, index) => (
+                        <LineCard
+                            key={line.key}
+                            line={line}
+                            index={index}
+                            values={values}
+                            errors={errors}
+                            canViewCostPrice={canViewCostPrice}
+                            canRemove={values.items.length > 1}
+                            onChange={(next) => setLine(index, next)}
+                            onRemove={() => form.set('items', values.items.filter((_, position) => position !== index))}
+                        />
+                    ))}
+                    {generalErrors.length > 0 && <p className="text-sm text-danger">{generalErrors.join(' ')}</p>}
+                    <Button icon={<Plus className="size-4" />} onClick={() => form.set('items', [...values.items, emptyLine()])}>
+                        {t('filament/resources/purchase_invoice.actions.add_line')}
+                    </Button>
+                </div>
 
-            <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
-                <Button onClick={() => navigate(invoiceId ? `/purchase-invoices/${invoiceId}` : '/purchase-invoices')}>{t('admin.actions.cancel')}</Button>
-                <Button type="submit" variant="primary" loading={save.isPending}>
-                    {creating ? t('admin.actions.create') : t('admin.actions.save_changes')}
-                </Button>
-            </div>
+                <Card>
+                    <CardHeader title={t('filament/resources/purchase_invoice.sections.amounts')} icon={<Banknote className="size-4.5" />} />
+                    <CardBody className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+                        <Figure label={field('amount')} value={yuan(total)} tone="accent" />
+                        <Figure label={field('amount_usd')} value={rate > 0 ? dollars(total / rate) : '—'} tone="accent" />
+                        <Figure label={field('amount_iqd')} value={rate > 0 && perDollar !== null ? dinars((total / rate) * perDollar) : '—'} tone="accent" />
+                        <Figure label={field('paid_amount')} value={yuan(paidAmount)} tone="success" />
+                        <Figure label={field('remaining')} value={yuan(remaining)} tone={remaining > 0 ? 'danger' : 'success'} />
+                        <Figure label={field('cbm')} value={number(totalCbm, CBM_DECIMALS)} tone="info" />
+                    </CardBody>
+                </Card>
 
-            <ConfirmDialog
-                open={discarding}
-                onClose={() => setDiscarding(false)}
-                onConfirm={() => {
-                    forgetDraft();
-                    setDiscarding(false);
-                    setRestored(false);
-                    form.setValues(initial);
-                }}
-                title={t('filament/resources/purchase_invoice.actions.discard_draft.heading')}
-                description={t('filament/resources/purchase_invoice.actions.discard_draft.description')}
-                confirmLabel={t('filament/resources/purchase_invoice.actions.discard_draft.submit')}
-            />
-        </form>
+                {creating && (
+                    <Card>
+                        <CardBody className="space-y-3">
+                            <Field label={t('filament/resources/purchase_invoice.fields.initial_payment')} error={errors.initial_payment} className="max-w-xl">
+                                {(id) => <UnitInput id={id} suffix="¥" value={values.initial_payment} invalid={Boolean(errors.initial_payment)} onChange={(value) => form.set('initial_payment', value)} />}
+                            </Field>
+                            <Facts
+                                facts={[
+                                    ...(supplierDebt !== undefined ? [fact('supplier_debt', supplierDebt, supplierDebt > 0 ? 'danger' : 'success', <Store className="size-3" />)] : []),
+                                    fact('invoice_amount', total, 'info', <Receipt className="size-3" />),
+                                    fact('remaining_after_payment', afterPayment, afterPayment < 0 ? 'danger' : afterPayment > 0 ? 'warning' : 'success', <Receipt className="size-3" />),
+                                    ...(supplierDebt !== undefined
+                                        ? [fact('supplier_debt_after', supplierDebt + Math.max(afterPayment, 0), supplierDebt + Math.max(afterPayment, 0) > 0 ? 'danger' : 'success', <Scale className="size-3" />)]
+                                        : []),
+                                ]}
+                            />
+                            <div className="flex items-start gap-3 rounded-lg bg-info-soft p-3 text-sm">
+                                <Info className="mt-0.5 size-4 shrink-0 text-info" />
+                                <div>
+                                    <p className="font-medium">{t('filament/resources/purchase_invoice.initial_payment_note.heading')}</p>
+                                    <p className="text-muted">{t('filament/resources/purchase_invoice.initial_payment_note.description')}</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                )}
+
+                <Card>
+                    <CardBody className="grid gap-5 md:grid-cols-2">
+                        <Field label={field('images')} error={errorsUnder(errors, 'images')[0]}>
+                            {() => <FileField endpoint="/purchase-invoices/uploads" extra={{ kind: 'images' }} accept="image/jpeg,image/png,image/webp" multiple images files={values.images} onChange={(files) => form.set('images', files)} />}
+                        </Field>
+                        <Field label={field('notes')} error={errors.notes}>
+                            {(id) => <Textarea id={id} rows={4} value={values.notes} onChange={(event) => form.set('notes', event.target.value)} />}
+                        </Field>
+                    </CardBody>
+                </Card>
+
+                <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
+                    <Button onClick={() => navigate(invoiceId ? `/purchase-invoices/${invoiceId}` : '/purchase-invoices')}>{t('admin.actions.cancel')}</Button>
+                    <Button type="submit" variant="primary" loading={save.isPending}>
+                        {creating ? t('admin.actions.create') : t('admin.actions.save_changes')}
+                    </Button>
+                </div>
+
+                <ConfirmDialog
+                    open={discarding}
+                    onClose={() => setDiscarding(false)}
+                    onConfirm={() => {
+                        forgetDraft();
+                        setDiscarding(false);
+                        setRestored(false);
+                        form.setValues(initial);
+                    }}
+                    title={t('filament/resources/purchase_invoice.actions.discard_draft.heading')}
+                    description={t('filament/resources/purchase_invoice.actions.discard_draft.description')}
+                    confirmLabel={t('filament/resources/purchase_invoice.actions.discard_draft.submit')}
+                />
+            </form>
+        </InlineCreate.Provider>
     );
 }
 
@@ -1057,6 +1122,7 @@ export function CreatePurchaseInvoicePage() {
                 initial={initial}
                 canChangeRate={data.can_change_exchange_rate}
                 canViewCostPrice={data.can_view_cost_price}
+                canCreate={data.can_create_options}
                 cbmLocked={false}
                 paidAmount={0}
                 draftKey={session?.user ? `waqt:purchase-invoice-draft:${session.user.id}` : undefined}
@@ -1094,6 +1160,7 @@ export function EditPurchaseInvoicePage() {
                 invoiceId={data.data.id}
                 canChangeRate={data.can.edit_exchange_rate}
                 canViewCostPrice={data.can.view_cost_price}
+                canCreate={data.can.create_options}
                 cbmLocked={data.data.cbm_price_locked}
                 paidAmount={data.data.paid_amount}
             />

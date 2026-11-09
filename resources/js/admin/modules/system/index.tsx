@@ -1,9 +1,18 @@
-import { defineModule } from '../../lib/modules';
-import { AuditPage, AuditsPage } from './AuditPages';
-import { GeneralDescriptionFormPage, GeneralDescriptionPage, GeneralDescriptionsPage } from './GeneralDescriptionPages';
-import { GeneralInvoiceFormPage, GeneralInvoicePage, GeneralInvoicesPage } from './GeneralInvoicePages';
-import { SpecificDescriptionFormPage, SpecificDescriptionPage, SpecificDescriptionsPage } from './SpecificDescriptionPages';
-import { UserFormPage, UserPage, UsersPage } from './UserPages';
+import { defineModule, page } from '../../lib/modules';
+const AuditPage = page(() => import('./AuditPages'), 'AuditPage');
+const AuditsPage = page(() => import('./AuditPages'), 'AuditsPage');
+const GeneralDescriptionFormPage = page(() => import('./GeneralDescriptionPages'), 'GeneralDescriptionFormPage');
+const GeneralDescriptionPage = page(() => import('./GeneralDescriptionPages'), 'GeneralDescriptionPage');
+const GeneralDescriptionsPage = page(() => import('./GeneralDescriptionPages'), 'GeneralDescriptionsPage');
+const GeneralInvoiceFormPage = page(() => import('./GeneralInvoicePages'), 'GeneralInvoiceFormPage');
+const GeneralInvoicePage = page(() => import('./GeneralInvoicePages'), 'GeneralInvoicePage');
+const GeneralInvoicesPage = page(() => import('./GeneralInvoicePages'), 'GeneralInvoicesPage');
+const SpecificDescriptionFormPage = page(() => import('./SpecificDescriptionPages'), 'SpecificDescriptionFormPage');
+const SpecificDescriptionPage = page(() => import('./SpecificDescriptionPages'), 'SpecificDescriptionPage');
+const SpecificDescriptionsPage = page(() => import('./SpecificDescriptionPages'), 'SpecificDescriptionsPage');
+const UserFormPage = page(() => import('./UserPages'), 'UserFormPage');
+const UserPage = page(() => import('./UserPages'), 'UserPage');
+const UsersPage = page(() => import('./UserPages'), 'UsersPage');
 
 /** Accounting (general invoices and their descriptions) and system administration (users and audits). */
 export default defineModule({

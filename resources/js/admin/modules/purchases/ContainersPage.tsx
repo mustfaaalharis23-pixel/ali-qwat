@@ -14,6 +14,7 @@ import { SearchSelect, type SearchOption } from '../../components/SearchSelect';
 import { useRecordActions, type Abilities } from '../../components/RecordActions';
 import { QueryError } from '../../pages/NotFound';
 import { dollars, EnumBadge, Facts, toNumber, type EnumValue, type Fact } from './shared';
+import { AuditsSection } from '../system/AuditsPanel';
 
 interface Container {
     id: number;
@@ -549,6 +550,7 @@ export function ContainerPage() {
                     />
                 </Card>
             )}
+            <AuditsSection subjectType="container" subjectId={container.id} />
             {dialog === 'add' && <AddInvoicesDialog containerId={container.id} onClose={() => setDialog(null)} />}
             {dialog === 'part' && <AddPartDialog containerId={container.id} onClose={() => setDialog(null)} />}
             <ConfirmDialog

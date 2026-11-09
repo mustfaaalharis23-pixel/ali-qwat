@@ -13,8 +13,10 @@ use App\Http\Requests\Admin\Purchases\PurchaseInvoiceRequest;
 use App\Http\Resources\Admin\Purchases\PurchaseInvoiceResource;
 use App\Invoices\ConfirmPurchaseInvoice;
 use App\Invoices\RevertInvoiceConfirmation;
+use App\Models\Color;
 use App\Models\Container;
 use App\Models\Invoice;
+use App\Models\InvoiceCategory;
 use App\Models\Item;
 use App\Models\LensPower;
 use App\Models\Payoff;
@@ -55,6 +57,8 @@ class PurchaseInvoiceController extends Controller
 
         $invoices = $this->listRecords(
             Invoice::query()->purchases()->with([
+                // Read with the rows, so asking each row's abilities (InvoicePolicy asks isPurchase()) reads no description per row.
+                'generalDescription' => fn ($query) => $query->withTrashed(),
                 'supplier' => fn ($query) => $query->withTrashed(),
                 'container',
                 'category' => fn ($query) => $query->withTrashed(),
@@ -103,6 +107,7 @@ class PurchaseInvoiceController extends Controller
             'min_dinar_rate' => PurchaseInvoiceRequest::MIN_DINAR_RATE,
             'max_dinar_rate' => PurchaseInvoiceRequest::MAX_DINAR_RATE,
             'can_view_cost_price' => Gate::allows('viewCostPrice', Item::class),
+            'can_create_options' => $this->inlineCreateAbilities(),
         ]);
     }
 
@@ -395,7 +400,7 @@ class PurchaseInvoiceController extends Controller
     /**
      * What the invoice's page may link to or change beside the invoice itself.
      *
-     * @return array{can: array<string, bool>}
+     * @return array{can: array<string, bool|array<string, bool>>}
      */
     private function pageAbilities(): array
     {
@@ -406,6 +411,22 @@ class PurchaseInvoiceController extends Controller
             'view_payoffs' => Gate::allows('viewAny', Payoff::class),
             'create_payoffs' => Gate::allows('create', Payoff::class),
             'view_cost_price' => Gate::allows('viewCostPrice', Item::class),
+            'create_options' => $this->inlineCreateAbilities(),
         ]];
+    }
+
+    /**
+     * Which choices of the form the user may add from inside it (the panel's create option actions): a color, an invoice
+     * category, and a lens power. Their own endpoints still check the same abilities.
+     *
+     * @return array{colors: bool, invoice_categories: bool, lens_powers: bool}
+     */
+    private function inlineCreateAbilities(): array
+    {
+        return [
+            'colors' => Gate::allows('create', Color::class),
+            'invoice_categories' => Gate::allows('create', InvoiceCategory::class),
+            'lens_powers' => Gate::allows('create', LensPower::class),
+        ];
     }
 }

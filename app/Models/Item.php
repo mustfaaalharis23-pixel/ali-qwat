@@ -151,6 +151,17 @@ class Item extends BaseModel
     }
 
     /**
+     * Loads soldQuantity() of every item of a list in the list's own query, so it does not ask the database once per item.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public static function withSoldQuantity(Builder $query): Builder
+    {
+        return $query->withSum(['orderItems as sold_quantity' => fn (Builder $lines): Builder => $lines->whereHas('order')], 'quantity');
+    }
+
+    /**
      * The active items. An inactive item is hidden across the system, so every list or count of items for work uses this.
      *
      * @param  Builder<self>  $query
@@ -727,6 +738,10 @@ class Item extends BaseModel
      */
     public function soldQuantity(): float
     {
+        if (array_key_exists('sold_quantity', $this->attributes)) {
+            return (float) $this->attributes['sold_quantity'];
+        }
+
         return (float) OrderItem::query()
             ->where('item_id', $this->id)
             ->whereHas('order')

@@ -15,6 +15,7 @@ return [
     'form' => [
         'new_category' => 'فئة جديدة',
         'new_color' => 'لون جديد',
+        'new_lens_power' => 'درجة جديدة',
     ],
     'upload' => [
         'choose' => 'اختر ملفاً',

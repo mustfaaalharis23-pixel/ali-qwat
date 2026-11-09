@@ -4,7 +4,13 @@ namespace Tests\Feature\Admin\System;
 
 use App\Models\Audit;
 use App\Models\Color;
+use App\Models\Container;
+use App\Models\Customer;
 use App\Models\GeneralDescription;
+use App\Models\Invoice;
+use App\Models\Item;
+use App\Models\Order;
+use App\Models\Supplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -56,6 +62,32 @@ class AuditApiTest extends TestCase
 
         $this->getJson('/admin-api/audits?subject_type=color&subject_id='.$red->id)->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/admin-api/audits?subject_type='.urlencode(Color::class).'&subject_id='.$red->id)->assertJsonCount(2, 'data');
+    }
+
+    /**
+     * EN: Every record page with an audits tab (orders, customers, items, suppliers, containers, invoices) finds its audits by its short type name.
+     * AR: كل صفحة سجل بيها تبويب السجلات (الطلبات، الزبائن، المواد، الموردين، الحاويات، الفواتير) تلگى سجلاتها باسم نوعها المختصر.
+     */
+    public function test_every_record_page_type_is_accepted(): void
+    {
+        $this->actingAs($this->userWith('audit.view'));
+        $records = [
+            'order' => Order::factory()->create(),
+            'customer' => Customer::factory()->create(),
+            'item' => Item::factory()->create(),
+            'supplier' => Supplier::factory()->create(),
+            'container' => Container::factory()->create(),
+            'invoice' => Invoice::factory()->create(),
+        ];
+
+        foreach ($records as $type => $record) {
+            $count = Audit::query()->where('subject_type', $record->getMorphClass())->where('subject_id', $record->getKey())->count();
+            $this->assertGreaterThan(0, $count, $type);
+            $this->getJson("/admin-api/audits?subject_type={$type}&subject_id={$record->getKey()}")
+                ->assertOk()
+                ->assertJsonCount($count, 'data')
+                ->assertJsonPath('data.0.subject_id', $record->getKey());
+        }
     }
 
     /**

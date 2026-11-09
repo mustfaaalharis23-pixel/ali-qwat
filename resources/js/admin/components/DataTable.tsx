@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Ellipsis, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Columns3, Ellipsis, Search, X } from 'lucide-react';
 import { api, type Paginated, type Query } from '../lib/api';
 import { cn, number } from '../lib/format';
 import { useI18n } from '../lib/i18n';
@@ -136,7 +136,26 @@ export function DataTable<T extends { id?: number | string }>({
         placeholderData: keepPreviousData,
     });
 
-    const visibleColumns = useMemo(() => columns.filter((column) => !column.hidden), [columns]);
+    const columnsKey = `admin-columns:${endpoint}:${stateKey}`;
+    const [hiddenKeys, setHiddenKeys] = useState<string[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem(columnsKey) ?? '[]');
+        } catch {
+            return [];
+        }
+    });
+    const toggleColumn = (key: string) =>
+        setHiddenKeys((current) => {
+            const next = current.includes(key) ? current.filter((item) => item !== key) : [...current, key];
+            try {
+                localStorage.setItem(columnsKey, JSON.stringify(next));
+            } catch {
+                /* remembered only when the browser allows it */
+            }
+            return next;
+        });
+    const availableColumns = useMemo(() => columns.filter((column) => !column.hidden), [columns]);
+    const visibleColumns = useMemo(() => availableColumns.filter((column) => !hiddenKeys.includes(column.key)), [availableColumns, hiddenKeys]);
     const rows = data?.data ?? [];
     const meta = data?.meta;
     const activeFilters = Object.values(state.filters).filter(Boolean).length + (state.trashed ? 1 : 0);
@@ -188,6 +207,28 @@ export function DataTable<T extends { id?: number | string }>({
                     )}
                     <div className="ms-auto flex flex-wrap items-center gap-2">
                         {selectable && selected.length > 0 && bulkActions?.(selected, () => setSelected([]))}
+                        {availableColumns.length > 3 && (
+                            <Menu
+                                items={availableColumns.map((column) => ({
+                                    label: (
+                                        <span className="flex flex-1 items-center justify-between gap-4">
+                                            <span className="truncate">{column.header}</span>
+                                            {!hiddenKeys.includes(column.key) && <Check className="size-3.5 text-accent" />}
+                                        </span>
+                                    ),
+                                    keepOpen: true,
+                                    disabled: !hiddenKeys.includes(column.key) && visibleColumns.length <= 1,
+                                    onSelect: () => toggleColumn(column.key),
+                                }))}
+                                trigger={(toggle) => (
+                                    <Button size="sm" variant="ghost" onClick={toggle} icon={<Columns3 className="size-4" />} aria-label={t('admin.table.columns')} title={t('admin.table.columns')}>
+                                        {hiddenKeys.filter((key) => availableColumns.some((column) => column.key === key)).length > 0 && (
+                                            <span className="num rounded bg-accent-soft px-1 text-[11px] text-accent">{availableColumns.length - visibleColumns.length}</span>
+                                        )}
+                                    </Button>
+                                )}
+                            />
+                        )}
                         {typeof toolbar === 'function' ? toolbar(data) : toolbar}
                     </div>
                 </div>

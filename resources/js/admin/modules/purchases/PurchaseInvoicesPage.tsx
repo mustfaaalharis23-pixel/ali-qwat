@@ -41,9 +41,13 @@ export function usePurchaseInvoiceColumns(options: { supplier?: boolean } = {}):
             header: field('container_id'),
             cell: (row) =>
                 row.container ? (
-                    <Link to={`/containers/${row.container.id}`} onClick={(event) => event.stopPropagation()} className="text-accent hover:underline" dir="ltr">
-                        {row.container.name}
-                    </Link>
+                    row.container.can_view ? (
+                        <Link to={`/containers/${row.container.id}`} onClick={(event) => event.stopPropagation()} className="text-accent hover:underline" dir="ltr">
+                            {row.container.name}
+                        </Link>
+                    ) : (
+                        <span dir="ltr">{row.container.name}</span>
+                    )
                 ) : (
                     <span className="text-faint">—</span>
                 ),

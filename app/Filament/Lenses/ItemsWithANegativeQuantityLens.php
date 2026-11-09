@@ -40,7 +40,7 @@ class ItemsWithANegativeQuantityLens extends Lens
 
     public function query(): Builder
     {
-        return Item::query()
+        return Item::withSoldQuantity(Item::query())
             ->active()
             ->where('available_quantity', '<', 0);
     }

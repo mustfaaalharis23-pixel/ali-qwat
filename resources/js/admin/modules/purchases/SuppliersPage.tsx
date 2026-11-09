@@ -13,6 +13,7 @@ import { useRecordActions, type Abilities } from '../../components/RecordActions
 import { QueryError } from '../../pages/NotFound';
 import { FileField, SupplierPie, type PurchaseInvoiceRow } from './shared';
 import { usePurchaseInvoiceColumns } from './PurchaseInvoicesPage';
+import { AuditsPanel, useCanViewAudits } from '../system/AuditsPanel';
 
 interface Supplier {
     id: number;
@@ -265,6 +266,8 @@ export function SupplierPage() {
     const [tab, setTab] = useState('items');
     const [paying, setPaying] = useState(false);
     const invoiceColumns = usePurchaseInvoiceColumns({ supplier: false });
+    const { id } = useParams();
+    const canViewAudits = useCanViewAudits('supplier', id);
 
     if (isLoading) return <PageSpinner />;
     if (error || !data) return <QueryError error={error} />;
@@ -272,6 +275,7 @@ export function SupplierPage() {
     const tabs = [
         ...(data.can.view_items ? [{ value: 'items', label: t('filament/resources/item.plural_label') }] : []),
         ...(data.can.view_invoices ? [{ value: 'invoices', label: t('filament/resources/purchase_invoice.plural_label') }] : []),
+        ...(canViewAudits ? [{ value: 'audits', label: t('filament/resources/audit.plural_label') }] : []),
     ];
     const activeTab = tabs.some((item) => item.value === tab) ? tab : tabs[0]?.value;
 
@@ -328,7 +332,9 @@ export function SupplierPage() {
             {activeTab && (
                 <>
                     <Tabs tabs={tabs} value={activeTab} onChange={setTab} className="mb-3" />
-                    {activeTab === 'items' ? (
+                    {activeTab === 'audits' ? (
+                        <AuditsPanel subjectType="supplier" subjectId={supplier.id} />
+                    ) : activeTab === 'items' ? (
                         <DataTable<SupplierItem>
                             key="items"
                             endpoint={`/suppliers/${supplier.id}/items`}

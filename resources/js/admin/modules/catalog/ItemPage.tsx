@@ -11,6 +11,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { QueryError } from '../../pages/NotFound';
 import { BatchesTable } from './BatchesPage';
 import { ItemThumb, type ItemRow } from './ItemsPage';
+import { AuditsPanel, useCanViewAudits } from '../system/AuditsPanel';
 
 const PIECES_IN_A_DOZEN = 12;
 
@@ -75,6 +76,7 @@ export function ItemPage() {
     const [tab, setTab] = useState(params.get('tab') ?? 'details');
     const { data, error } = useQuery({ queryKey: ['record', 'items', id], queryFn: () => api.get<{ data: ItemDetails; can: { view_cost_price: boolean } }>(`/items/${id}`) });
     const { data: metrics } = useQuery({ queryKey: ['metric', 'item', id], queryFn: () => api.get<{ data: MetricPayload[] }>(`/items/${id}/metrics`) });
+    const canViewAudits = useCanViewAudits('item', id);
 
     if (error) return <QueryError error={error} />;
     if (!data) return <PageSpinner />;
@@ -131,10 +133,13 @@ export function ItemPage() {
                 tabs={[
                     { value: 'details', label: t('filament/resources/item.sections.details') },
                     { value: 'batches', label: t('filament/resources/batch.plural_label') },
+                    ...(canViewAudits ? [{ value: 'audits', label: t('filament/resources/audit.plural_label') }] : []),
                 ]}
             />
 
-            {tab === 'batches' ? (
+            {tab === 'audits' && canViewAudits ? (
+                <AuditsPanel subjectType="item" subjectId={item.id} />
+            ) : tab === 'batches' ? (
                 <BatchesTable itemId={item.id} stateKey="batches" />
             ) : (
                 <div className="grid gap-6">

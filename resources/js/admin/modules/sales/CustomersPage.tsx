@@ -10,6 +10,8 @@ import { useRecordActions } from '../../components/RecordActions';
 import { PayDebtModal } from './PayDebtModal';
 import { EnumBadgeView, statementPath } from './shared';
 import type { Customer } from './types';
+import { useSalesAbilities } from './useSalesAbilities';
+import { useBulkActions } from './BulkActions';
 
 /** The customers list (the panel's CustomersTable): each customer with its debt, searched by name, phone, or email. */
 export function CustomersPage() {
@@ -18,6 +20,8 @@ export function CustomersPage() {
     const [paying, setPaying] = useState<Customer | null>(null);
     const actions = useRecordActions<Customer>('/customers', { label: (customer) => customer.name });
     const field = (name: string) => t(`filament/resources/customer.fields.${name}`);
+    const abilities = useSalesAbilities();
+    const bulk = useBulkActions('/customers', { delete: abilities?.delete_customers, restore: abilities?.restore_customers, force_delete: abilities?.force_delete_customers });
 
     return (
         <>
@@ -51,6 +55,8 @@ export function CustomersPage() {
                     )
                 }
                 rowHref={(customer) => `/customers/${customer.id}`}
+                selectable={bulk.selectable}
+                bulkActions={bulk.buttons}
                 columns={[
                     { key: 'id', header: '#', sortable: true, className: 'w-16', cell: (customer) => <span className="text-muted tabular-nums">{customer.id}</span> },
                     {
@@ -91,6 +97,7 @@ export function CustomersPage() {
             />
             {paying && <PayDebtModal customerId={paying.id} onClose={() => setPaying(null)} />}
             {actions.dialogs}
+            {bulk.dialog}
         </>
     );
 }

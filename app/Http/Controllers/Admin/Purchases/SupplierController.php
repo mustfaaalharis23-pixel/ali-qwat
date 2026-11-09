@@ -181,7 +181,7 @@ class SupplierController extends Controller
         Gate::authorize('viewAny', Invoice::class);
 
         $invoices = $this->listRecords(
-            $record->invoices()->getQuery()->with(['supplier' => fn ($query) => $query->withTrashed(), 'container', 'category' => fn ($query) => $query->withTrashed(), 'splitParts:id,split_from_invoice_id']),
+            $record->invoices()->getQuery()->with(['generalDescription' => fn ($query) => $query->withTrashed(), 'supplier' => fn ($query) => $query->withTrashed(), 'container', 'category' => fn ($query) => $query->withTrashed(), 'splitParts:id,split_from_invoice_id']),
             $request,
             searchable: ['id', 'name'],
             sortable: ['id' => 'id', 'date' => 'date', 'amount' => 'amount', 'remaining' => 'remaining'],

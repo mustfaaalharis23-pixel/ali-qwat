@@ -12,6 +12,7 @@ import { QueryError } from '../../pages/NotFound';
 import { PayDebtModal } from './PayDebtModal';
 import { EnumBadgeView, PrintMenu } from './shared';
 import type { OrderDetails } from './types';
+import { AuditsSection } from '../system/AuditsPanel';
 
 function Amount({ label, value, tone }: { label: ReactNode; value: number; tone?: 'accent' | 'success' | 'danger' }) {
     return (
@@ -227,6 +228,8 @@ export function OrderPage() {
                     </CardBody>
                 </Card>
             </div>
+
+            <AuditsSection subjectType="order" subjectId={order.id} />
 
             {paying && <PayDebtModal orderId={order.id} customerId={order.customer?.id} onClose={() => setPaying(false)} />}
             {actions.dialogs}

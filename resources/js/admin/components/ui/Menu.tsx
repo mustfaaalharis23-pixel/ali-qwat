@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/format';
 
 export interface MenuItem {
@@ -11,17 +12,34 @@ export interface MenuItem {
     disabled?: boolean;
     /** A thin line between groups of items. */
     divider?: boolean;
+    /** The menu stays open after this item is chosen, as for a list of checkboxes. */
+    keepOpen?: boolean;
 }
 
 /** A dropdown of actions under (or above) a trigger, closed by a click outside or Escape. */
 export function Menu({ trigger, items, align = 'end', placement = 'bottom' }: { trigger: (toggle: () => void, open: boolean) => ReactNode; items: MenuItem[]; align?: 'start' | 'end'; placement?: 'bottom' | 'top' }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [rect, setRect] = useState<DOMRect | null>(null);
+
+    // The list floats above the page, so a table or card that clips its content never hides it.
+    useLayoutEffect(() => {
+        if (!open) return;
+        const place = () => setRect(ref.current?.getBoundingClientRect() ?? null);
+        place();
+        window.addEventListener('scroll', place, true);
+        window.addEventListener('resize', place);
+        return () => {
+            window.removeEventListener('scroll', place, true);
+            window.removeEventListener('resize', place);
+        };
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
         const close = (event: MouseEvent | KeyboardEvent) => {
-            if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node)) setOpen(false);
+            if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node)) setOpen(false);
         };
         document.addEventListener('mousedown', close);
         document.addEventListener('keydown', close);
@@ -36,14 +54,26 @@ export function Menu({ trigger, items, align = 'end', placement = 'bottom' }: { 
     return (
         <div ref={ref} className="relative">
             {trigger(() => setOpen((value) => !value), open)}
-            {open && visible.some((item) => !item.divider) && (
+            {open &&
+                rect &&
+                visible.some((item) => !item.divider) &&
+                createPortal(
                 <div
-                    className={cn(
-                        'animate-in absolute z-40 min-w-52 rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow-pop)]',
-                        placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
-                        align === 'end' ? 'end-0' : 'start-0',
-                        placement === 'top' && 'w-full',
-                    )}
+                    ref={panelRef}
+                    dir={document.documentElement.dir}
+                    style={(() => {
+                        const atEnd = (align === 'end') !== (document.documentElement.dir === 'rtl');
+                        const below = placement === 'bottom' && window.innerHeight - rect.bottom > 260;
+                        return {
+                            position: 'fixed' as const,
+                            top: below ? rect.bottom + 6 : undefined,
+                            bottom: below ? undefined : window.innerHeight - rect.top + 6,
+                            left: atEnd ? undefined : rect.left,
+                            right: atEnd ? window.innerWidth - rect.right : undefined,
+                            width: placement === 'top' ? rect.width : undefined,
+                        };
+                    })()}
+                    className="animate-in z-[60] max-h-[60vh] min-w-52 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow-pop)]"
                 >
                     {visible.map((item, index) => {
                         if (item.divider) return <div key={index} className="mx-2 my-1 h-px bg-line" />;
@@ -62,7 +92,7 @@ export function Menu({ trigger, items, align = 'end', placement = 'bottom' }: { 
                                 className={className}
                                 disabled={item.disabled}
                                 onClick={() => {
-                                    setOpen(false);
+                                    if (!item.keepOpen) setOpen(false);
                                     item.onSelect?.();
                                 }}
                             >
@@ -71,8 +101,9 @@ export function Menu({ trigger, items, align = 'end', placement = 'bottom' }: { 
                             </button>
                         );
                     })}
-                </div>
-            )}
+                </div>,
+                ref.current?.closest('dialog') ?? document.body,
+                )}
         </div>
     );
 }

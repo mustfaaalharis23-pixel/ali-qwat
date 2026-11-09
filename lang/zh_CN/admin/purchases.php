@@ -15,6 +15,7 @@ return [
     'form' => [
         'new_category' => '新建类别',
         'new_color' => '新建颜色',
+        'new_lens_power' => '新建度数',
     ],
     'upload' => [
         'choose' => '选择文件',

@@ -334,4 +334,81 @@ class PurchaseInvoiceApiTest extends TestCase
             ->assertJsonPath('sale_price', 50)
             ->assertJsonPath('cost_price', null);
     }
+
+    /**
+     * EN: The form says whether the user may add a color, an invoice category, or a lens power from inside it, on the new invoice and
+     *     on the edit page, so the add buttons show only to who may add them; the server still refuses the others.
+     * AR: الفورم يگول إذا اليوزر يگدر يضيف لون أو صنف فاتورة أو درجة من داخله، بالفاتورة الجديدة وبصفحة التعديل،
+     *     حتى أزرار الإضافة تطلع بس للي يگدر يضيف؛ والسيرفر يبقى يرفض الباقين.
+     */
+    public function test_the_form_says_which_choices_may_be_added_inline(): void
+    {
+        $this->bankAnswers(7.1);
+        $invoice = Invoice::factory()->purchase()->create();
+        $this->actingAs($this->userWith('invoice.view', 'invoice.create', 'invoice.update', 'color.create'));
+
+        $this->getJson('/admin-api/purchase-invoices/create')->assertOk()
+            ->assertJsonPath('can_create_options.colors', true)
+            ->assertJsonPath('can_create_options.invoice_categories', false)
+            ->assertJsonPath('can_create_options.lens_powers', false);
+        $this->getJson("/admin-api/purchase-invoices/{$invoice->id}")->assertOk()
+            ->assertJsonPath('can.create_options.colors', true)
+            ->assertJsonPath('can.create_options.invoice_categories', false)
+            ->assertJsonPath('can.create_options.lens_powers', false);
+
+        $this->postJson('/admin-api/invoice-categories', ['name' => 'Frames'])->assertForbidden();
+        $this->postJson('/admin-api/lens-powers', ['value' => 1.25])->assertForbidden();
+
+        $this->actingAs($this->userWith('invoice.view', 'invoice.create', 'invoice_category.create', 'lens_power.create'));
+        $this->getJson('/admin-api/purchase-invoices/create')->assertOk()
+            ->assertJsonPath('can_create_options.colors', false)
+            ->assertJsonPath('can_create_options.invoice_categories', true)
+            ->assertJsonPath('can_create_options.lens_powers', true);
+        $this->postJson('/admin-api/lens-powers', ['value' => 1.25])->assertCreated();
+    }
+
+    /**
+     * EN: The list and each row say whether the user may open the containers, so the container shows as a link only to who may.
+     * AR: القائمة وكل صف يگولون إذا اليوزر يگدر يفتح الحاويات، حتى الحاوية تطلع رابط بس للي يگدر.
+     */
+    public function test_the_list_says_whether_containers_may_be_opened(): void
+    {
+        Invoice::factory()->purchase()->create(['container_id' => Container::factory()]);
+
+        $this->actingAs($this->userWith('invoice.view'))->getJson('/admin-api/purchase-invoices')->assertOk()
+            ->assertJsonPath('can.view_containers', false)
+            ->assertJsonPath('data.0.container.can_view', false);
+        $this->actingAs($this->userWith('invoice.view', 'container.view'))->getJson('/admin-api/purchase-invoices')->assertOk()
+            ->assertJsonPath('can.view_containers', true)
+            ->assertJsonPath('data.0.container.can_view', true);
+    }
+
+    /**
+     * EN: The purchase invoices list and a supplier's invoices read the same number of queries for many rows as for a few,
+     *     even for a user whose row abilities ask whether each invoice is a purchase invoice.
+     * AR: قائمة فواتير الشراء وفواتير المورد تقرا نفس عدد الاستعلامات للصفوف الهواية مثل القليلة،
+     *     حتى لليوزر اللي صلاحيات صفوفه تسأل إذا كل فاتورة فاتورة شراء.
+     */
+    public function test_the_lists_do_not_query_once_per_row(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $this->actingAs($this->userWith('invoice.view', 'invoice.update', 'invoice.delete', 'invoice.confirm_as_importer', 'invoice.confirm_as_receiver', 'supplier.view', 'container.view'));
+        $counts = [];
+
+        foreach ([2, 6] as $rows) {
+            Invoice::factory()->purchase()->count($rows - ($counts === [] ? 0 : 2))->create(['supplier_id' => $supplier->id, 'container_id' => Container::factory()]);
+
+            foreach (['/admin-api/purchase-invoices', "/admin-api/suppliers/{$supplier->id}/invoices"] as $endpoint) {
+                DB::flushQueryLog();
+                DB::enableQueryLog();
+                $this->getJson($endpoint)->assertOk()->assertJsonCount($rows, 'data');
+                $counts[$endpoint][] = count(DB::getQueryLog());
+                DB::disableQueryLog();
+            }
+        }
+
+        foreach ($counts as $endpoint => [$few, $many]) {
+            $this->assertSame($few, $many, $endpoint);
+        }
+    }
 }

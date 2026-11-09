@@ -24,7 +24,11 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     useEffect(() => {
         const dialog = ref.current;
         if (!dialog) return;
-        if (open && !dialog.open) dialog.showModal();
+        if (open && !dialog.open) {
+            dialog.showModal();
+            // The browser focuses the close button; a form's first field is where the user means to type.
+            requestAnimationFrame(() => dialog.querySelector<HTMLElement>('input:not([type=hidden]):not([type=file]):not([disabled]), textarea, select')?.focus());
+        }
         if (!open && dialog.open) dialog.close();
     }, [open]);
 

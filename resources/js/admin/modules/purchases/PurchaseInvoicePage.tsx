@@ -13,6 +13,7 @@ import { useRecordActions, type Abilities } from '../../components/RecordActions
 import { QueryError } from '../../pages/NotFound';
 import { dinars, dollars, EnumBadge, FileField, RouteButton, SplitBadge, yuan, type EnumValue, type PurchaseInvoiceRow } from './shared';
 import { useInvoiceActions } from './invoiceActions';
+import { AuditsSection } from '../system/AuditsPanel';
 
 export interface PurchaseLine {
     id: number;
@@ -75,6 +76,14 @@ export interface PageAbilities {
     view_payoffs: boolean;
     create_payoffs: boolean;
     view_cost_price: boolean;
+    create_options: InlineCreateAbilities;
+}
+
+/** Which choices of the invoice form the user may add from inside it. */
+export interface InlineCreateAbilities {
+    colors: boolean;
+    invoice_categories: boolean;
+    lens_powers: boolean;
 }
 
 const DOZEN = 12;
@@ -698,6 +707,7 @@ export function PurchaseInvoicePage() {
                     <PayoffsCard invoice={invoice} />
                 </div>
             )}
+            <AuditsSection subjectType="invoice" subjectId={invoice.id} />
             {actions.dialogs}
         </>
     );

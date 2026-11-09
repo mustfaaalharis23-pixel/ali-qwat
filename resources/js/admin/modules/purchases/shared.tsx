@@ -30,7 +30,8 @@ export interface PurchaseInvoiceRow {
     supplier: { id: number; name: string } | null;
     invoice_category_id: number | null;
     category: { id: number; name: string } | null;
-    container: { id: number; name: string } | null;
+    /** can_view: whether the user may open the containers, so the container is a link only for them (as the panel hid it). */
+    container: { id: number; name: string; can_view?: boolean } | null;
     date: string | null;
     amount: number;
     paid_amount: number;

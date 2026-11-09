@@ -1,10 +1,17 @@
-import { defineModule } from '../../lib/modules';
-import { PurchaseInvoicesPage } from './PurchaseInvoicesPage';
-import { PurchaseInvoicePage } from './PurchaseInvoicePage';
-import { CreatePurchaseInvoicePage, EditPurchaseInvoicePage } from './PurchaseInvoiceFormPage';
-import { CreateSupplierPage, EditSupplierPage, SupplierPage, SuppliersPage } from './SuppliersPage';
-import { ContainerPage, ContainersPage, CreateContainerPage, EditContainerPage } from './ContainersPage';
-import { InvoiceCategoriesPage } from './InvoiceCategoriesPage';
+import { defineModule, page } from '../../lib/modules';
+const PurchaseInvoicesPage = page(() => import('./PurchaseInvoicesPage'), 'PurchaseInvoicesPage');
+const PurchaseInvoicePage = page(() => import('./PurchaseInvoicePage'), 'PurchaseInvoicePage');
+const CreatePurchaseInvoicePage = page(() => import('./PurchaseInvoiceFormPage'), 'CreatePurchaseInvoicePage');
+const EditPurchaseInvoicePage = page(() => import('./PurchaseInvoiceFormPage'), 'EditPurchaseInvoicePage');
+const CreateSupplierPage = page(() => import('./SuppliersPage'), 'CreateSupplierPage');
+const EditSupplierPage = page(() => import('./SuppliersPage'), 'EditSupplierPage');
+const SupplierPage = page(() => import('./SuppliersPage'), 'SupplierPage');
+const SuppliersPage = page(() => import('./SuppliersPage'), 'SuppliersPage');
+const ContainerPage = page(() => import('./ContainersPage'), 'ContainerPage');
+const ContainersPage = page(() => import('./ContainersPage'), 'ContainersPage');
+const CreateContainerPage = page(() => import('./ContainersPage'), 'CreateContainerPage');
+const EditContainerPage = page(() => import('./ContainersPage'), 'EditContainerPage');
+const InvoiceCategoriesPage = page(() => import('./InvoiceCategoriesPage'), 'InvoiceCategoriesPage');
 
 /** The purchases: purchase invoices with their payoffs, suppliers, containers, and invoice categories, at the panel's own paths. */
 export default defineModule({

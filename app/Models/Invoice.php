@@ -129,7 +129,16 @@ class Invoice extends BaseModel
      */
     public function isPurchase(): bool
     {
-        return $this->generalDescription()->withTrashed()->first()?->is_purchases_description === true;
+        $description = $this->relationLoaded('generalDescription') ? $this->getRelation('generalDescription') : null;
+
+        // The description is read once per invoice (deleted ones too) and kept on it, so a list asking every row's
+        // permissions does not read it again and again. It is read again when the invoice moved to another description.
+        if ($description === null || $description->getKey() !== $this->general_description_id) {
+            $description = $this->generalDescription()->withTrashed()->first();
+            $this->setRelation('generalDescription', $description);
+        }
+
+        return $description?->is_purchases_description === true;
     }
 
     /**

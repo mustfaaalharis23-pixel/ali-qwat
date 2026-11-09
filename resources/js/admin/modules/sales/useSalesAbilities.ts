@@ -8,6 +8,10 @@ export interface SalesAbilities {
     view_payments: boolean;
     create_payment: boolean;
     print_invoices: boolean;
+    delete_orders: boolean;
+    delete_customers: boolean;
+    restore_customers: boolean;
+    force_delete_customers: boolean;
 }
 
 /** What the signed-in user may do on the sales screens, such as seeing what the items cost us. */

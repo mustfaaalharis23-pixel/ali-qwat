@@ -15,6 +15,7 @@ return [
     'form' => [
         'new_category' => 'New category',
         'new_color' => 'New color',
+        'new_lens_power' => 'New lens power',
     ],
     'upload' => [
         'choose' => 'Choose a file',

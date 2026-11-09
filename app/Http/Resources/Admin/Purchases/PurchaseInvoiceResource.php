@@ -4,6 +4,7 @@ namespace App\Http\Resources\Admin\Purchases;
 
 use App\Enums\InvoiceConfirmation;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
+use App\Models\Container;
 use App\Models\Invoice;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
@@ -57,7 +58,7 @@ class PurchaseInvoiceResource extends JsonResource
             'supplier' => $this->supplier === null ? null : ['id' => $this->supplier->id, 'name' => $this->supplier->name_ar],
             'invoice_category_id' => $this->invoice_category_id,
             'category' => $this->category === null ? null : ['id' => $this->category->id, 'name' => $this->category->name],
-            'container' => $this->container === null ? null : ['id' => $this->container->id, 'name' => $this->container->displayName()],
+            'container' => $this->container === null ? null : ['id' => $this->container->id, 'name' => $this->container->displayName(), 'can_view' => Gate::allows('viewAny', Container::class)],
             'date' => $this->date?->toDateString(),
             'amount' => (float) $this->amount,
             'paid_amount' => (float) $this->paid_amount,

@@ -1,11 +1,12 @@
-import { defineModule } from '../../lib/modules';
-import { BatchesPage } from './BatchesPage';
-import { ColorsPage } from './ColorsPage';
-import { ItemCreatePage, ItemEditPage } from './ItemFormPage';
-import { ItemPage } from './ItemPage';
-import { ItemsPage } from './ItemsPage';
-import { LensPage } from './LensPage';
-import { LensPowersPage } from './LensPowersPage';
+import { defineModule, page } from '../../lib/modules';
+const BatchesPage = page(() => import('./BatchesPage'), 'BatchesPage');
+const ColorsPage = page(() => import('./ColorsPage'), 'ColorsPage');
+const ItemCreatePage = page(() => import('./ItemFormPage'), 'ItemCreatePage');
+const ItemEditPage = page(() => import('./ItemFormPage'), 'ItemEditPage');
+const ItemPage = page(() => import('./ItemPage'), 'ItemPage');
+const ItemsPage = page(() => import('./ItemsPage'), 'ItemsPage');
+const LensPage = page(() => import('./LensPage'), 'LensPage');
+const LensPowersPage = page(() => import('./LensPowersPage'), 'LensPowersPage');
 
 export default defineModule({
     routes: [

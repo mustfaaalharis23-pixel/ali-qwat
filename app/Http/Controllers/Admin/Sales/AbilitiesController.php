@@ -26,6 +26,10 @@ class AbilitiesController extends Controller
             'view_payments' => Gate::allows('viewAny', CustomerPayment::class),
             'create_payment' => Gate::allows('create', CustomerPayment::class),
             'print_invoices' => Gate::allows('viewAny', InvoicePrinting::class),
+            'delete_orders' => Gate::allows('deleteAny', Order::class),
+            'delete_customers' => Gate::allows('deleteAny', Customer::class),
+            'restore_customers' => Gate::allows('restoreAny', Customer::class),
+            'force_delete_customers' => Gate::allows('forceDeleteAny', Customer::class),
         ]);
     }
 }

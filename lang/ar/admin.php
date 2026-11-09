@@ -18,7 +18,7 @@ return [
         'search' => 'بحث…', 'empty' => 'لا توجد بيانات بعد', 'empty_hint' => 'جرّب بحثاً آخر أو امسح عوامل التصفية.', 'actions' => 'الإجراءات',
         'showing' => ':from–:to من :total', 'per_page' => 'لكل صفحة', 'previous' => 'الصفحة السابقة', 'next' => 'الصفحة التالية',
         'clear_filters' => 'مسح التصفية', 'trashed_without' => 'بدون المحذوفة', 'trashed_with' => 'مع المحذوفة', 'trashed_only' => 'المحذوفة فقط',
-        'selected' => 'تم تحديد :count', 'all' => 'الكل', 'total' => 'المجموع',
+        'selected' => 'تم تحديد :count', 'all' => 'الكل', 'columns' => 'الأعمدة', 'total' => 'المجموع',
     ],
     'form' => ['choose' => 'اختر…', 'optional' => 'اختياري', 'required' => 'مطلوب', 'none' => 'لا شيء', 'from' => 'من', 'until' => 'إلى'],
     'metrics' => ['example' => 'مثال'],

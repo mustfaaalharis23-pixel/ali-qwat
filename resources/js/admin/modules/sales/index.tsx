@@ -1,12 +1,12 @@
-import { defineModule } from '../../lib/modules';
-import { CustomerFormPage } from './CustomerFormPage';
-import { CustomerPage } from './CustomerPage';
-import { CustomerPaymentsPage } from './CustomerPaymentsPage';
-import { CustomersPage } from './CustomersPage';
-import { InvoicePrintingPage } from './InvoicePrintingPage';
-import { OrderFormPage } from './OrderFormPage';
-import { OrderPage } from './OrderPage';
-import { OrdersPage } from './OrdersPage';
+import { defineModule, page } from '../../lib/modules';
+const CustomerFormPage = page(() => import('./CustomerFormPage'), 'CustomerFormPage');
+const CustomerPage = page(() => import('./CustomerPage'), 'CustomerPage');
+const CustomerPaymentsPage = page(() => import('./CustomerPaymentsPage'), 'CustomerPaymentsPage');
+const CustomersPage = page(() => import('./CustomersPage'), 'CustomersPage');
+const InvoicePrintingPage = page(() => import('./InvoicePrintingPage'), 'InvoicePrintingPage');
+const OrderFormPage = page(() => import('./OrderFormPage'), 'OrderFormPage');
+const OrderPage = page(() => import('./OrderPage'), 'OrderPage');
+const OrdersPage = page(() => import('./OrdersPage'), 'OrdersPage');
 
 /** The sales screens, at the panel's own paths: the orders, the customers, the customer payments, and the invoice printing. */
 export default defineModule({

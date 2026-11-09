@@ -54,3 +54,18 @@ export function AuditsPanel({ subjectType, subjectId }: { subjectType: string; s
         />
     );
 }
+
+/**
+ * The audits of one record as a titled section at the end of a record page that has no tabs, shown only to users who may read them.
+ */
+export function AuditsSection({ subjectType, subjectId, className }: { subjectType: string; subjectId: number; className?: string }) {
+    const t = useT();
+    const canView = useCanViewAudits(subjectType, subjectId);
+    if (!canView) return null;
+    return (
+        <section className={className ?? 'mt-6'}>
+            <h2 className="mb-3 text-[15px] font-semibold">{t('filament/resources/audit.plural_label')}</h2>
+            <AuditsPanel subjectType={subjectType} subjectId={subjectId} />
+        </section>
+    );
+}

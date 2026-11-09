@@ -1,7 +1,7 @@
-import { defineModule } from '../../lib/modules';
-import { HomePage } from './HomePage';
-import { FinancialDashboardPage } from './FinancialDashboardPage';
-import { MonitoringDashboardPage } from './MonitoringDashboardPage';
+import { defineModule, page } from '../../lib/modules';
+const HomePage = page(() => import('./HomePage'), 'HomePage');
+const FinancialDashboardPage = page(() => import('./FinancialDashboardPage'), 'FinancialDashboardPage');
+const MonitoringDashboardPage = page(() => import('./MonitoringDashboardPage'), 'MonitoringDashboardPage');
 
 export default defineModule({
     routes: [
