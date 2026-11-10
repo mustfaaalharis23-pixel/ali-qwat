@@ -5,7 +5,7 @@ import { Banknote, Building2, FileText, Pencil, Plus, RotateCcw, Trash2 } from '
 import { api } from '../../lib/api';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, DescriptionList, Field, Input, Modal, PageSpinner, Tabs, Textarea, toast } from '../../components/ui';
+import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, DescriptionList, Field, Input, Modal, MoneyInput, PageSpinner, Tabs, Textarea, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
 import { RemoteMetric } from '../../components/MetricCard';
@@ -62,7 +62,7 @@ function PayDialog({ supplier, onClose }: { supplier: Supplier; onClose: () => v
         >
             <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={key('amount')} error={form.errors.amount} required>
-                    {(id) => <Input id={id} autoFocus inputMode="decimal" dir="ltr" value={form.values.amount} onChange={(event) => form.set('amount', event.target.value)} invalid={Boolean(form.errors.amount)} />}
+                    {(id) => <MoneyInput id={id} autoFocus value={form.values.amount} onChange={(value) => form.set('amount', value)} invalid={Boolean(form.errors.amount)} />}
                 </Field>
                 <Field label={key('date')} error={form.errors.date} required>
                     {(id) => <Input id={id} type="date" dir="ltr" value={form.values.date} onChange={(event) => form.set('date', event.target.value)} invalid={Boolean(form.errors.date)} />}

@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { date, number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ConfirmDialog, DescriptionList, Field, Input, Modal, PageSpinner, Textarea, toast } from '../../components/ui';
+import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ConfirmDialog, DescriptionList, Field, Input, Modal, MoneyInput, PageSpinner, Textarea, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
 import { RemoteMetric } from '../../components/MetricCard';
@@ -171,7 +171,7 @@ function ContainerForm({ container }: { container?: Container }) {
                         )}
                     </Field>
                     <Field label={t(field('cbm_price'))} error={form.errors.cbm_price} hint={t('filament/resources/container.hints.cbm_price')} required>
-                        {(id) => <Input id={id} dir="ltr" inputMode="decimal" value={form.values.cbm_price} onChange={(event) => form.set('cbm_price', event.target.value)} invalid={Boolean(form.errors.cbm_price)} />}
+                        {(id) => <MoneyInput id={id} value={form.values.cbm_price} onChange={(value) => form.set('cbm_price', value)} invalid={Boolean(form.errors.cbm_price)} />}
                     </Field>
                     <Field label={t(field('loading_date'))} error={form.errors.loading_date}>
                         {(id) => (

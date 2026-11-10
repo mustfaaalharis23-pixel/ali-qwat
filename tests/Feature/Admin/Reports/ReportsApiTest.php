@@ -65,15 +65,14 @@ class ReportsApiTest extends TestCase
     }
 
     /**
-     * EN: A period that ends before it starts, or a day after today, is refused.
-     * AR: الفترة اللي تخلص قبل ما تبدي، أو يوم بعد اليوم، تنرفض.
+     * EN: A period that ends before it starts is refused.
+     * AR: الفترة اللي تخلص قبل ما تبدي تنرفض.
      */
     public function test_an_invalid_period_is_refused(): void
     {
         $this->actingAs($this->user());
 
         $this->getJson('/admin-api/reports/sales?from=2026-05-10&to=2026-05-01')->assertJsonValidationErrors('to');
-        $this->getJson('/admin-api/reports/sales?from='.CarbonImmutable::tomorrow()->toDateString())->assertJsonValidationErrors('from');
     }
 
     /**

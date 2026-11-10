@@ -40,8 +40,6 @@ return [
         'action_payment_hint' => 'زبون يسدد ديناً',
         'action_financial_hint' => 'الصناديق والمصاريف والديون',
         'greeting' => 'أهلاً، :name', 'subtitle' => 'هذا ما يحتاج انتباهك اليوم.',
-        'reminders_all' => 'الكل', 'reminders_today' => 'مستحق اليوم', 'reminders_late' => 'متأخر',
-        'late_since' => 'متأخر منذ :date', 'next_due' => 'يستحق في :date', 'remaining_weeks' => 'متبقي :weeks أسابيع',
     ],
     'monitoring' => ['open_list' => 'فتح القائمة'],
     'image_editor' => [

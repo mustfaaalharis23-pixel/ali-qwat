@@ -7,7 +7,7 @@ import { api, ApiError } from '../../lib/api';
 import { cn, date, money, number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, ButtonLink, DescriptionList, Empty, Field, Input, PageSpinner, Skeleton, Spinner, Textarea, toast } from '../../components/ui';
+import { Badge, Button, ButtonLink, DescriptionList, Empty, Field, Input, MoneyInput, PageSpinner, Skeleton, Spinner, Textarea, toast } from '../../components/ui';
 import { useImageEditor } from '../../components/ImageEditor';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -329,14 +329,12 @@ function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
                                     {lineError(index, 'specific_description_id') && <p className="mt-1 text-xs text-danger">{lineError(index, 'specific_description_id')}</p>}
                                 </div>
                                 <div className="order-3 col-span-1 md:order-none">
-                                    <Input
-                                        inputMode="decimal"
-                                        dir="ltr"
+                                    <MoneyInput
                                         value={line.price}
                                         placeholder="0"
                                         disabled={!values.general_description_id}
                                         aria-label={t('filament/resources/invoice_item.fields.price')}
-                                        onChange={(event) => setLine(line.key, { price: event.target.value })}
+                                        onChange={(price) => setLine(line.key, { price })}
                                         invalid={Boolean(lineError(index, 'price'))}
                                         className="text-end tabular-nums"
                                     />

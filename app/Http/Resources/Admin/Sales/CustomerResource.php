@@ -36,7 +36,7 @@ class CustomerResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
             'can' => [
-                ...SalesPayload::abilities($this->resource),
+                ...SalesPayload::abilities($this->resource, editableWhenDeleted: true),
                 'pay' => ! $this->resource->trashed() && $debt > 0 && $this->canRecordPayments($request),
             ],
         ];

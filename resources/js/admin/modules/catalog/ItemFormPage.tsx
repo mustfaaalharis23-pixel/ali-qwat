@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, Card, CardBody, CardHeader, Field, Input, PageSpinner, Select, Textarea, Toggle } from '../../components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, Field, Input, MoneyInput, PageSpinner, Select, Textarea, Toggle } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { useRecordActions } from '../../components/RecordActions';
@@ -51,7 +51,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
         (values: ItemValues) => {
             const body = new FormData();
             body.append('name', values.name);
-            if (values.supplier_id) body.append('supplier_id', String(values.supplier_id));
+            body.append('supplier_id', values.supplier_id ? String(values.supplier_id) : '');
             body.append('pieces_per_packet', values.pieces_per_packet);
             body.append('description', values.description);
             body.append('is_active', values.is_active ? '1' : '0');
@@ -181,7 +181,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
                     <CardHeader icon={<Banknote className="size-4.5" />} title={t('filament/resources/item.sections.prices')} />
                     <CardBody className="grid gap-5 md:grid-cols-3">
                         <Field label={t('filament/resources/item.fields.sale_price')} error={form.errors.sale_price}>
-                            {(id) => <Input id={id} inputMode="decimal" dir="ltr" value={form.values.sale_price} onChange={(event) => form.set('sale_price', event.target.value)} invalid={Boolean(form.errors.sale_price)} />}
+                            {(id) => <MoneyInput id={id} value={form.values.sale_price} onChange={(value) => form.set('sale_price', value)} invalid={Boolean(form.errors.sale_price)} />}
                         </Field>
                         {canSeeTheCost && (
                             <Field label={t('filament/resources/item.fields.cost_price')} hint={t('filament/resources/item.hints.cost_price')}>

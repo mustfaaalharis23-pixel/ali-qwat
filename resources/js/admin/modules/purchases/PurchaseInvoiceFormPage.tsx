@@ -32,7 +32,7 @@ import { cn, number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
 import { useSession } from '../../lib/session';
-import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Field, Input, Modal, PageSpinner, Textarea, toast, type Tone } from '../../components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Field, Input, Modal, MoneyInput, PageSpinner, Textarea, toast, type Tone } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { QueryError } from '../../pages/NotFound';
@@ -191,21 +191,17 @@ function useLeftFact() {
     };
 }
 
-/** A number field with a unit before or after it. */
-function UnitInput({ value, onChange, prefix, suffix, disabled, invalid, id, autoFocus }: { value: string; onChange: (value: string) => void; prefix?: string; suffix?: string; disabled?: boolean; invalid?: boolean; id?: string; autoFocus?: boolean }) {
+/** A number field with a unit before or after it; a money field (thousands separators, two decimals) when money is set. */
+function UnitInput({ value, onChange, prefix, suffix, disabled, invalid, id, autoFocus, money = false }: { value: string; onChange: (value: string) => void; prefix?: string; suffix?: string; disabled?: boolean; invalid?: boolean; id?: string; autoFocus?: boolean; money?: boolean }) {
+    const className = cn('min-w-0 flex-1', prefix && 'rounded-s-none', suffix && 'rounded-e-none');
     return (
         <div className="flex items-stretch" dir="ltr">
             {prefix && <span className="flex items-center rounded-s-lg border border-e-0 border-line bg-subtle px-2.5 text-xs whitespace-nowrap text-muted">{prefix}</span>}
-            <Input
-                id={id}
-                autoFocus={autoFocus}
-                inputMode="decimal"
-                value={value}
-                disabled={disabled}
-                invalid={invalid}
-                onChange={(event) => onChange(event.target.value)}
-                className={cn('min-w-0 flex-1', prefix && 'rounded-s-none', suffix && 'rounded-e-none')}
-            />
+            {money ? (
+                <MoneyInput id={id} autoFocus={autoFocus} value={value} disabled={disabled} invalid={invalid} onChange={onChange} className={className} />
+            ) : (
+                <Input id={id} autoFocus={autoFocus} inputMode="decimal" value={value} disabled={disabled} invalid={invalid} onChange={(event) => onChange(event.target.value)} className={className} />
+            )}
             {suffix && <span className="flex items-center rounded-e-lg border border-s-0 border-line bg-subtle px-2.5 text-xs whitespace-nowrap text-muted">{suffix}</span>}
         </div>
     );
@@ -660,7 +656,7 @@ function LineCard({
                 <fieldset className="rounded-lg border border-line p-3.5">
                     <legend className="px-1.5 text-xs font-semibold text-muted">{t('filament/resources/purchase_invoice.sections.line_cost')}</legend>
                     <Field label={t('filament/resources/purchase_invoice.fields.unit_cost')} error={error('unit_cost') ?? error('price')} required hint={<Facts facts={costFacts} />} className="max-w-xl">
-                        {(id) => <UnitInput id={id} value={line.unit_cost} suffix="¥" invalid={Boolean(error('unit_cost') ?? error('price'))} onChange={(value) => update({ unit_cost: value })} />}
+                        {(id) => <UnitInput id={id} money value={line.unit_cost} suffix="¥" invalid={Boolean(error('unit_cost') ?? error('price'))} onChange={(value) => update({ unit_cost: value })} />}
                     </Field>
                 </fieldset>
                 {lineErrors.length > 0 && <p className="text-xs text-danger">{lineErrors.join(' ')}</p>}
@@ -984,7 +980,7 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
                             required={!cbmLocked}
                             hint={cbmLocked ? t('filament/resources/purchase_invoice.cbm_price_locked_hint') : t('filament/resources/purchase_invoice.cbm_price_hint')}
                         >
-                            {(id) => <UnitInput id={id} suffix="$" value={values.cbm_price} disabled={cbmLocked} invalid={Boolean(errors.cbm_price)} onChange={(value) => form.set('cbm_price', value)} />}
+                            {(id) => <UnitInput id={id} money suffix="$" value={values.cbm_price} disabled={cbmLocked} invalid={Boolean(errors.cbm_price)} onChange={(value) => form.set('cbm_price', value)} />}
                         </Field>
                     </CardBody>
                 </Card>
@@ -1026,7 +1022,7 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
                     <Card>
                         <CardBody className="space-y-3">
                             <Field label={t('filament/resources/purchase_invoice.fields.initial_payment')} error={errors.initial_payment} className="max-w-xl">
-                                {(id) => <UnitInput id={id} suffix="¥" value={values.initial_payment} invalid={Boolean(errors.initial_payment)} onChange={(value) => form.set('initial_payment', value)} />}
+                                {(id) => <UnitInput id={id} money suffix="¥" value={values.initial_payment} invalid={Boolean(errors.initial_payment)} onChange={(value) => form.set('initial_payment', value)} />}
                             </Field>
                             <Facts
                                 facts={[

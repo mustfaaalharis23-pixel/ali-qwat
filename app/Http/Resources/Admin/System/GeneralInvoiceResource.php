@@ -10,7 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * A general invoice. A money transfer invoice is read only: it is never edited or deleted from the screens.
+ * A general invoice. A money transfer invoice is never edited from the screens; it is deleted like any invoice (within a day of
+ * creating it), except one made by a customer payment, which the invoice itself refuses.
  * Only a super user restores a deleted general invoice. Its lines, images, and notes come only on its own page.
  *
  * @mixin Invoice
@@ -61,7 +62,6 @@ class GeneralInvoiceResource extends JsonResource
 
         if ($invoice->isMoneyTransfer()) {
             $can['update'] = false;
-            $can['delete'] = false;
         }
 
         $can['restore'] = $can['restore'] && request()->user()?->is_super === true;

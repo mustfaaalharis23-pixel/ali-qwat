@@ -113,7 +113,8 @@ class PurchaseInvoiceResource extends JsonResource
             'images' => array_map(fn (string $path): array => ['path' => $path, 'url' => Storage::disk('public')->url($path)], $images),
             'notes' => $this->notes,
             'items' => PurchaseLineResource::collection($this->items)->resolve($request),
-            'has_payoffs' => $this->payoffs()->withTrashed()->exists(),
+            'has_payoffs' => $this->payoffs()->exists(),
+            'has_any_payoffs' => $this->payoffs()->withTrashed()->exists(),
         ];
     }
 

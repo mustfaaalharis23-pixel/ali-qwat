@@ -24,7 +24,8 @@ use Illuminate\Validation\Rule;
 /**
  * The general invoices: the invoices whose general description is not the purchases description.
  * Money is never withdrawn from a sales box by hand here: a general description that holds transfer descriptions cannot be saved,
- * and an invoice that moves money (a cashier money transfer or a customer payment) is read only.
+ * and an invoice that moves money (a cashier money transfer or a customer payment) is never edited. Deleting one follows the policy and
+ * the invoice's own guards, as the panel's delete did.
  * The amount is the model's: the sum of the lines' prices, and a general invoice is always fully paid.
  */
 class GeneralInvoiceController extends Controller
@@ -121,7 +122,6 @@ class GeneralInvoiceController extends Controller
     {
         $record = $this->find($invoice);
         Gate::authorize('delete', $record);
-        abort_if($record->isMoneyTransfer(), 403);
 
         $record->delete();
 

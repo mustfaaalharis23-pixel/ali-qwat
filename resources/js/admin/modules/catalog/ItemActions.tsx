@@ -3,7 +3,7 @@ import { api } from '../../lib/api';
 import { number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Button, ConfirmDialog, Field, Input, Modal } from '../../components/ui';
+import { Button, ConfirmDialog, Field, Input, Modal, MoneyInput } from '../../components/ui';
 import { SearchSelect } from '../../components/SearchSelect';
 
 /** What every list and page that touches an item reads again after an item action. */
@@ -90,11 +90,11 @@ export function SetSalePriceModal({ item, onClose }: { item: PricedItem; onClose
                     {(id) => <Input id={id} value={number(cost)} disabled dir="ltr" />}
                 </Field>
                 <Field label={t('filament/resources/item.fields.sale_price')} hint={t('filament/resources/item.actions.set_sale_price.sale_price_hint')} error={form.errors.sale_price} required>
-                    {(id) => <Input id={id} autoFocus inputMode="decimal" dir="ltr" value={form.values.sale_price} onChange={(event) => fromSale(event.target.value)} invalid={Boolean(form.errors.sale_price)} />}
+                    {(id) => <MoneyInput id={id} autoFocus value={form.values.sale_price} onChange={fromSale} invalid={Boolean(form.errors.sale_price)} />}
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label={t('filament/resources/item.fields.profit_margin')} hint={t('filament/resources/item.actions.set_sale_price.profit_margin_hint')}>
-                        {(id) => <Input id={id} inputMode="decimal" dir="ltr" value={form.values.profit_margin} onChange={(event) => fromMargin(event.target.value)} />}
+                        {(id) => <MoneyInput id={id} value={form.values.profit_margin} onChange={fromMargin} />}
                     </Field>
                     <Field label={t('filament/resources/item.fields.profit_margin_percentage')} hint={t('filament/resources/item.actions.set_sale_price.profit_margin_percentage_hint')}>
                         {(id) => (

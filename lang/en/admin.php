@@ -40,8 +40,6 @@ return [
         'action_payment_hint' => 'A customer pays a debt',
         'action_financial_hint' => 'Boxes, expenses and debts',
         'greeting' => 'Hello, :name', 'subtitle' => 'Here is what needs your attention today.',
-        'reminders_all' => 'All', 'reminders_today' => 'Due today', 'reminders_late' => 'Late',
-        'late_since' => 'Late since :date', 'next_due' => 'Due :date', 'remaining_weeks' => ':weeks weeks left',
     ],
     'monitoring' => ['open_list' => 'Open the list'],
     'image_editor' => [

@@ -55,14 +55,14 @@ final class SalesPayload
      *
      * @return array{view: bool, update: bool, delete: bool, restore: bool, force_delete: bool}
      */
-    public static function abilities(Model $record): array
+    public static function abilities(Model $record, bool $editableWhenDeleted = false): array
     {
         $trashed = method_exists($record, 'trashed') && $record->trashed();
-        $key = 'sales_abilities|'.implode('|', [auth()->id(), $record::class, $trashed ? 'trashed' : 'active']);
+        $key = 'sales_abilities|'.implode('|', [auth()->id(), $record::class, $trashed ? 'trashed' : 'active', $editableWhenDeleted ? 'editable' : 'locked']);
         $attributes = request()->attributes;
 
         if (! $attributes->has($key)) {
-            $attributes->set($key, ListsRecords::abilitiesOf($record));
+            $attributes->set($key, ListsRecords::abilitiesOf($record, $editableWhenDeleted));
         }
 
         return $attributes->get($key);

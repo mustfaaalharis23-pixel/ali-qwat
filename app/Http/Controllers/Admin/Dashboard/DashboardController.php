@@ -176,12 +176,13 @@ class DashboardController extends Controller
 
     /**
      * The weekly payment reminders of today for the home page: every order with a weekly payment that is not fully paid,
-     * the late ones first. Only a user who may see the customer payments gets them.
+     * the late ones first. The page groups them by customer. Only a user who may see the customer payments gets them,
+     * and only one who may record a payment gets the pay buttons.
      */
     public function reminders(): JsonResponse
     {
         if (! Gate::allows('viewAny', CustomerPayment::class)) {
-            return response()->json(['visible' => false, 'rows' => []]);
+            return response()->json(['visible' => false, 'rows' => [], 'can_pay' => false]);
         }
 
         $rows = (new WeeklyPaymentReminders)->ordersOn(today())->map(fn (array $row): array => [
@@ -189,15 +190,21 @@ class DashboardController extends Controller
             'customer_id' => $row['order']->customer_id,
             'customer' => $row['order']->customer?->name,
             'phone' => $row['order']->customer?->phone,
+            'weekly_payment' => (float) $row['order']->weekly_payment,
             'late' => round($row['late'], 2),
             'late_since' => $row['late_since']?->toDateString(),
+            'days_late' => $row['late_since'] === null ? null : (int) $row['late_since']->diffInDays(today()),
             'next_due_date' => $row['next_due_date']?->toDateString(),
             'next_amount' => round($row['next_amount'], 2),
             'remaining' => round($row['remaining'], 2),
             'weeks_left' => $row['weeks_left'],
-            'is_due_today' => $row['next_due_date']?->isToday() ?? false,
+            'is_due_today' => ($row['next_due_date']?->isToday() ?? false) && $row['next_amount'] > 0.0001,
         ]);
 
-        return response()->json(['visible' => true, 'rows' => $rows->values()]);
+        return response()->json([
+            'visible' => true,
+            'rows' => $rows->values(),
+            'can_pay' => Gate::allows('create', CustomerPayment::class),
+        ]);
     }
 }

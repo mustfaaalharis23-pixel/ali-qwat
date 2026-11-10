@@ -1,4 +1,4 @@
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, useLayoutEffect, useRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { cn } from '../../lib/format';
 
 export const controlClass =
@@ -34,6 +34,58 @@ export function Field({ label, error, hint, required, className, children }: Fie
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(function Input({ className, invalid, ...props }, ref) {
     return <input ref={ref} aria-invalid={invalid || undefined} className={cn(controlClass, 'h-9', className?.match(/(^|\s)w-/) ? '' : 'w-full', className)} {...props} />;
 });
+
+/** A typed amount as a plain number: digits and one point only, no leading zeros, and at most two decimals. */
+function plainAmount(typed: string): string {
+    const [whole, ...decimals] = typed.replace(/[^\d.]/g, '').split('.');
+    const digits = whole.replace(/^0+(?=\d)/, '');
+    return decimals.length ? `${digits}.${decimals.join('').slice(0, 2)}` : digits;
+}
+
+/** An amount with thousands separators: 1500000.5 shows as 1,500,000.5. */
+function groupedAmount(amount: string): string {
+    const [whole, ...decimals] = amount.replace(/,/g, '').split('.');
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return decimals.length ? `${grouped}.${decimals.join('')}` : grouped;
+}
+
+/**
+ * The money field of the forms, as the panel's: while typing, the amount gets thousands separators (1,500,000.50) and at most
+ * two decimals. The value it hands over has no separators, so the server always gets a plain number.
+ */
+export function MoneyInput({ value, onChange, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { value: string | number | null | undefined; onChange: (value: string) => void; invalid?: boolean }) {
+    const input = useRef<HTMLInputElement>(null);
+    const digitsBeforeCaret = useRef<number | null>(null);
+
+    // The separators move as the amount grows, so the caret is put back after the same digits it was after.
+    useLayoutEffect(() => {
+        const element = input.current;
+        if (element === null || digitsBeforeCaret.current === null) return;
+        let position = 0;
+        for (let seen = 0; position < element.value.length && seen < digitsBeforeCaret.current; position++) {
+            if (element.value[position] !== ',') seen++;
+        }
+        element.setSelectionRange(position, position);
+        digitsBeforeCaret.current = null;
+    });
+
+    return (
+        <Input
+            ref={input}
+            inputMode="decimal"
+            dir="ltr"
+            autoComplete="off"
+            {...props}
+            value={groupedAmount(String(value ?? ''))}
+            onChange={(event) => {
+                const typed = event.target.value;
+                const plain = plainAmount(typed);
+                digitsBeforeCaret.current = Math.min(typed.slice(0, event.target.selectionStart ?? typed.length).replace(/[^\d.]/g, '').length, plain.length);
+                onChange(plain);
+            }}
+        />
+    );
+}
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }>(function Textarea({ className, invalid, ...props }, ref) {
     return <textarea ref={ref} aria-invalid={invalid || undefined} className={cn(controlClass, 'min-h-20 w-full py-2', className)} {...props} />;

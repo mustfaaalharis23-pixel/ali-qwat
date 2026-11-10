@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { api, ApiError } from '../../lib/api';
 import { useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { ConfirmDialog, Field, Input, toast, type MenuItem } from '../../components/ui';
+import { ConfirmDialog, Field, MoneyInput, toast, type MenuItem } from '../../components/ui';
 import { useRecordActions } from '../../components/RecordActions';
 import { yuan, type PurchaseInvoiceRow } from './shared';
 
@@ -61,8 +61,11 @@ export function useInvoiceActions(options: { onDeleted?: () => void } = {}) {
         },
     });
 
-    /** Printing, taking back a confirmation, and deleting or restoring: the "More" menu of the invoice's page. */
-    const more = (invoice: PurchaseInvoiceRow): MenuItem[] => [
+    /**
+     * Printing, taking back a confirmation, and deleting or restoring: the "More" menu of the invoice's page.
+     * On the page, an invoice with payoffs (its initial payment too) hides its delete, and one that ever had payoffs its delete forever.
+     */
+    const more = (invoice: PurchaseInvoiceRow & { has_payoffs?: boolean; has_any_payoffs?: boolean }): MenuItem[] => [
         { label: t('filament/resources/purchase_invoice.actions.print'), icon: <Printer className="size-4" />, href: invoice.print_url, hidden: Boolean(invoice.deleted_at) },
         { label: t('filament/resources/purchase_invoice.actions.print_label'), icon: <QrCode className="size-4" />, href: invoice.label_url, hidden: Boolean(invoice.deleted_at) },
         {
@@ -72,7 +75,10 @@ export function useInvoiceActions(options: { onDeleted?: () => void } = {}) {
             onSelect: () => setPending({ kind: 'revert', invoice }),
             hidden: !invoice.can.revert_confirmation,
         },
-        ...records.items(invoice),
+        ...records.items({
+            ...invoice,
+            can: { ...invoice.can, delete: invoice.can.delete && !invoice.has_payoffs, force_delete: invoice.can.force_delete && !invoice.has_any_payoffs },
+        }),
     ];
 
     /** Every action of a row of the list. */
@@ -127,7 +133,7 @@ export function useInvoiceActions(options: { onDeleted?: () => void } = {}) {
                     <Field label={t('filament/resources/purchase_invoice.actions.confirm.amount')} error={amountError} required>
                         {(id) => (
                             <div className="relative">
-                                <Input id={id} autoFocus inputMode="decimal" dir="ltr" value={amount} onChange={(event) => setAmount(event.target.value)} invalid={Boolean(amountError)} className="pe-8" />
+                                <MoneyInput id={id} autoFocus value={amount} onChange={setAmount} invalid={Boolean(amountError)} className="pe-8" />
                                 <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-faint">¥</span>
                             </div>
                         )}

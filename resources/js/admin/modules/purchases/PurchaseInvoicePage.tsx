@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { cn, date, dateTime, number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, Card, CardBody, CardHeader, DescriptionList, Field, Input, Menu, Modal, PageSpinner, toneOf } from '../../components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, DescriptionList, Field, Input, Menu, Modal, MoneyInput, PageSpinner, toneOf } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
 import { useRecordActions, type Abilities } from '../../components/RecordActions';
@@ -67,6 +67,7 @@ export interface PurchaseInvoice extends PurchaseInvoiceRow {
     notes: string | null;
     items: PurchaseLine[];
     has_payoffs: boolean;
+    has_any_payoffs: boolean;
 }
 
 export interface PageAbilities {
@@ -417,7 +418,7 @@ function PayoffForm({ invoiceId, payoff, remaining, onClose }: { invoiceId: numb
         >
             <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t('filament/resources/payoff.fields.amount')} error={form.errors.amount} hint={`≤ ${yuan(max)}`} required>
-                    {(id) => <Input id={id} inputMode="decimal" dir="ltr" value={form.values.amount} onChange={(event) => form.set('amount', event.target.value)} invalid={Boolean(form.errors.amount)} />}
+                    {(id) => <MoneyInput id={id} value={form.values.amount} onChange={(value) => form.set('amount', value)} invalid={Boolean(form.errors.amount)} />}
                 </Field>
                 <Field label={t('filament/resources/payoff.fields.date')} error={form.errors.date} required>
                     {(id) => <Input id={id} type="date" dir="ltr" value={form.values.date} onChange={(event) => form.set('date', event.target.value)} invalid={Boolean(form.errors.date)} />}

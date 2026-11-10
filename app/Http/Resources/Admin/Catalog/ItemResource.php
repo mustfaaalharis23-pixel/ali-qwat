@@ -71,7 +71,7 @@ class ItemResource extends JsonResource
             'quantities_by_color' => $this->when($this->withQuantities, fn (): array => $this->quantitiesByColor()->all()),
             'created_at' => $this->created_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
-            'can' => ListsRecords::abilitiesOf($this->resource),
+            'can' => ListsRecords::abilitiesOf($this->resource, editableWhenDeleted: true),
         ];
     }
 }

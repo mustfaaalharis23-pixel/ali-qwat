@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { cn } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, Card, CardBody, CardHeader, Empty, Field, Input, PageSpinner, Select, Skeleton, Textarea, toast } from '../../components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, Empty, Field, Input, MoneyInput, PageSpinner, Select, Skeleton, Textarea, toast } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { QueryError } from '../../pages/NotFound';
@@ -421,12 +421,12 @@ function CheckoutForm({ order }: { order: EditData | null }) {
 
                         {isPostpaid && !order && (
                             <Field label={field('down_payment')} error={form.errors.down_payment}>
-                                {(fieldId) => <Input id={fieldId} type="number" min={0} dir="ltr" placeholder={checkout('optional')} value={form.values.down_payment} invalid={Boolean(form.errors.down_payment)} onChange={(event) => form.set('down_payment', event.target.value)} />}
+                                {(fieldId) => <MoneyInput id={fieldId} placeholder={checkout('optional')} value={form.values.down_payment} invalid={Boolean(form.errors.down_payment)} onChange={(value) => form.set('down_payment', value)} />}
                             </Field>
                         )}
                         {isPostpaid && (
                             <Field label={field('weekly_payment')} error={form.errors.weekly_payment} hint={checkout('weekly_payment_hint')}>
-                                {(fieldId) => <Input id={fieldId} type="number" min={0} dir="ltr" placeholder={checkout('optional')} value={form.values.weekly_payment} invalid={Boolean(form.errors.weekly_payment)} onChange={(event) => form.set('weekly_payment', event.target.value)} />}
+                                {(fieldId) => <MoneyInput id={fieldId} placeholder={checkout('optional')} value={form.values.weekly_payment} invalid={Boolean(form.errors.weekly_payment)} onChange={(value) => form.set('weekly_payment', value)} />}
                             </Field>
                         )}
                         <Field label={field('notes')} error={form.errors.notes}>

@@ -76,17 +76,18 @@ trait ListsRecords
     }
 
     /**
-     * What the signed-in user may do with one record, for the buttons of its row and its page.
+     * What the signed-in user may do with one record, for the buttons of its row and its page. A deleted record is not edited,
+     * unless its kind is edited while deleted too (an item or a customer, as the panel allowed).
      *
      * @return array{view: bool, update: bool, delete: bool, restore: bool, force_delete: bool}
      */
-    public static function abilitiesOf(Model $record): array
+    public static function abilitiesOf(Model $record, bool $editableWhenDeleted = false): array
     {
         $trashed = method_exists($record, 'trashed') && $record->trashed();
 
         return [
             'view' => Gate::allows('view', $record),
-            'update' => ! $trashed && Gate::allows('update', $record),
+            'update' => (! $trashed || $editableWhenDeleted) && Gate::allows('update', $record),
             'delete' => ! $trashed && Gate::allows('delete', $record),
             'restore' => $trashed && Gate::allows('restore', $record),
             'force_delete' => $trashed && Gate::allows('forceDelete', $record),

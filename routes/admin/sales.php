@@ -24,9 +24,9 @@ Route::get('customers/{customer}/metrics/{key}', [CustomerController::class, 'me
 Route::get('customers/{customer}/payments', [CustomerController::class, 'payments'])->name('customers.payments');
 Route::post('customers/{customer}/restore', [CustomerController::class, 'restore'])->name('customers.restore');
 Route::delete('customers/{customer}/force', [CustomerController::class, 'forceDelete'])->name('customers.force-delete');
-Route::post('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update-with-files');
+Route::post('customers/{customer}', [CustomerController::class, 'update'])->withTrashed()->name('customers.update-with-files');
 Route::get('customers/{customer}', [CustomerController::class, 'show'])->whereNumber('customer')->name('customers.show');
-Route::apiResource('customers', CustomerController::class)->except('show');
+Route::apiResource('customers', CustomerController::class)->except('show')->withTrashed(['update']);
 
 Route::prefix('customer-payments')->name('customer-payments.')->controller(CustomerPaymentController::class)->group(function (): void {
     Route::get('overview', 'overview')->name('overview');

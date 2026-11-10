@@ -46,7 +46,7 @@ const amountOf = (value: string | undefined) => Math.max(Number((value ?? '').re
 
 /**
  * The payment window (the panel's pay debt action): one amount for each order the customer still owes on, each with a button that
- * fills what is left on it, a preview of the debt, what is being paid, and what remains, then the date, a receipt image, and notes.
+ * fills what is left on it in whole dinars, a preview of the debt, what is being paid, and what remains, then the date, a receipt image, and notes.
  * Opened on a customer it pays that customer's orders; opened on an order, only that order; opened with neither, it asks for the customer.
  * Once recorded, the receipt can be printed from the window.
  */
@@ -170,7 +170,7 @@ export function PayDebtModal({ customerId, orderId, onClose }: { customerId?: nu
                                             />
                                         )}
                                     </Field>
-                                    <Button onClick={() => setAmounts((current) => ({ ...current, [order.id]: typedAmount(String(Math.round(order.remaining * 100) / 100)) }))}>
+                                    <Button onClick={() => setAmounts((current) => ({ ...current, [order.id]: typedAmount(String(Math.round(order.remaining))) }))}>
                                         {t(`${key}pay_order_all`)}
                                     </Button>
                                 </div>

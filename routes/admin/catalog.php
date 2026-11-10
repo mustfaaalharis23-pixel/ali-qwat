@@ -28,7 +28,7 @@ Route::prefix('items')->name('items.')->controller(ItemController::class)->group
     Route::post('{item}/recalculate-stock', 'recalculateStock')->name('recalculate-stock');
     Route::put('{item}/supplier', 'supplier')->name('supplier');
 });
-Route::apiResource('items', ItemController::class)->except('show');
+Route::apiResource('items', ItemController::class)->except('show')->withTrashed(['update']);
 
 Route::get('batches', [BatchController::class, 'index'])->name('batches.index');
 

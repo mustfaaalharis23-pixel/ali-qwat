@@ -20,8 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * The period reports of the admin application: sales, purchases, item sales, and the golden report.
  *
  * Every report is its own class in app/Reports, so the rows and the totals are worked out there.
- * A report opens on the last three months until today, a period is a single day when it has no end, and a day after
- * today is never asked for. Who may open a report is what the report allows (canAccess).
+ * A report opens on the last three months until today, and a period is a single day when it has no end. As in the panel,
+ * only the page's date picker keeps a day after today from being chosen. Who may open a report is what the report allows (canAccess).
  */
 class ReportController extends Controller
 {
@@ -111,8 +111,8 @@ class ReportController extends Controller
         abort_unless($class::canAccess(), 403);
 
         $validated = $request->validate([
-            'from' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from', 'before_or_equal:today'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             ...$this->filterRules($report),
         ]);
 

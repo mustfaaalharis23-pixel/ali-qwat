@@ -40,8 +40,6 @@ return [
         'action_payment_hint' => '客户偿还欠款',
         'action_financial_hint' => '资金、费用与欠款',
         'greeting' => '您好，:name', 'subtitle' => '以下是今天需要您关注的事项。',
-        'reminders_all' => '全部', 'reminders_today' => '今日到期', 'reminders_late' => '逾期',
-        'late_since' => '自 :date 起逾期', 'next_due' => ':date 到期', 'remaining_weeks' => '剩余 :weeks 周',
     ],
     'monitoring' => ['open_list' => '打开列表'],
     'image_editor' => [
