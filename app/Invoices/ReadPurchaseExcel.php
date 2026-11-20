@@ -98,6 +98,9 @@ class ReadPurchaseExcel
     public function handle(string $path): array
     {
         $rows = $this->rows($path);
+        if (ExcelTemplate::hasLocalizedTitle($rows[1] ?? [], 'item_excel')) {
+            throw ValidationException::withMessages(['file' => __('invoices.excel.items_template')]);
+        }
 
         $translations = array_map(PurchaseExcelTemplate::translations(...), array_keys(config('app.locales')));
         $templateColumns = ExcelTemplate::columnPositions($rows[self::HEADER_ROW] ?? [], array_column($translations, 'columns'), __('invoices.excel.not_the_template'));

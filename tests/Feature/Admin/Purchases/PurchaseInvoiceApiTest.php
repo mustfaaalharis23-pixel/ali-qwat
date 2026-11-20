@@ -262,6 +262,24 @@ class PurchaseInvoiceApiTest extends TestCase
     }
 
     /**
+     * EN: Uploading either AKA template to the other importer explains which screen accepts the file.
+     * AR: رفع أي قالب AKA بمكان القالب الثاني يوضح للمستخدم الشاشة الصحيحة للملف.
+     */
+    public function test_the_excel_imports_explain_when_the_other_aka_template_is_uploaded(): void
+    {
+        $this->actingAs($this->userWith('invoice.create', 'item.create'));
+        $items = $this->get('/admin-api/items/excel/template?languages[]=ar')->assertOk()->streamedContent();
+        $purchases = $this->get('/admin-api/purchase-invoices/excel/template?languages[]=zh_CN')->assertOk()->streamedContent();
+
+        $this->postJson('/admin-api/purchase-invoices/excel', [
+            'file' => UploadedFile::fake()->createWithContent('renamed.xlsx', $items),
+        ])->assertJsonValidationErrors('file')->assertJsonPath('errors.file.0', __('invoices.excel.items_template'));
+        $this->postJson('/admin-api/items/excel', [
+            'file' => UploadedFile::fake()->createWithContent('renamed.xlsx', $purchases),
+        ])->assertJsonValidationErrors('file')->assertJsonPath('errors.file.0', __('item_excel.purchase_template'));
+    }
+
+    /**
      * EN: Every language selection appears in the workbook headers and instructions and can be imported after the factory fills it in.
      * AR: كل مجموعة لغات مختارة تظهر بعناوين القالب وتعليماته، ويظل القالب قابل للاستيراد بعد تعبئة المعمل.
      *

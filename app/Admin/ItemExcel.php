@@ -2,6 +2,7 @@
 
 namespace App\Admin;
 
+use App\Invoices\PurchaseExcelTemplate;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\Supplier;
@@ -162,6 +163,12 @@ class ItemExcel
             $reader->open($path);
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $number => $row) {
+                    if ($number === 1) {
+                        $title = $row->toArray();
+                        if (in_array(PurchaseExcelTemplate::MARKER, $title, true) || ExcelTemplate::hasLocalizedTitle($title, 'purchase_excel')) {
+                            throw ValidationException::withMessages(['file' => __('item_excel.purchase_template')]);
+                        }
+                    }
                     if ($number === 2) {
                         $columns = ExcelTemplate::columnPositions($row->toArray(), $labels, __('item_excel.wrong_template'));
                         if (! isset($columns['name'])) {

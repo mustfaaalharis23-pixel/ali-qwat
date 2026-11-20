@@ -12,6 +12,16 @@ class ExcelTemplate
 {
     public const int FIRST_DATA_ROW = 4;
 
+    /** @param array<int|string, mixed> $titleRow */
+    public static function hasLocalizedTitle(array $titleRow, string $translationGroup): bool
+    {
+        return array_any(array_keys(config('app.locales')), fn (string $locale): bool => in_array(
+            __("{$translationGroup}.order_title", [], $locale),
+            $titleRow,
+            true,
+        ));
+    }
+
     /**
      * @param  non-empty-list<array{order_tab: string, order_title: string, start_row: string, guide_tab: string, guide_title: string, columns: array<string, string>, instructions: list<string>}>  $translations
      * @param  list<int>  $columnWidths
