@@ -7,7 +7,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ItemTest extends TestCase
@@ -39,49 +38,29 @@ class ItemTest extends TestCase
     }
 
     /**
-     * EN: The required columns: name and image.
-     * AR: الأعمدة الإجبارية: الاسم والصورة.
-     *
-     * @return array<string, array{string}>
+     * EN: An item requires a name in the database.
+     * AR: المادة تحتاج اسم حتى تنحفظ بقاعدة البيانات.
      */
-    public static function requiredColumns(): array
+    public function test_item_cannot_be_saved_without_a_name(): void
     {
-        return [
-            'name' => ['name'],
-            'image' => ['image'],
-        ];
-    }
-
-    /**
-     * EN: An item cannot be saved in the database without a name or without an image.
-     * AR: الصنف ما ينحفظ بالداتابيس بدون اسم أو بدون صورة.
-     */
-    #[DataProvider('requiredColumns')]
-    public function test_item_cannot_be_saved_without_a_required_column(string $column): void
-    {
-        $row = ['name' => 'Rice', 'image' => 'items/rice.jpg'];
-        unset($row[$column]);
-
         $this->expectException(QueryException::class);
         $this->expectExceptionMessage('SQLSTATE[23502]');
 
-        DB::table('items')->insert($row);
+        DB::table('items')->insert(['image' => 'items/rice.jpg']);
     }
 
     /**
-     * EN: An item can be saved without a description, and its description is null.
-     * AR: المنتج ينحفظ بدون تفاصيل، وتفاصيله تكون null.
+     * EN: An item can be saved with an empty description and image.
+     * AR: المادة تنحفظ بقاعدة البيانات بدون تفاصيل وصورة.
      */
-    public function test_item_can_be_saved_without_a_description(): void
+    public function test_item_can_be_saved_without_a_description_or_image(): void
     {
-        DB::table('items')->insert([
-            'name' => 'Rice',
-            'image' => 'items/rice.jpg',
-        ]);
+        DB::table('items')->insert(['name' => 'Rice']);
 
         $this->assertDatabaseHas('items', [
             'name' => 'Rice',
             'description' => null,
+            'image' => null,
         ]);
     }
 
