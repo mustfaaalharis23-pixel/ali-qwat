@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Archive, Banknote, Box, ImageUp, RotateCcw, Trash2, Wand2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, Card, CardBody, CardHeader, Field, Input, MoneyInput, PageSpinner, Select, Textarea, Toggle } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
@@ -20,6 +21,7 @@ const PACKET_SIZES = [20, 24];
 interface ItemValues extends Record<string, unknown> {
     name: string;
     supplier_id: number | null;
+    item_category_id: number | null;
     pieces_per_packet: string;
     description: string;
     is_active: boolean;
@@ -33,6 +35,7 @@ interface ItemValues extends Record<string, unknown> {
 function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost: boolean }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const fileInput = useRef<HTMLInputElement>(null);
     const [image, setImage] = useState<File | null>(null);
     const imageEditor = useImageEditor();
@@ -40,6 +43,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
     const form = useForm<ItemValues>({
         name: item?.name ?? '',
         supplier_id: item?.supplier_id ?? null,
+        item_category_id: item?.item_category_id ?? null,
         pieces_per_packet: item?.pieces_per_packet ? String(item.pieces_per_packet) : '',
         description: item?.description ?? '',
         is_active: item?.is_active ?? true,
@@ -52,6 +56,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
             const body = new FormData();
             body.append('name', values.name);
             body.append('supplier_id', values.supplier_id ? String(values.supplier_id) : '');
+            body.append('item_category_id', values.item_category_id ? String(values.item_category_id) : '');
             body.append('pieces_per_packet', values.pieces_per_packet);
             body.append('description', values.description);
             body.append('is_active', values.is_active ? '1' : '0');
@@ -63,7 +68,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
         {
             invalidate: ITEM_INVALIDATE,
             success: t('admin.actions.saved'),
-            onSuccess: (result) => navigate(`/items/${result.data.id}`),
+            onSuccess: (result) => another.after(() => navigate(`/items/${result.data.id}`)),
             onError: form.fail,
         },
     );
@@ -102,6 +107,18 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
                         <Field label={t('filament/resources/item.fields.name')} error={form.errors.name} required>
                             {(id) => <Input id={id} autoFocus={!item} maxLength={255} value={form.values.name} onChange={(event) => form.set('name', event.target.value)} invalid={Boolean(form.errors.name)} />}
                         </Field>
+                        <Field label={t('filament/resources/item.fields.item_category_id')} error={form.errors.item_category_id}>
+                            {(id) => (
+                                <SearchSelect
+                                    id={id}
+                                    endpoint="/options/item-categories"
+                                    value={form.values.item_category_id}
+                                    initialLabel={item?.category?.name}
+                                    onChange={(value) => form.set('item_category_id', value === null ? null : Number(value))}
+                                    invalid={Boolean(form.errors.item_category_id)}
+                                />
+                            )}
+                        </Field>
                         <Field label={t('filament/resources/item.fields.supplier_id')} error={form.errors.supplier_id}>
                             {(id) => (
                                 <SearchSelect
@@ -114,7 +131,7 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
                                 />
                             )}
                         </Field>
-                        <Field label={t('filament/resources/item.fields.image')} hint={t('admin/catalog.image_hint')} error={form.errors.image} required>
+                        <Field label={t('filament/resources/item.fields.image')} hint={t('admin/catalog.image_hint')} error={form.errors.image} required={!item}>
                             {(id) => (
                                 <div className="flex items-center gap-3">
                                     <ItemThumb url={preview} className="size-16" />
@@ -210,7 +227,8 @@ function ItemForm({ item, canSeeTheCost }: { item: ItemRow | null; canSeeTheCost
                     <Button type="button" onClick={() => navigate(item ? `/items/${item.id}` : '/items')}>
                         {t('admin.actions.cancel')}
                     </Button>
-                    <Button type="submit" variant="primary" loading={save.isPending}>
+                    {!item && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                    <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                         {item ? t('admin.actions.save_changes') : t('admin.actions.create')}
                     </Button>
                 </div>

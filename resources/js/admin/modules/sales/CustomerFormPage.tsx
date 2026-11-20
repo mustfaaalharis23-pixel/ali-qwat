@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText, Paperclip, User } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Button, Card, CardBody, CardHeader, Field, Input, PageSpinner, Toggle } from '../../components/ui';
 import { useImageEditor } from '../../components/ImageEditor';
 import { PageHeader } from '../../components/PageHeader';
@@ -24,6 +25,7 @@ export function CustomerFormPage() {
 function CustomerForm({ customer }: { customer: Customer | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const field = (name: string) => t(`filament/resources/customer.fields.${name}`);
     const form = useForm({
         name: customer?.name ?? '',
@@ -51,7 +53,7 @@ function CustomerForm({ customer }: { customer: Customer | null }) {
         {
             invalidate: ['list', 'record', 'options', 'sales'],
             success: t('admin.actions.saved'),
-            onSuccess: (result) => navigate(`/customers/${result.data.id}`),
+            onSuccess: (result) => another.after(() => navigate(`/customers/${result.data.id}`)),
             onError: form.fail,
         },
     );
@@ -127,7 +129,8 @@ function CustomerForm({ customer }: { customer: Customer | null }) {
 
                 <div className="flex justify-end gap-2">
                     <Button onClick={() => navigate(customer ? `/customers/${customer.id}` : '/customers')}>{t('admin.actions.cancel')}</Button>
-                    <Button type="submit" variant="primary" loading={save.isPending}>
+                    {!customer && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                    <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                         {customer ? t('admin.actions.save_changes') : t('admin.actions.create')}
                     </Button>
                 </div>

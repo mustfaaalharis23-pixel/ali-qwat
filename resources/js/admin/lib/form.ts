@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from './api';
 import { toast } from '../components/ui/Toast';
@@ -51,3 +52,35 @@ export function useSave<TBody, TResult>(save: (body: TBody) => Promise<TResult>,
         },
     });
 }
+
+/**
+ * "Create & create another" on a create form: the button marks the save, and after it the form starts again empty instead
+ * of going to the new record. A create page opens again fresh at its own path; a modal passes its own way to start again.
+ */
+export function useCreateAnother() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const asked = useRef(false);
+
+    return {
+        /** Marks the coming save: true from the "create another" button, false from the plain create button. */
+        ask: (another: boolean) => {
+            asked.current = another;
+        },
+        /** After a create: starts again when "create another" was pressed, otherwise runs `then`. */
+        after: (then: () => void, again?: () => void) => {
+            const another = asked.current;
+            asked.current = false;
+            if (!another) {
+                then();
+            } else if (again) {
+                again();
+            } else {
+                navigate(`${location.pathname}${location.search}`, { replace: true });
+                window.scrollTo(0, 0);
+            }
+        },
+    };
+}
+
+export type CreateAnother = ReturnType<typeof useCreateAnother>;

@@ -3,7 +3,7 @@
 return [
     'actions' => [
         'close' => 'Close', 'cancel' => 'Cancel', 'confirm' => 'Confirm', 'info' => 'More info', 'save' => 'Save', 'save_changes' => 'Save changes',
-        'create' => 'Create', 'new' => 'New', 'edit' => 'Edit', 'view' => 'View', 'delete' => 'Delete', 'restore' => 'Restore',
+        'create' => 'Create', 'create_another' => 'Create & create another', 'new' => 'New', 'edit' => 'Edit', 'view' => 'View', 'delete' => 'Delete', 'restore' => 'Restore',
         'force_delete' => 'Delete forever', 'back' => 'Back', 'print' => 'Print', 'download' => 'Download', 'add' => 'Add', 'remove' => 'Remove',
         'search' => 'Search', 'apply' => 'Apply', 'reset' => 'Reset', 'export' => 'Export', 'saved' => 'Saved', 'deleted' => 'Deleted',
         'restored' => 'Restored', 'created' => 'Created', 'updated' => 'Updated', 'yes' => 'Yes', 'no' => 'No', 'more' => 'More',

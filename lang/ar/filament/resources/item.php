@@ -21,6 +21,7 @@ return [
         'description' => 'التفاصيل',
         'is_active' => 'فعال',
         'supplier_id' => 'المورد',
+        'item_category_id' => 'الفئة',
         'sale_price' => 'سعر بيع الدرزن',
         'cost_price' => 'كلفة الدرزن',
         'profit_margin' => 'هامش الربح',

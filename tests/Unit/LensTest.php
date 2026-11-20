@@ -97,8 +97,7 @@ class LensTest extends TestCase
     #[DataProvider('groupLabels')]
     public function test_lens_is_listed_under_the_lenses_group_in_the_current_language(string $locale, string $group): void
     {
-        $lensesGroup = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]))
-            ->withSession(['locale' => $locale])
+        $lensesGroup = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true, 'locale' => $locale]))
             ->getJson('/admin-api/navigation')
             ->assertOk()
             ->json('groups'))->firstWhere('key', 'lenses');

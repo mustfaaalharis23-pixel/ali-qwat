@@ -1,0 +1,1 @@
+import{C as e,Jt as t,it as n}from"./ui-BN_4sclA.js";var r=t();function i({another:t,onClick:i,disabled:a,className:o}){let s=n();return(0,r.jsx)(e,{className:o,disabled:a,onClick:e=>{t.ask(!0),i?i():e.currentTarget.form?.requestSubmit()},children:s(`admin.actions.create_another`)})}export{i as t};

@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -164,7 +165,7 @@ class PurchaseInvoiceRequest extends FormRequest
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
             'items.*.colors' => ['nullable', 'array'],
             'items.*.colors.*.id' => ['nullable', 'integer'],
-            'items.*.colors.*.color_id' => ['required', 'integer', 'distinct', Rule::exists('colors', 'id')->whereNull('deleted_at')],
+            'items.*.colors.*.color_id' => ['required', 'integer', $this->colorOnceInItsLine(), Rule::exists('colors', 'id')->whereNull('deleted_at')],
             'items.*.colors.*.pieces' => ['required', 'integer', 'gt:0'],
             'items.*.groups' => ['nullable', 'array'],
             'items.*.groups.*.id' => ['nullable', 'integer'],
@@ -370,6 +371,24 @@ class PurchaseInvoiceRequest extends FormRequest
                     'packet' => Number::format($this->piecesPerPacketOf($line), maxPrecision: 2),
                     'packets' => Number::format($packets, maxPrecision: 2),
                 ]));
+            }
+        };
+    }
+
+    /**
+     * A color is written once inside its own line; other lines, even of the same item, choose their colors freely.
+     * Laravel's distinct rule is not used, since on "items.*.colors.*" it compares the colors of all the lines together.
+     */
+    private function colorOnceInItsLine(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            $lineColors = (array) $this->input(Str::beforeLast($attribute, '.colors.').'.colors', []);
+            $times = collect($lineColors)
+                ->filter(fn (mixed $color): bool => is_array($color) && (string) ($color['color_id'] ?? '') === (string) $value)
+                ->count();
+
+            if ($times > 1) {
+                $fail(__('validation.distinct'));
             }
         };
     }

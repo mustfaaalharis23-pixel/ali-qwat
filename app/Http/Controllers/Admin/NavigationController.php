@@ -22,6 +22,7 @@ use App\Models\GeneralDescription;
 use App\Models\Invoice;
 use App\Models\InvoiceCategory;
 use App\Models\Item;
+use App\Models\ItemCategory;
 use App\Models\LensPower;
 use App\Models\Order;
 use App\Models\SpecificDescription;
@@ -66,6 +67,7 @@ class NavigationController extends Controller
         ['key' => 'suppliers', 'group' => 'purchases', 'sort' => 3, 'icon' => 'o-truck', 'model' => Supplier::class, 'label' => 'supplier'],
         ['key' => 'colors', 'group' => 'items_management', 'sort' => 0, 'icon' => 'o-swatch', 'model' => Color::class, 'label' => 'color'],
         ['key' => 'lens-powers', 'group' => 'items_management', 'sort' => 0, 'icon' => 'o-eye', 'model' => LensPower::class, 'label' => 'lens_power'],
+        ['key' => 'item-categories', 'group' => 'items_management', 'sort' => 0, 'icon' => 'o-tag', 'model' => ItemCategory::class, 'label' => 'item_category'],
         ['key' => 'items', 'group' => 'items_management', 'sort' => 1, 'icon' => 'o-cube', 'model' => Item::class, 'label' => 'item'],
         ['key' => 'general-descriptions', 'group' => 'accounting', 'sort' => 1, 'icon' => 'o-tag', 'model' => GeneralDescription::class, 'label' => 'general_description'],
         ['key' => 'general-invoices', 'group' => 'accounting', 'sort' => 2, 'icon' => 'o-document-text', 'model' => Invoice::class, 'label' => 'general_invoice'],

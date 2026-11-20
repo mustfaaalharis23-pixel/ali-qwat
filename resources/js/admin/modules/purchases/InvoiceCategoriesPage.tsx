@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, Field, Input, Modal } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -20,11 +21,12 @@ interface InvoiceCategory {
 
 function CategoryForm({ category, onClose }: { category: InvoiceCategory | null; onClose: () => void }) {
     const t = useT();
+    const another = useCreateAnother();
     const form = useForm({ name: category?.name ?? '' });
     const save = useSave((body: typeof form.values) => (category ? api.put(`/invoice-categories/${category.id}`, body) : api.post('/invoice-categories', body)), {
         invalidate: ['list', 'options'],
         success: t('admin.actions.saved'),
-        onSuccess: onClose,
+        onSuccess: () => another.after(onClose, () => form.reset()),
         onError: form.fail,
     });
 
@@ -37,7 +39,15 @@ function CategoryForm({ category, onClose }: { category: InvoiceCategory | null;
             footer={
                 <>
                     <Button onClick={onClose}>{t('admin.actions.cancel')}</Button>
-                    <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(form.values)}>
+                    {!category && <CreateAnotherButton another={another} disabled={save.isPending} onClick={() => save.mutate(form.values)} />}
+                    <Button
+                        variant="primary"
+                        loading={save.isPending}
+                        onClick={() => {
+                            another.ask(false);
+                            save.mutate(form.values);
+                        }}
+                    >
                         {t('admin.actions.save')}
                     </Button>
                 </>
@@ -46,6 +56,7 @@ function CategoryForm({ category, onClose }: { category: InvoiceCategory | null;
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
+                    another.ask(false);
                     save.mutate(form.values);
                 }}
             >

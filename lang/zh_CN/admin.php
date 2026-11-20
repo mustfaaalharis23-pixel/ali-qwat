@@ -3,7 +3,7 @@
 return [
     'actions' => [
         'close' => '关闭', 'cancel' => '取消', 'confirm' => '确认', 'info' => '更多信息', 'save' => '保存', 'save_changes' => '保存更改',
-        'create' => '创建', 'new' => '新建', 'edit' => '编辑', 'view' => '查看', 'delete' => '删除', 'restore' => '恢复',
+        'create' => '创建', 'create_another' => '创建并继续创建', 'new' => '新建', 'edit' => '编辑', 'view' => '查看', 'delete' => '删除', 'restore' => '恢复',
         'force_delete' => '永久删除', 'back' => '返回', 'print' => '打印', 'download' => '下载', 'add' => '添加', 'remove' => '移除',
         'search' => '搜索', 'apply' => '应用', 'reset' => '重置', 'export' => '导出', 'saved' => '已保存', 'deleted' => '已删除',
         'restored' => '已恢复', 'created' => '已创建', 'updated' => '已更新', 'yes' => '是', 'no' => '否', 'more' => '更多',

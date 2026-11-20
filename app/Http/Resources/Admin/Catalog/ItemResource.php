@@ -57,6 +57,8 @@ class ItemResource extends JsonResource
             'description' => $this->description,
             'supplier_id' => $this->supplier_id,
             'supplier' => $this->whenLoaded('supplier', fn (): ?array => $this->supplier === null ? null : ['id' => $this->supplier->id, 'name' => $this->supplier->name_ar]),
+            'item_category_id' => $this->item_category_id,
+            'category' => $this->whenLoaded('category', fn (): ?array => $this->category === null ? null : ['id' => $this->category->id, 'name' => $this->category->name]),
             'pieces_per_packet' => $this->pieces_per_packet,
             'sale_price' => (float) $this->sale_price,
             'piece_sale_price' => Item::piecePrice((float) $this->sale_price),

@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin\Catalog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Item;
+use App\Models\ItemCategory;
 use App\Models\LensPower;
 use App\Models\Supplier;
 use App\Models\User;
@@ -12,6 +13,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Reader\XLSX\Reader;
+use OpenSpout\Writer\XLSX\Writer;
 use Tests\TestCase;
 
 class ItemApiTest extends TestCase
@@ -150,6 +154,129 @@ class ItemApiTest extends TestCase
         $this->actingAs($this->userWith('item.view'))
             ->post('/admin-api/items', ['name' => 'Frame', 'pieces_per_packet' => 24, 'image' => UploadedFile::fake()->image('frame.png')], ['Accept' => 'application/json'])
             ->assertForbidden();
+    }
+
+    /**
+     * EN: Excel previews the rows before saving a batch without images, links supplier and category, and permits a later photo.
+     * AR: Excel يعرض السطور قبل حفظ المواد دفعة وحدة بلا صور، ويربط المورد والفئة وتنگدر تضيف الصورة بعدين.
+     */
+    public function test_excel_previews_and_imports_multiple_items_without_images(): void
+    {
+        Storage::fake('public');
+        $category = ItemCategory::factory()->create(['name' => 'Reading']);
+        $supplier = Supplier::factory()->create(['name_zh' => '眼镜工厂']);
+        $this->actingAs($this->userWith('item.view', 'item.create', 'item.update'));
+
+        $file = $this->itemsWorkbook([
+            ['001', 20, 'Reading', '眼镜工厂', 15000, 'Metal'],
+            ['FRAME-2', 24],
+        ]);
+
+        $this->postJson('/admin-api/items/excel', ['file' => $file])->assertOk()
+            ->assertJsonCount(2, 'rows')
+            ->assertJsonPath('rows.0.name', '001')
+            ->assertJsonPath('rows.0.row', 4)
+            ->assertJsonPath('rows.0.category', 'Reading')
+            ->assertJsonPath('rows.0.errors', []);
+        $this->assertDatabaseCount('items', 0);
+
+        $this->postJson('/admin-api/items/excel/import', ['file' => $file, 'rows' => [4, 5]])
+            ->assertCreated()->assertJsonPath('count', 2);
+
+        $item = Item::query()->where('name', '001')->sole();
+        $this->assertNull($item->image);
+        $this->assertSame($category->id, $item->item_category_id);
+        $this->assertSame($supplier->id, $item->supplier_id);
+        $this->assertSame(15000.0, $item->sale_price);
+        $this->assertSame('001', $item->specificDescription->name);
+        $this->assertDatabaseHas('items', ['name' => 'FRAME-2', 'image' => null, 'sale_price' => 0]);
+
+        $this->post("/admin-api/items/{$item->id}", [
+            '_method' => 'PUT', 'name' => $item->name, 'pieces_per_packet' => 20,
+            'image' => UploadedFile::fake()->image('frame.png'),
+        ], ['Accept' => 'application/json'])->assertOk();
+        Storage::disk('public')->assertExists($item->fresh()->image);
+
+        $this->postJson('/admin-api/items/excel/import', ['file' => $file, 'rows' => [4, 5]])
+            ->assertJsonValidationErrors(['rows.4', 'rows.5']);
+        $this->assertDatabaseCount('items', 2);
+    }
+
+    /**
+     * EN: Invalid data is reported on its original row and valid rows can be imported separately.
+     * AR: البيانات الغلط تبين برقم سطرها، ونكدر نخلي بس السطور السليمة تنحفظ.
+     */
+    public function test_excel_reports_bad_rows_and_imports_only_selected_valid_rows(): void
+    {
+        Item::factory()->create(['name' => 'EXISTING']);
+        $this->actingAs($this->userWith('item.create'));
+        $file = $this->itemsWorkbook([
+            ['existing', 20],
+            [],
+            ['BAD', 22, 'Unknown', null, -1],
+            ['READY', 24],
+        ]);
+
+        $preview = $this->postJson('/admin-api/items/excel', ['file' => $file])->assertOk()->json('rows');
+        $this->assertSame([4, 6, 7], array_column($preview, 'row'));
+        $this->assertArrayHasKey('name', $preview[0]['errors']);
+        $this->assertSame(['pieces_per_packet', 'category', 'sale_price'], array_keys($preview[1]['errors']));
+        $this->assertSame([], $preview[2]['errors']);
+
+        $this->postJson('/admin-api/items/excel/import', ['file' => $file, 'rows' => [6, 7]])->assertJsonValidationErrors('rows.6');
+        $this->assertDatabaseMissing('items', ['name' => 'READY']);
+
+        $this->postJson('/admin-api/items/excel/import', ['file' => $file, 'rows' => [7]])->assertCreated()->assertJsonPath('count', 1);
+        $this->assertDatabaseHas('items', ['name' => 'READY']);
+    }
+
+    /**
+     * EN: Downloading the workbook, previewing it and importing it require the item creation permission.
+     * AR: تنزيل القالب ومعاينته واستيراده تحتاج صلاحية إنشاء مادة.
+     */
+    public function test_items_excel_requires_create_permission(): void
+    {
+        $this->actingAs($this->userWith('item.view'));
+
+        $this->getJson('/admin-api/items/excel/template')->assertForbidden();
+        $this->postJson('/admin-api/items/excel')->assertForbidden();
+        $this->postJson('/admin-api/items/excel/import')->assertForbidden();
+    }
+
+    /** @param list<list<string|int|null>> $rows */
+    private function itemsWorkbook(array $rows): UploadedFile
+    {
+        $download = $this->get('/admin-api/items/excel/template?languages[]=ar&languages[]=en&languages[]=zh_CN')
+            ->assertDownload('AKA-items-template.xlsx')->streamedContent();
+        $template = UploadedFile::fake()->createWithContent('blank.xlsx', $download);
+        $reader = new Reader;
+        $reader->open($template->getPathname());
+        $path = tempnam(sys_get_temp_dir(), 'items-excel-');
+        $writer = new Writer;
+        $writer->openToFile($path);
+
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $number => $row) {
+                    if ($number > 3) {
+                        break;
+                    }
+
+                    $writer->addRow($row);
+                }
+                break;
+            }
+
+            foreach ($rows as $row) {
+                $writer->addRow(Row::fromValues($row));
+            }
+            $writer->close();
+
+            return UploadedFile::fake()->createWithContent('items.xlsx', file_get_contents($path));
+        } finally {
+            $reader->close();
+            unlink($path);
+        }
     }
 
     /**

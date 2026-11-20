@@ -22,6 +22,10 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Reader\XLSX\Reader;
+use OpenSpout\Writer\XLSX\Writer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PurchaseInvoiceApiTest extends TestCase
@@ -183,6 +187,271 @@ class PurchaseInvoiceApiTest extends TestCase
             ->assertJsonValidationErrors('items');
 
         $this->assertSame(0, Invoice::query()->count());
+    }
+
+    /**
+     * EN: Each line chooses its colors freely: the same item with the same two colors on two lines is saved;
+     *     only a color written twice inside the same line is refused, on that line alone.
+     * AR: كل بند يختار ألوانه بكيفه: نفس المادة بنفس اللونين ببندين تنحفظ؛
+     *     بس اللون المكتوب مرتين بنفس البند ينرفض، على هذا البند بس.
+     */
+    public function test_lines_may_share_colors_but_a_line_may_not_repeat_one(): void
+    {
+        $this->bankAnswers(7);
+        [$red, $black] = [Color::factory()->create(), Color::factory()->create()];
+        $this->actingAs($this->userWith('invoice.view', 'invoice.create'));
+        $this->getJson('/admin-api/purchase-invoices/create');
+
+        $payload = $this->payload(['colors' => [['color_id' => $red->id, 'pieces' => 12], ['color_id' => $black->id, 'pieces' => 12]]]);
+        $line = $payload['items'][0];
+        $redTwice = [...$line, 'colors' => [['color_id' => $red->id, 'pieces' => 12], ['color_id' => $red->id, 'pieces' => 12]]];
+
+        $this->postJson('/admin-api/purchase-invoices', [...$payload, 'items' => [$line, $redTwice]])
+            ->assertJsonValidationErrors('items.1.colors.1.color_id')
+            ->assertJsonMissingValidationErrors(['items.0.colors.0.color_id', 'items.0.colors.1.color_id']);
+        $this->assertSame(0, Invoice::query()->count());
+
+        $this->postJson('/admin-api/purchase-invoices', [...$payload, 'items' => [$line, $line]])->assertCreated();
+
+        $lines = InvoiceItem::query()->get();
+        $this->assertCount(2, $lines);
+
+        foreach ($lines as $saved) {
+            $this->assertEqualsCanonicalizing([$red->id, $black->id], $saved->colors()->pluck('color_id')->all());
+        }
+    }
+
+    /**
+     * EN: The create form reads a supplier's Excel file: it needs the create permission and an xlsx file, and sends back
+     *     the file's lines and totals as read, without saving anything.
+     * AR: فورم الإنشاء يقرا ملف Excel مال المورد: يحتاج صلاحية الإنشاء وملف xlsx، ويرجّع
+     *     بنود الملف ومجاميعه مثل ما انقرت، بدون ما يحفظ أي شي.
+     */
+    public function test_the_create_form_reads_a_suppliers_excel_file(): void
+    {
+        $file = fn (): UploadedFile => new UploadedFile(base_path('tests/Fixtures/purchase-excel/synthetic-reading-glasses.xlsx'), 'reading-glasses.xlsx', test: true);
+
+        $this->actingAs($this->userWith('invoice.view'))->postJson('/admin-api/purchase-invoices/excel', ['file' => $file()])->assertForbidden();
+
+        $this->actingAs($this->userWith('invoice.view', 'invoice.create'));
+        $this->postJson('/admin-api/purchase-invoices/excel', ['file' => UploadedFile::fake()->create('order.pdf', 10, 'application/pdf')])
+            ->assertJsonValidationErrors('file');
+
+        $response = $this->postJson('/admin-api/purchase-invoices/excel', ['file' => $file()])->assertOk()->assertJsonCount(6, 'lines');
+        $this->assertEquals(300, $response->json('summary.read.packets'));
+        $this->assertEquals(12000, $response->json('summary.written.amount'));
+        $this->assertSame(0, Invoice::query()->count());
+        $this->assertSame(0, InvoiceItem::query()->count());
+    }
+
+    /**
+     * EN: The factory template download requires purchase creation permission, and the blank workbook has no items to import.
+     * AR: تنزيل قالب المعمل يحتاج صلاحية إنشاء فاتورة شراء، والقالب الفارغ ما بي بنود للاستيراد.
+     */
+    public function test_the_factory_template_requires_create_permission_and_starts_blank(): void
+    {
+        $url = '/admin-api/purchase-invoices/excel/template';
+        $this->actingAs($this->userWith('invoice.view'))->getJson($url)->assertForbidden();
+        $this->actingAs($this->userWith('invoice.create'));
+
+        $template = $this->get($url)->assertDownload('AKA-purchase-invoice-template.xlsx')->streamedContent();
+
+        $this->postJson('/admin-api/purchase-invoices/excel', [
+            'file' => UploadedFile::fake()->createWithContent('order.xlsx', $template),
+        ])->assertJsonValidationErrors('file');
+    }
+
+    /**
+     * EN: Every language selection appears in the workbook headers and instructions and can be imported after the factory fills it in.
+     * AR: كل مجموعة لغات مختارة تظهر بعناوين القالب وتعليماته، ويظل القالب قابل للاستيراد بعد تعبئة المعمل.
+     *
+     * @param  list<string>  $languages
+     */
+    #[DataProvider('factoryTemplateLanguages')]
+    public function test_the_factory_template_downloads_and_imports_in_the_selected_languages(array $languages): void
+    {
+        $item = Item::factory()->create(['name' => '001', 'pieces_per_packet' => 24]);
+        $this->actingAs($this->userWith('invoice.create'));
+        $headings = ['ar' => 'رمز الصنف', 'en' => 'Item code', 'zh_CN' => '产品编号'];
+        $instructions = ['ar' => 'طريقة تعبئة طلبية الشراء من AKA', 'en' => 'How to fill the AKA purchase order', 'zh_CN' => 'AKA 采购订单填写说明'];
+        $query = http_build_query(['languages' => $languages]);
+
+        $contents = $this->get('/admin-api/purchase-invoices/excel/template?'.$query)
+            ->assertDownload('AKA-purchase-invoice-template.xlsx')->streamedContent();
+        $template = UploadedFile::fake()->createWithContent('blank.xlsx', $contents);
+        $reader = new Reader;
+        $reader->open($template->getPathname());
+
+        $rows = [];
+        try {
+            foreach ($reader->getSheetIterator() as $index => $sheet) {
+                foreach ($sheet->getRowIterator() as $number => $row) {
+                    $rows[$index][$number] = $row->toArray();
+                    if ($number === 2) {
+                        break;
+                    }
+                }
+            }
+        } finally {
+            $reader->close();
+        }
+
+        [$order, $guide] = array_values($rows);
+        $this->assertSame(implode("\n", array_map(fn (string $language): string => $headings[$language], $languages)), $order[2][0]);
+        $this->assertSame(array_map(fn (string $language): string => $instructions[$language], $languages), $guide[1]);
+
+        $this->postJson('/admin-api/purchase-invoices/excel', ['file' => $this->filledFactoryTemplate([
+            ['001', 25, 24, 20, 1.5, 0.045],
+        ], template: $template)])->assertOk()
+            ->assertJsonCount(1, 'lines')
+            ->assertJsonPath('lines.0.item.specific_description_id', $item->specificDescription->id)
+            ->assertJsonPath('lines.0.carton_cbm', 0.045)
+            ->assertJsonCount(0, 'lines.0.issues');
+    }
+
+    /** @return array<string, array{list<string>}> */
+    public static function factoryTemplateLanguages(): array
+    {
+        return [
+            'Arabic' => [['ar']],
+            'English' => [['en']],
+            'Chinese' => [['zh_CN']],
+            'Arabic and English' => [['ar', 'en']],
+            'Arabic and Chinese' => [['ar', 'zh_CN']],
+            'English and Chinese' => [['en', 'zh_CN']],
+            'all languages' => [['ar', 'en', 'zh_CN']],
+        ];
+    }
+
+    /**
+     * EN: An unsupported download language gets a validation error.
+     * AR: اختيار لغة غير مدعومة لتنزيل القالب يرجّع خطأ تحقق.
+     */
+    public function test_the_factory_template_rejects_an_unsupported_language(): void
+    {
+        $this->actingAs($this->userWith('invoice.create'));
+
+        $this->getJson('/admin-api/purchase-invoices/excel/template?languages[]=de')
+            ->assertJsonValidationErrors('languages.0');
+    }
+
+    /**
+     * EN: A filled factory workbook resolves a leading-zero item code, colors and powers, imports carton volume, and checks the declared amount.
+     * AR: قالب المعمل بعد تعبئته يطابق الكود اللي يبدي بصفر والألوان والدرجات، يستورد حجم الكارتون ويدقق المبلغ المكتوب.
+     */
+    public function test_the_factory_template_imports_and_checks_filled_rows(): void
+    {
+        $item = Item::factory()->create(['name' => '001', 'pieces_per_packet' => 24]);
+        $black = Color::factory()->create(['name' => 'Black']);
+        $power = LensPower::factory()->create(['value' => 0.5]);
+        $this->actingAs($this->userWith('invoice.create'));
+
+        $response = $this->postJson('/admin-api/purchase-invoices/excel', ['file' => $this->filledFactoryTemplate([
+            ['001', 25, 24, 20, 1.5, 0.045, 'Black:24', '+0.50:25', 2, 600, 950],
+        ])]);
+
+        $response->assertOk()->assertJsonCount(1, 'lines')
+            ->assertJsonPath('lines.0.code', '001')
+            ->assertJsonPath('lines.0.item.specific_description_id', $item->specificDescription->id)
+            ->assertJsonPath('lines.0.carton_cbm', 0.045)
+            ->assertJsonPath('lines.0.colors.0.color_id', $black->id)
+            ->assertJsonPath('lines.0.groups.0.lens_power_id', $power->id)
+            ->assertJsonPath('lines.0.amount', 900)
+            ->assertJsonCount(1, 'lines.0.issues')
+            ->assertJsonPath('lines.0.issues.0.type', 'amount_differs')
+            ->assertJsonPath('lines.0.issues.0.row', 4);
+        $this->assertDatabaseCount('invoices', 0);
+        $this->assertDatabaseCount('invoice_items', 0);
+    }
+
+    /**
+     * EN: A row with a blank item code, missing quantity and invalid carton volume is kept and each problem is reported on its original row.
+     * AR: السطر اللي ناقصه كود وكمية وحجم الكارتون ماله غلط يبقى بالاستيراد، وكل مشكلة تطلع ويا رقم سطرها الأصلي.
+     */
+    public function test_the_factory_template_keeps_incomplete_rows_and_reports_the_cells(): void
+    {
+        Item::factory()->create(['name' => 'A-02', 'pieces_per_packet' => 24]);
+        $this->actingAs($this->userWith('invoice.create'));
+
+        $response = $this->postJson('/admin-api/purchase-invoices/excel', ['file' => $this->filledFactoryTemplate([
+            ['A-02', 25, 24, 20, 1.5, 0.045],
+            [],
+            [null, null, 24, 20, 0, 'unknown'],
+        ])]);
+
+        $response->assertOk()->assertJsonCount(2, 'lines')
+            ->assertJsonPath('lines.1.rows', [6])
+            ->assertJsonPath('lines.1.item', null)
+            ->assertJsonPath('lines.1.packets', null)
+            ->assertJsonPath('lines.1.carton_cbm', null)
+            ->assertJsonPath('lines.1.amount', null)
+            ->assertJsonPath('summary.read.amount', null);
+        $issues = collect($response->json('lines.1.issues'))->keyBy('type');
+        $this->assertSame(6, $issues['missing_item_code']['row']);
+        $this->assertSame(['packets'], $issues['missing_numbers']['values']['fields']);
+        $this->assertSame(['carton_cbm'], $issues['invalid_numbers']['values']['fields']);
+    }
+
+    /**
+     * EN: The workbook can be read by column heading after a factory moves a column or removes one it could not fill.
+     * AR: النظام يقرأ الأعمدة حسب عناوينها إذا المعمل غيّر ترتيبها أو حذف عمود ما گدر يعبّيه.
+     */
+    public function test_the_factory_template_reads_reordered_columns_and_reports_missing_fields(): void
+    {
+        $item = Item::factory()->create(['name' => 'A-02', 'pieces_per_packet' => 24]);
+        $this->actingAs($this->userWith('invoice.create'));
+
+        $response = $this->postJson('/admin-api/purchase-invoices/excel', ['file' => $this->filledFactoryTemplate(
+            [[1.5, 'A-02', 24, 20, 25]],
+            ['Piece price (CNY)', 'Item code', 'Pieces per packet', 'Packets per carton', 'Packets ordered'],
+        )]);
+
+        $response->assertOk()
+            ->assertJsonPath('lines.0.item.specific_description_id', $item->specificDescription->id)
+            ->assertJsonPath('lines.0.amount', 900)
+            ->assertJsonPath('lines.0.carton_cbm', null)
+            ->assertJsonPath('lines.0.issues.0.type', 'missing_numbers')
+            ->assertJsonPath('lines.0.issues.0.values.fields', ['carton_cbm']);
+    }
+
+    /**
+     * @param  list<list<string|float|int|null>>  $rows
+     * @param  list<string>|null  $headings
+     */
+    private function filledFactoryTemplate(array $rows, ?array $headings = null, ?UploadedFile $template = null): UploadedFile
+    {
+        $template ??= UploadedFile::fake()->createWithContent('blank.xlsx', $this->get('/admin-api/purchase-invoices/excel/template')->assertOk()->streamedContent());
+        $reader = new Reader;
+        $reader->open($template->getPathname());
+
+        $path = tempnam(sys_get_temp_dir(), 'purchase-test-');
+        $writer = new Writer;
+        $writer->openToFile($path);
+
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $number => $row) {
+                    if ($number > 3) {
+                        break;
+                    }
+
+                    $writer->addRow($number === 2 && $headings !== null ? Row::fromValues($headings) : $row);
+                }
+
+                break;
+            }
+
+            foreach ($rows as $row) {
+                $writer->addRow(Row::fromValues($row));
+            }
+
+            $writer->close();
+
+            return UploadedFile::fake()->createWithContent('order.xlsx', file_get_contents($path));
+        } finally {
+            $reader->close();
+            unlink($path);
+        }
     }
 
     /**

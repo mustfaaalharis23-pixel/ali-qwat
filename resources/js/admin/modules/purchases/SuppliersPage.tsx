@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Building2, FileText, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, DescriptionList, Field, Input, Modal, MoneyInput, PageSpinner, Tabs, Textarea, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -149,6 +150,7 @@ export function SuppliersPage() {
 function SupplierForm({ supplier }: { supplier?: Supplier }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const form = useForm({
         name_ar: supplier?.name_ar ?? '',
         name_zh: supplier?.name_zh ?? '',
@@ -162,7 +164,7 @@ function SupplierForm({ supplier }: { supplier?: Supplier }) {
             const body = { ...values, contract: values.contract[0]?.path ?? null };
             return supplier ? api.put<{ data: Supplier }>(`/suppliers/${supplier.id}`, body) : api.post<{ data: Supplier }>('/suppliers', body);
         },
-        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => navigate(`/suppliers/${result.data.id}`), onError: form.fail },
+        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => another.after(() => navigate(`/suppliers/${result.data.id}`)), onError: form.fail },
     );
     const input = (name: 'name_ar' | 'name_zh' | 'phone' | 'email', required = false, dir?: 'ltr') => (
         <Field label={t(field(name))} error={form.errors[name]} required={required}>
@@ -200,7 +202,8 @@ function SupplierForm({ supplier }: { supplier?: Supplier }) {
             </Card>
             <div className="flex justify-end gap-2">
                 <Button onClick={() => navigate(supplier ? `/suppliers/${supplier.id}` : '/suppliers')}>{t('admin.actions.cancel')}</Button>
-                <Button type="submit" variant="primary" loading={save.isPending}>
+                {!supplier && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                     {supplier ? t('admin.actions.save_changes') : t('admin.actions.create')}
                 </Button>
             </div>

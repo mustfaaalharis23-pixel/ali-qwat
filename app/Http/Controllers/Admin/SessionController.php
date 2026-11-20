@@ -47,6 +47,9 @@ class SessionController extends Controller
 
         $request->session()->regenerate();
 
+        // From now on the account's language is the one used, not the one the login page was switched to.
+        App::setLocale($user->preferredLocale());
+
         return response()->json($this->payload(Auth::user()));
     }
 
@@ -56,17 +59,27 @@ class SessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        // The login page goes back to Arabic, whatever language the account had.
+        App::setLocale(config('app.default_locale'));
+
         return response()->json($this->payload(null));
     }
 
     /**
-     * Saves the chosen language in the session, the same place the panel keeps it.
+     * Saves the chosen language on the signed-in user's account, so it follows them to every browser.
+     * A guest's choice (on the login page) is kept in the session only.
      */
     public function locale(Request $request): JsonResponse
     {
         $locale = $request->validate(['locale' => ['required', Rule::in(array_keys(config('app.locales')))]])['locale'];
 
-        $request->session()->put('locale', $locale);
+        $user = $request->user();
+
+        if ($user instanceof User) {
+            $user->forceFill(['locale' => $locale])->save();
+        } else {
+            $request->session()->put('locale', $locale);
+        }
         App::setLocale($locale);
 
         return response()->json($this->payload($request->user()));

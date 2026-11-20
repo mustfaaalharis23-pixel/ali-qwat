@@ -15,6 +15,8 @@ export interface Column<T> {
     align?: 'start' | 'end' | 'center';
     className?: string;
     hidden?: boolean;
+    /** Starts hidden until the user shows it from the columns menu, for a detail the list does not lead with. */
+    defaultHidden?: boolean;
 }
 
 export interface Filter {
@@ -138,10 +140,12 @@ export function DataTable<T extends { id?: number | string }>({
 
     const columnsKey = `admin-columns:${endpoint}:${stateKey}`;
     const [hiddenKeys, setHiddenKeys] = useState<string[]>(() => {
+        const byDefault = columns.filter((column) => column.defaultHidden).map((column) => column.key);
         try {
-            return JSON.parse(localStorage.getItem(columnsKey) ?? '[]');
+            const saved = localStorage.getItem(columnsKey);
+            return saved === null ? byDefault : JSON.parse(saved);
         } catch {
-            return [];
+            return byDefault;
         }
     });
     const toggleColumn = (key: string) =>

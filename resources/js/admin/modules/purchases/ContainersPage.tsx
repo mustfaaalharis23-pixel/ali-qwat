@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Container as ContainerIcon, Info, LogOut, Pencil, Plus, RotateCcw, Scissors, Trash2, TriangleAlert, Truck } from 'lucide-react';
 import { api } from '../../lib/api';
 import { date, number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ConfirmDialog, DescriptionList, Field, Input, Modal, MoneyInput, PageSpinner, Textarea, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -128,6 +129,7 @@ function addDays(value: string, days: number): string {
 function ContainerForm({ container }: { container?: Container }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const form = useForm({
         international_number: container?.international_number ?? '',
         cbm_price: container?.cbm_price === null || container?.cbm_price === undefined ? '' : String(container.cbm_price),
@@ -138,7 +140,7 @@ function ContainerForm({ container }: { container?: Container }) {
     const save = useSave((values: typeof form.values) => (container ? api.put<{ data: Container }>(`/containers/${container.id}`, values) : api.post<{ data: Container }>('/containers', values)), {
         invalidate: ['list', 'record', 'options', 'metric'],
         success: t('admin.actions.saved'),
-        onSuccess: (result) => navigate(`/containers/${result.data.id}`),
+        onSuccess: (result) => another.after(() => navigate(`/containers/${result.data.id}`)),
         onError: form.fail,
     });
 
@@ -207,7 +209,8 @@ function ContainerForm({ container }: { container?: Container }) {
             </Card>
             <div className="flex justify-end gap-2">
                 <Button onClick={() => navigate(container ? `/containers/${container.id}` : '/containers')}>{t('admin.actions.cancel')}</Button>
-                <Button type="submit" variant="primary" loading={save.isPending}>
+                {!container && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                     {container ? t('admin.actions.save_changes') : t('admin.actions.create')}
                 </Button>
             </div>

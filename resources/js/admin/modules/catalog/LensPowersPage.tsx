@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, Field, Input, Modal } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -20,11 +21,12 @@ interface LensPower {
 
 function LensPowerForm({ power, onClose }: { power: LensPower | null; onClose: () => void }) {
     const t = useT();
+    const another = useCreateAnother();
     const form = useForm({ value: power?.value ?? '' });
     const save = useSave((body: typeof form.values) => (power ? api.put(`/lens-powers/${power.id}`, body) : api.post('/lens-powers', body)), {
         invalidate: ['list', 'options'],
         success: t('admin.actions.saved'),
-        onSuccess: onClose,
+        onSuccess: () => another.after(onClose, () => form.reset()),
         onError: form.fail,
     });
 
@@ -37,13 +39,21 @@ function LensPowerForm({ power, onClose }: { power: LensPower | null; onClose: (
             footer={
                 <>
                     <Button onClick={onClose}>{t('admin.actions.cancel')}</Button>
-                    <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(form.values)}>
+                    {!power && <CreateAnotherButton another={another} disabled={save.isPending} onClick={() => save.mutate(form.values)} />}
+                    <Button
+                        variant="primary"
+                        loading={save.isPending}
+                        onClick={() => {
+                            another.ask(false);
+                            save.mutate(form.values);
+                        }}
+                    >
                         {t('admin.actions.save')}
                     </Button>
                 </>
             }
         >
-            <form onSubmit={(event) => { event.preventDefault(); save.mutate(form.values); }}>
+            <form onSubmit={(event) => { event.preventDefault(); another.ask(false); save.mutate(form.values); }}>
                 <Field label={t('filament/resources/lens_power.fields.value')} error={form.errors.value} required>
                     {(id) => <Input id={id} autoFocus type="number" step="0.01" dir="ltr" value={form.values.value} onChange={(event) => form.set('value', event.target.value)} invalid={Boolean(form.errors.value)} />}
                 </Field>

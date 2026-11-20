@@ -21,6 +21,7 @@ return [
         'description' => '描述',
         'is_active' => '启用中',
         'supplier_id' => '供应商',
+        'item_category_id' => '类别',
         'sale_price' => '每打售价',
         'cost_price' => '每打成本',
         'profit_margin' => '利润',

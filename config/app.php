@@ -76,9 +76,20 @@ return [
     | by Laravel's translation / localization methods. This option can be
     | set to any locale for which you plan to have translation strings.
     |
+    | Arabic is fixed here on purpose and not read from .env, so no server
+    | setting can make the system start in another language.
+    |
     */
 
-    'locale' => env('APP_LOCALE', 'ar'),
+    'locale' => 'ar',
+
+    /*
+    | The language a user who never chose one gets, and the login page goes
+    | back to after signing out. 'locale' above changes while a request runs
+    | (App::setLocale() writes it), so this one keeps the starting language.
+    */
+
+    'default_locale' => 'ar',
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

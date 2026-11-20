@@ -21,6 +21,7 @@ return [
         'description' => 'Description',
         'is_active' => 'Active',
         'supplier_id' => 'Supplier',
+        'item_category_id' => 'Category',
         'sale_price' => 'Sale price of a dozen',
         'cost_price' => 'Cost of a dozen',
         'profit_margin' => 'Profit margin',

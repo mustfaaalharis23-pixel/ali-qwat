@@ -29,14 +29,16 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { cn, number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { useSession } from '../../lib/session';
 import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Field, Input, Modal, MoneyInput, PageSpinner, Textarea, toast, type Tone } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { QueryError } from '../../pages/NotFound';
 import { dinars, dollars, errorsUnder, Facts, FileField, toNumber, yuan, type EnumValue, type Fact } from './shared';
+import { EntryChoice, ExcelImport, type ImportedLine } from './ExcelImport';
 import type { InlineCreateAbilities, PageAbilities, PurchaseInvoice } from './PurchaseInvoicePage';
 
 const DOZEN = 12;
@@ -62,12 +64,14 @@ interface GroupRow {
     id?: number;
     lens_power_id: number | null;
     lens_power_label?: string | null;
+    unmatched_power?: boolean;
     boxes_count: string;
 }
 
 interface LineState {
     key: string;
     id?: number;
+    source_rows?: string;
     specific_description_id: number | null;
     description_label?: string | null;
     entry_unit: EntryUnit;
@@ -139,6 +143,11 @@ const emptyLine = (): LineState => ({
     colors: [],
     groups: [],
 });
+
+/** A line nothing was typed in yet, like the one a new invoice starts with. */
+const isEmptyLine = (line: LineState) =>
+    line.id === undefined && line.source_rows === undefined && line.specific_description_id === null && line.boxes_count === '' && line.sets === ''
+    && line.pieces_per_packet === '' && line.boxes_per_carton === '' && line.carton_cbm === '' && line.unit_cost === '' && line.colors.length === 0 && line.groups.length === 0;
 
 /** The dozens that packets of a packet make, or empty without both. */
 function setsOf(packets: unknown, packet: unknown): string {
@@ -297,12 +306,14 @@ function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: 
     const [powerId, setPowerId] = useState<number | null>(group?.lens_power_id ?? null);
     const [powerLabel, setPowerLabel] = useState<string | null>(group?.lens_power_label ?? null);
     const [packets, setPackets] = useState(group?.boxes_count ?? '');
+    const [powerError, setPowerError] = useState<string | undefined>();
     const [error, setError] = useState<string | undefined>();
     const total = toNumber(line.boxes_count);
     const left = Math.max(0, total - line.groups.filter((other) => other.key !== group?.key).reduce((sum, other) => sum + toNumber(other.boxes_count), 0));
 
     const submit = (another: boolean) => {
         const value = toNumber(packets);
+        if (group?.unmatched_power && powerId === null) return setPowerError(t('admin/purchases.excel.choose_power', { power: group.lens_power_label ?? '' }));
         if (total <= 0) return setError(t('invoices.validation.line_quantity_first'));
         if (value <= 0 || !Number.isInteger(value)) return setError(t('invoices.validation.must_be_whole', { attribute: t('filament/resources/invoice_item.fields.boxes_count') }));
         if (value > left + 0.0001) return setError(t('invoices.validation.group_more_than_left', { left: number(left) }));
@@ -335,10 +346,11 @@ function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: 
                 className="grid gap-4 sm:grid-cols-2"
                 onSubmit={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     submit(false);
                 }}
             >
-                <Field label={t('filament/resources/invoice_item.fields.lens_power_id')}>
+                <Field label={t('filament/resources/invoice_item.fields.lens_power_id')} error={powerError} required={group?.unmatched_power}>
                     {(id) => (
                         <div className="flex gap-1.5">
                             <div className="min-w-0 flex-1">
@@ -347,10 +359,12 @@ function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: 
                                     endpoint="/purchase-invoices/lens-power-options"
                                     value={powerId}
                                     initialLabel={powerLabel}
-                                    placeholder={t('filament/resources/lens_power.none')}
+                                    placeholder={group?.unmatched_power ? (group.lens_power_label ?? undefined) : t('filament/resources/lens_power.none')}
+                                    invalid={Boolean(powerError)}
                                     onChange={(value, option) => {
                                         setPowerId(value === null ? null : Number(value));
                                         setPowerLabel(option?.label ?? null);
+                                        setPowerError(undefined);
                                     }}
                                 />
                             </div>
@@ -365,6 +379,7 @@ function GroupModal({ line, group, onSave, onClose }: { line: LineState; group: 
                                     onCreated={(option) => {
                                         setPowerId(option.value);
                                         setPowerLabel(option.label);
+                                        setPowerError(undefined);
                                     }}
                                 />
                             )}
@@ -470,6 +485,7 @@ function LineCard({
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
                 <span className="text-[13px] font-semibold text-muted">
                     {t('filament/resources/purchase_invoice.fields.item')} {index + 1}
+                    {line.source_rows && <span className="ms-2 text-xs font-normal">{t('admin/purchases.excel.rows_label', { rows: line.source_rows })}</span>}
                 </span>
                 {canRemove && (
                     <Button size="sm" variant="ghost" icon={<Trash2 className="size-4" />} onClick={onRemove} aria-label={t('admin.actions.remove')} className="text-danger hover:text-danger" />
@@ -499,6 +515,7 @@ function LineCard({
                             endpoint="/purchase-invoices/line-options"
                             value={line.specific_description_id}
                             initialLabel={line.description_label}
+                            placeholder={line.specific_description_id === null ? (line.description_label ?? undefined) : undefined}
                             invalid={Boolean(error('specific_description_id'))}
                             onChange={(value, option) => chooseItem(value === null ? null : Number(value), option?.label ?? null)}
                         />
@@ -578,6 +595,7 @@ function LineCard({
                                                 endpoint="/options/colors"
                                                 value={color.color_id}
                                                 initialLabel={color.color_label}
+                                                placeholder={color.color_id === null ? (color.color_label ?? undefined) : undefined}
                                                 clearable={false}
                                                 invalid={Boolean(error(`colors.${colorIndex}.color_id`))}
                                                 onChange={(value, option) =>
@@ -627,8 +645,10 @@ function LineCard({
                             <div className="mb-2 divide-y divide-line rounded-lg border border-line">
                                 {line.groups.map((group) => (
                                     <div key={group.key} className="flex items-center justify-between gap-2 px-3 py-2">
-                                        <span className={cn('font-semibold', !group.lens_power_id && 'text-muted')}>
-                                            {group.lens_power_id ? (group.lens_power_label ?? '—') : t('filament/resources/lens_power.none')}
+                                        <span className={cn('font-semibold', group.unmatched_power ? 'text-warning' : !group.lens_power_id && 'text-muted')}>
+                                            {group.unmatched_power
+                                                ? t('admin/purchases.excel.choose_power', { power: group.lens_power_label ?? '' })
+                                                : group.lens_power_id ? (group.lens_power_label ?? '—') : t('filament/resources/lens_power.none')}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <span className="text-sm font-medium">{t('filament/resources/invoice_item.group.packets', { packets: number(group.boxes_count) })}</span>
@@ -765,11 +785,13 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
 }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const creating = invoiceId === undefined;
     const form = useForm<FormValues>(initial);
     const { values, errors } = form;
     const [restored, setRestored] = useState(false);
     const [discarding, setDiscarding] = useState(false);
+    const [enteringByHand, setEnteringByHand] = useState(false);
     const draftLoaded = useRef(false);
     const fact = useFact();
     const field = (name: string) => t(`filament/resources/invoice.fields.${name}`);
@@ -824,12 +846,42 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
         success: t('admin.actions.saved'),
         onSuccess: (result) => {
             forgetDraft();
-            navigate(`/purchase-invoices/${result.data.id}`);
+            another.after(() => navigate(`/purchase-invoices/${result.data.id}`));
         },
         onError: form.fail,
     });
 
     const setLine = (index: number, line: LineState) => form.set('items', values.items.map((other, position) => (position === index ? line : other)));
+
+    /** A new invoice asks first how its lines are entered, until one is chosen, something is typed, or the server reports a line. */
+    const choosingEntry = creating && !enteringByHand && values.items.every(isEmptyLine) && !Object.keys(errors).some((key) => key.startsWith('items.'));
+
+    /** The lines of a reviewed Excel file go after the lines already typed, in place of an empty one the form starts with. */
+    const fillFromExcel = (imported: ImportedLine[]) => {
+        const lines = imported.map((line) =>
+            syncQuantity({
+                ...emptyLine(),
+                source_rows: line.source_rows,
+                specific_description_id: line.specific_description_id,
+                description_label: line.description_label,
+                boxes_count: text(line.boxes_count),
+                pieces_per_packet: text(line.pieces_per_packet),
+                boxes_per_carton: text(line.boxes_per_carton),
+                carton_cbm: text(line.carton_cbm),
+                unit_cost: text(line.unit_cost),
+                colors: line.colors.map((color) => ({ key: newKey(), color_id: color.color_id, color_label: color.color_label, pieces: text(color.pieces) })),
+                groups: line.groups.map((group) => ({
+                    key: newKey(),
+                    lens_power_id: group.lens_power_id,
+                    lens_power_label: group.lens_power_label,
+                    unmatched_power: group.lens_power_id === null,
+                    boxes_count: text(group.packets),
+                })),
+            }),
+        );
+        form.set('items', [...values.items.filter((line) => !isEmptyLine(line)), ...lines]);
+        toast.success(t('admin/purchases.excel.filled', { count: lines.length }));
+    };
     const total = values.items.reduce((sum, line) => sum + lineTotal(line), 0);
     const totalCbm = values.items.reduce((sum, line) => sum + lineCbm(line), 0);
     const rate = toNumber(values.exchange_rate);
@@ -860,6 +912,11 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
+                    const unresolvedLine = values.items.find((line) => line.groups.some((group) => group.unmatched_power));
+                    if (unresolvedLine) {
+                        toast.error(t('admin/purchases.excel.unmatched_powers', { rows: unresolvedLine.source_rows ?? '' }));
+                        return;
+                    }
                     save.mutate(toPayload(values, creating));
                 }}
                 className="space-y-5"
@@ -986,8 +1043,12 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
                 </Card>
 
                 <div className="space-y-3">
-                    <h2 className="text-[15px] font-semibold">{t('filament/resources/purchase_invoice.fields.items')}</h2>
-                    {values.items.map((line, index) => (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-[15px] font-semibold">{t('filament/resources/purchase_invoice.fields.items')}</h2>
+                        {creating && !choosingEntry && <ExcelImport onFill={fillFromExcel} />}
+                    </div>
+                    {choosingEntry && <EntryChoice onFill={fillFromExcel} onManual={() => setEnteringByHand(true)} />}
+                    {!choosingEntry && values.items.map((line, index) => (
                         <LineCard
                             key={line.key}
                             line={line}
@@ -1001,9 +1062,11 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
                         />
                     ))}
                     {generalErrors.length > 0 && <p className="text-sm text-danger">{generalErrors.join(' ')}</p>}
-                    <Button icon={<Plus className="size-4" />} onClick={() => form.set('items', [...values.items, emptyLine()])}>
-                        {t('filament/resources/purchase_invoice.actions.add_line')}
-                    </Button>
+                    {!choosingEntry && (
+                        <Button icon={<Plus className="size-4" />} onClick={() => form.set('items', [...values.items, emptyLine()])}>
+                            {t('filament/resources/purchase_invoice.actions.add_line')}
+                        </Button>
+                    )}
                 </div>
 
                 <Card>
@@ -1058,7 +1121,8 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
 
                 <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
                     <Button onClick={() => navigate(invoiceId ? `/purchase-invoices/${invoiceId}` : '/purchase-invoices')}>{t('admin.actions.cancel')}</Button>
-                    <Button type="submit" variant="primary" loading={save.isPending}>
+                    {creating && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                    <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                         {creating ? t('admin.actions.create') : t('admin.actions.save_changes')}
                     </Button>
                 </div>

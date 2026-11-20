@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { CopyPlus, Eye, EyeOff, Plus, ShieldCheck, UserCircle } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, DescriptionList, Field, Input, Modal, PageSpinner, Skeleton, toast, Toggle } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -94,6 +95,7 @@ export function UserFormPage() {
 function UserForm({ user }: { user: User | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const isSuper = useIsSuper();
     const [revealed, setRevealed] = useState(false);
     const [copying, setCopying] = useState(false);
@@ -114,7 +116,7 @@ function UserForm({ user }: { user: User | null }) {
             const payload = { ...rest, ...(isSuper ? { is_super } : {}), ...(showPermissions ? { permissions } : {}) };
             return user ? api.put<{ data: User }>(`${PATH}/${user.id}`, payload) : api.post<{ data: User }>(PATH, payload);
         },
-        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => navigate(`${PATH}/${result.data.id}`), onError: form.fail },
+        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => another.after(() => navigate(`${PATH}/${result.data.id}`)), onError: form.fail },
     );
 
     return (
@@ -193,7 +195,8 @@ function UserForm({ user }: { user: User | null }) {
                 )}
                 <div className="flex justify-end gap-2">
                     <ButtonLink to={user ? `${PATH}/${user.id}` : PATH}>{t('admin.actions.cancel')}</ButtonLink>
-                    <Button type="submit" variant="primary" loading={save.isPending}>
+                    {!user && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                    <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                         {user ? t('admin.actions.save_changes') : t('admin.actions.create')}
                     </Button>
                 </div>

@@ -53,8 +53,10 @@ class FinancialDashboardTest extends TestCase
      */
     public function test_sidebar_shows_the_link_to_a_user_with_the_permission(): void
     {
-        $this->actingAs($this->userWithPermission())
-            ->withSession(['locale' => 'en'])
+        $user = $this->userWithPermission();
+        $user->forceFill(['locale' => 'en'])->save();
+
+        $this->actingAs($user)
             ->getJson('/admin-api/navigation')
             ->assertOk()
             ->assertJsonPath('groups.0.items.1', ['key' => 'financial-dashboard', 'label' => 'Financial dashboard', 'icon' => 'o-banknotes', 'path' => '/financial-dashboard']);
@@ -66,8 +68,7 @@ class FinancialDashboardTest extends TestCase
      */
     public function test_sidebar_hides_the_link_from_a_user_without_the_permission(): void
     {
-        $this->actingAs(User::factory()->create(['is_active' => true]))
-            ->withSession(['locale' => 'en'])
+        $this->actingAs(User::factory()->create(['is_active' => true, 'locale' => 'en']))
             ->getJson('/admin-api/navigation')
             ->assertOk()
             ->assertDontSee('Financial dashboard')

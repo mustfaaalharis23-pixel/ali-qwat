@@ -108,16 +108,17 @@ class PanelLanguageTest extends TestCase
 
     /**
      * EN: Inside the admin application, in each language, the signed-in user is offered the other two languages, each named in its
-     *     own language, and switching to one keeps it in the session.
-     * AR: داخل تطبيق الإدارة، بكل لغة، اليوزر الداخل تنعرضله اللغتين الثانيات، كل وحدة باسمها بلغتها، والتحويل لوحدة منها ينحفظ بالجلسة.
+     *     own language, and switching to one keeps it on their account.
+     * AR: داخل تطبيق الإدارة، بكل لغة، اليوزر الداخل تنعرضله اللغتين الثانيات، كل وحدة باسمها بلغتها، والتحويل لوحدة منها ينحفظ على حسابه.
      *
      * @param  array<string, string>  $otherLanguages
      */
     #[DataProvider('languagesAndTheirSwitchLinks')]
     public function test_panel_has_links_to_switch_to_the_other_languages(string $locale, array $otherLanguages): void
     {
-        $response = $this->actingAs(User::factory()->create(['is_active' => true]))
-            ->withSession(['locale' => $locale])
+        $user = User::factory()->create(['is_active' => true, 'locale' => $locale]);
+
+        $response = $this->actingAs($user)
             ->getJson('/admin-api/session')
             ->assertOk()
             ->assertJsonPath('locale', $locale);
@@ -129,6 +130,6 @@ class PanelLanguageTest extends TestCase
         $otherLocale = array_key_first($otherLanguages);
 
         $this->postJson('/admin-api/locale', ['locale' => $otherLocale])->assertJsonPath('locale', $otherLocale);
-        $this->assertSame($otherLocale, session('locale'));
+        $this->assertSame($otherLocale, $user->fresh()->locale);
     }
 }

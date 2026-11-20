@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Tag } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, DescriptionList, Field, Input, Modal, PageSpinner, Select, Toggle } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -84,12 +85,13 @@ export function GeneralDescriptionFormPage() {
 function GeneralDescriptionForm({ description }: { description: GeneralDescription | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const types = useInvoiceTypes();
     const form = useForm({ name: description?.name ?? '', type: description?.type.value ?? '', is_capital_movement: description?.is_capital_movement ?? false });
     const save = useSave((body: typeof form.values) => (description ? api.put<{ data: GeneralDescription }>(`${PATH}/${description.id}`, body) : api.post<{ data: GeneralDescription }>(PATH, body)), {
         invalidate: ['list', 'record', 'options'],
         success: t('admin.actions.saved'),
-        onSuccess: (result) => navigate(`${PATH}/${result.data.id}`),
+        onSuccess: (result) => another.after(() => navigate(`${PATH}/${result.data.id}`)),
         onError: form.fail,
     });
     const title = description ? description.name : `${t('admin.actions.create')} ${t('filament/resources/general_description.label')}`;
@@ -120,7 +122,8 @@ function GeneralDescriptionForm({ description }: { description: GeneralDescripti
             </Section>
             <div className="mt-5 flex justify-end gap-2">
                 <ButtonLink to={description ? `${PATH}/${description.id}` : PATH}>{t('admin.actions.cancel')}</ButtonLink>
-                <Button type="submit" variant="primary" loading={save.isPending}>
+                {!description && <CreateAnotherButton another={another} disabled={save.isPending} />}
+                <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                     {description ? t('admin.actions.save_changes') : t('admin.actions.create')}
                 </Button>
             </div>
@@ -239,6 +242,7 @@ function SpecificDescriptionModal({ generalDescriptionId, description, onClose }
     const t = useT();
     const isSuper = useIsSuper();
     const transferTypes = useTransferTypes();
+    const another = useCreateAnother();
     const form = useForm({ name: description?.name ?? '', transfer_type: description?.transfer_type?.value ?? '' });
     const save = useSave(
         (body: typeof form.values) => {
@@ -248,7 +252,7 @@ function SpecificDescriptionModal({ generalDescriptionId, description, onClose }
         {
             invalidate: ['list', 'record', 'options'],
             success: t('admin.actions.saved'),
-            onSuccess: onClose,
+            onSuccess: () => another.after(onClose, () => form.reset()),
             onError: form.fail,
         },
     );
@@ -262,13 +266,21 @@ function SpecificDescriptionModal({ generalDescriptionId, description, onClose }
             footer={
                 <>
                     <Button onClick={onClose}>{t('admin.actions.cancel')}</Button>
-                    <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(form.values)}>
+                    {!description && <CreateAnotherButton another={another} disabled={save.isPending} onClick={() => save.mutate(form.values)} />}
+                    <Button
+                        variant="primary"
+                        loading={save.isPending}
+                        onClick={() => {
+                            another.ask(false);
+                            save.mutate(form.values);
+                        }}
+                    >
                         {t('admin.actions.save')}
                     </Button>
                 </>
             }
         >
-            <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); save.mutate(form.values); }}>
+            <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); another.ask(false); save.mutate(form.values); }}>
                 <Field label={t('filament/resources/specific_description.fields.name')} error={form.errors.name ?? form.errors.general_description_id} required>
                     {(fieldId) => <Input id={fieldId} autoFocus value={form.values.name} maxLength={255} onChange={(event) => form.set('name', event.target.value)} invalid={Boolean(form.errors.name)} />}
                 </Field>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ImageOff, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ImageOff, Plus, RotateCcw, Store, Tag, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { cn, number } from '../../lib/format';
+import { cn, money, number } from '../../lib/format';
 import { useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
 import { Badge, Button, ButtonLink, ConfirmDialog, toast } from '../../components/ui';
@@ -13,6 +13,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { useRecordActions, type Abilities } from '../../components/RecordActions';
 import { ITEM_INVALIDATE } from './ItemActions';
+import { ItemExcel } from './ItemExcel';
 
 export interface ItemRow {
     id: number;
@@ -20,6 +21,8 @@ export interface ItemRow {
     image_url: string | null;
     supplier_id: number | null;
     supplier?: { id: number; name: string } | null;
+    item_category_id: number | null;
+    category?: { id: number; name: string } | null;
     pieces_per_packet: number | null;
     sale_price: number;
     piece_sale_price: number;
@@ -78,6 +81,7 @@ export function ItemsPage() {
     const { data: summary } = useQuery({ queryKey: ['metric', 'items-list'], queryFn: () => api.get<ListMetrics>('/items/metrics') });
     const can = summary?.can ?? {};
     const supplierId = params.get('supplier') ? Number(params.get('supplier')) : null;
+    const categoryId = params.get('category') ? Number(params.get('category')) : null;
     const [bulk, setBulk] = useState<{ kind: BulkKind; ids: (string | number)[]; clear: () => void } | null>(null);
     const actions = useRecordActions<ItemRow>('/items', { label: (item) => item.name });
 
@@ -92,12 +96,13 @@ export function ItemsPage() {
 
     const bulkLabel = (kind: BulkKind) => (kind === 'restore' ? t('admin.actions.restore') : kind === 'force_delete' ? t('admin.actions.force_delete') : t('admin.actions.delete'));
 
-    const setSupplier = (value: number | string | null) =>
+    /** The supplier and category filters live in the address, so a filtered list can be shared or opened again. */
+    const setParam = (name: 'supplier' | 'category') => (value: number | string | null) =>
         setParams(
             (current) => {
                 const next = new URLSearchParams(current);
-                if (value === null) next.delete('supplier');
-                else next.set('supplier', String(value));
+                if (value === null) next.delete(name);
+                else next.set(name, String(value));
                 next.delete('page');
                 return next;
             },
@@ -106,12 +111,12 @@ export function ItemsPage() {
 
     return (
         <>
-            <PageHeader title={t('filament/resources/item.plural_label')} />
+            <PageHeader title={t('filament/resources/item.plural_label')} actions={can.create && <ItemExcel />} />
             <ItemCountCards metrics={summary?.data} />
             <DataTable<ItemRow>
                 endpoint="/items"
                 trashed
-                query={{ supplier_id: supplierId ?? undefined }}
+                query={{ supplier_id: supplierId ?? undefined, filter: { item_category_id: categoryId ?? undefined } }}
                 defaultSort={{ column: 'id', direction: 'desc' }}
                 rowHref={(item) => `/items/${item.id}`}
                 filters={[
@@ -128,7 +133,10 @@ export function ItemsPage() {
                     return (
                         <>
                             <div className="w-52">
-                                <SearchSelect endpoint="/options/suppliers" value={supplierId} onChange={setSupplier} placeholder={t('filament/resources/item.fields.supplier_id')} />
+                                <SearchSelect endpoint="/options/item-categories" value={categoryId} onChange={setParam('category')} placeholder={t('filament/resources/item.fields.item_category_id')} />
+                            </div>
+                            <div className="w-52">
+                                <SearchSelect endpoint="/options/suppliers" value={supplierId} onChange={setParam('supplier')} placeholder={t('filament/resources/item.fields.supplier_id')} />
                             </div>
                             {can.create && (
                                 <ButtonLink to="/items/create" variant="primary" size="sm" icon={<Plus className="size-4" />}>
@@ -159,30 +167,67 @@ export function ItemsPage() {
                     </>
                 )}
                 columns={[
-                    { key: 'id', header: '#', sortable: true, className: 'w-16', cell: (item) => <span className="text-muted tabular-nums">{item.id}</span> },
                     {
                         key: 'name',
                         header: t('filament/resources/item.fields.name'),
                         sortable: true,
                         cell: (item) => (
-                            <span className="flex min-w-48 items-center gap-3">
-                                <ItemThumb url={item.image_url} />
+                            <span className="flex min-w-56 items-center gap-3.5 py-1">
+                                <ItemThumb url={item.image_url} className="size-14 rounded-lg" />
                                 <span className="min-w-0">
-                                    <span className="block truncate font-medium">{item.name}</span>
-                                    {item.supplier && <span className="block truncate text-xs text-muted">{item.supplier.name}</span>}
+                                    <span className="block truncate text-[14.5px] font-semibold">{item.name}</span>
+                                    {(!item.is_active || item.deleted_at) && (
+                                        <span className="mt-1 flex flex-wrap gap-1.5">
+                                            {!item.is_active && <Badge tone="gray">{t('admin/catalog.inactive')}</Badge>}
+                                            {item.deleted_at && <Badge tone="danger">{t('admin.actions.deleted')}</Badge>}
+                                        </span>
+                                    )}
                                 </span>
-                                {item.deleted_at && <Badge tone="danger">{t('admin.actions.deleted')}</Badge>}
                             </span>
                         ),
                     },
-                    { key: 'available_quantity', header: t('filament/resources/item.fields.available_quantity'), sortable: true, align: 'end', cell: (item) => <span className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span> },
-                    { key: 'incoming_quantity', header: t('filament/resources/item.fields.incoming_quantity'), sortable: true, align: 'end', cell: (item) => <span className="text-muted tabular-nums">{number(item.incoming_quantity)}</span> },
-                    { key: 'sale_price', header: t('filament/resources/item.fields.sale_price'), sortable: true, align: 'end', cell: (item) => <span className="tabular-nums">{number(item.sale_price)}</span> },
-                    { key: 'cost_price', header: t('filament/resources/item.fields.cost_price'), sortable: true, align: 'end', hidden: !can.view_cost_price, cell: (item) => (item.cost_price === undefined ? null : <span className="tabular-nums">{number(item.cost_price)}</span>) },
+                    {
+                        key: 'category',
+                        header: t('filament/resources/item.fields.item_category_id'),
+                        cell: (item) =>
+                            item.category ? (
+                                <span className="inline-flex max-w-48 items-center gap-2">
+                                    <Tag className="size-4 shrink-0 text-faint" />
+                                    <span className="truncate">{item.category.name}</span>
+                                </span>
+                            ) : (
+                                <span className="text-faint">—</span>
+                            ),
+                    },
+                    {
+                        key: 'supplier',
+                        header: t('filament/resources/item.fields.supplier_id'),
+                        cell: (item) =>
+                            item.supplier ? (
+                                <span className="inline-flex max-w-56 items-center gap-2">
+                                    <Store className="size-4 shrink-0 text-faint" />
+                                    <span className="truncate">{item.supplier.name}</span>
+                                </span>
+                            ) : (
+                                <span className="text-faint">—</span>
+                            ),
+                    },
+                    {
+                        key: 'sale_price',
+                        header: t('filament/resources/item.fields.sale_price'),
+                        sortable: true,
+                        align: 'end',
+                        cell: (item) => <span className="text-[15px] font-semibold whitespace-nowrap tabular-nums">{money(item.sale_price)}</span>,
+                    },
+                    { key: 'id', header: '#', sortable: true, defaultHidden: true, cell: (item) => <span className="text-muted tabular-nums">{item.id}</span> },
+                    { key: 'available_quantity', header: t('filament/resources/item.fields.available_quantity'), sortable: true, align: 'end', defaultHidden: true, cell: (item) => <span className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span> },
+                    { key: 'incoming_quantity', header: t('filament/resources/item.fields.incoming_quantity'), sortable: true, align: 'end', defaultHidden: true, cell: (item) => <span className="text-muted tabular-nums">{number(item.incoming_quantity)}</span> },
+                    { key: 'cost_price', header: t('filament/resources/item.fields.cost_price'), sortable: true, align: 'end', defaultHidden: true, hidden: !can.view_cost_price, cell: (item) => (item.cost_price === undefined ? null : <span className="tabular-nums">{number(item.cost_price)}</span>) },
                     {
                         key: 'profit_margin',
                         header: t('filament/resources/item.fields.profit_margin'),
                         align: 'end',
+                        defaultHidden: true,
                         hidden: !can.view_cost_price,
                         cell: (item) => (item.profit_margin === undefined ? null : <span className={cn('tabular-nums', item.profit_margin < 0 && 'text-danger')}>{number(item.profit_margin)}</span>),
                     },
@@ -190,6 +235,7 @@ export function ItemsPage() {
                         key: 'is_active',
                         header: t('filament/resources/item.fields.is_active'),
                         align: 'center',
+                        defaultHidden: true,
                         cell: (item) => <Badge tone={item.is_active ? 'success' : 'gray'}>{item.is_active ? t('admin/catalog.active') : t('admin/catalog.inactive')}</Badge>,
                     },
                 ]}

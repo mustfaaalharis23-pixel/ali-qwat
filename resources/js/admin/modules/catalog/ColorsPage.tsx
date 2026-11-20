@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, Field, Input, Modal } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -21,11 +22,12 @@ interface Color {
 
 function ColorForm({ color, onClose }: { color: Color | null; onClose: () => void }) {
     const t = useT();
+    const another = useCreateAnother();
     const form = useForm({ name: color?.name ?? '' });
     const save = useSave((body: typeof form.values) => (color ? api.put(`/colors/${color.id}`, body) : api.post('/colors', body)), {
         invalidate: ['list', 'options'],
         success: t('admin.actions.saved'),
-        onSuccess: onClose,
+        onSuccess: () => another.after(onClose, () => form.reset()),
         onError: form.fail,
     });
 
@@ -38,13 +40,21 @@ function ColorForm({ color, onClose }: { color: Color | null; onClose: () => voi
             footer={
                 <>
                     <Button onClick={onClose}>{t('admin.actions.cancel')}</Button>
-                    <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(form.values)}>
+                    {!color && <CreateAnotherButton another={another} disabled={save.isPending} onClick={() => save.mutate(form.values)} />}
+                    <Button
+                        variant="primary"
+                        loading={save.isPending}
+                        onClick={() => {
+                            another.ask(false);
+                            save.mutate(form.values);
+                        }}
+                    >
                         {t('admin.actions.save')}
                     </Button>
                 </>
             }
         >
-            <form onSubmit={(event) => { event.preventDefault(); save.mutate(form.values); }}>
+            <form onSubmit={(event) => { event.preventDefault(); another.ask(false); save.mutate(form.values); }}>
                 <Field label={t('filament/resources/color.fields.name')} error={form.errors.name} required>
                     {(id) => <Input id={id} autoFocus value={form.values.name} onChange={(event) => form.set('name', event.target.value)} invalid={Boolean(form.errors.name)} />}
                 </Field>

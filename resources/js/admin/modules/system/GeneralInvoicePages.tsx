@@ -5,8 +5,9 @@ import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recha
 import { Banknote, FileText, ImagePlus, ListOrdered, Lock, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { cn, date, money, number } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, DescriptionList, Empty, Field, Input, MoneyInput, PageSpinner, Skeleton, Spinner, Textarea, toast } from '../../components/ui';
 import { useImageEditor } from '../../components/ImageEditor';
 import { DataTable } from '../../components/DataTable';
@@ -177,6 +178,7 @@ const priceOf = (price: string) => {
 function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const types = useInvoiceTypes();
     const fileInput = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(0);
@@ -212,7 +214,7 @@ function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
             };
             return invoice ? api.put<{ data: GeneralInvoice }>(`${PATH}/${invoice.id}`, payload) : api.post<{ data: GeneralInvoice }>(PATH, payload);
         },
-        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => navigate(`${PATH}/${result.data.id}`), onError: form.fail },
+        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => another.after(() => navigate(`${PATH}/${result.data.id}`)), onError: form.fail },
     );
 
     const imageEditor = useImageEditor();
@@ -412,7 +414,8 @@ function GeneralInvoiceForm({ invoice }: { invoice: GeneralInvoice | null }) {
 
                 <div className="flex justify-end gap-2">
                     <ButtonLink to={invoice ? `${PATH}/${invoice.id}` : PATH}>{t('admin.actions.cancel')}</ButtonLink>
-                    <Button type="submit" variant="primary" loading={save.isPending} disabled={uploading > 0 || holdsTransfer}>
+                    {!invoice && <CreateAnotherButton another={another} disabled={save.isPending || uploading > 0 || holdsTransfer} />}
+                    <Button type="submit" variant="primary" loading={save.isPending} disabled={uploading > 0 || holdsTransfer} onClick={() => another.ask(false)}>
                         {invoice ? t('admin.actions.save_changes') : t('admin.actions.create')}
                     </Button>
                 </div>

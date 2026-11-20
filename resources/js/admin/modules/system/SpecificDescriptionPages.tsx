@@ -2,8 +2,9 @@ import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Tag } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, ButtonLink, DescriptionList, Field, Input, PageSpinner, Select } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
@@ -103,6 +104,7 @@ export function SpecificDescriptionFormPage() {
 function SpecificDescriptionForm({ description }: { description: SpecificDescription | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const isSuper = useIsSuper();
     const types = useInvoiceTypes();
     const transferTypes = useTransferTypes();
@@ -118,7 +120,7 @@ function SpecificDescriptionForm({ description }: { description: SpecificDescrip
             const payload = { general_description_id: body.general_description_id, name: body.name, ...(isSuper ? { transfer_type: body.transfer_type || null } : {}) };
             return description ? api.put<{ data: SpecificDescription }>(`${PATH}/${description.id}`, payload) : api.post<{ data: SpecificDescription }>(PATH, payload);
         },
-        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => navigate(`${PATH}/${result.data.id}`), onError: form.fail },
+        { invalidate: ['list', 'record', 'options'], success: t('admin.actions.saved'), onSuccess: (result) => another.after(() => navigate(`${PATH}/${result.data.id}`)), onError: form.fail },
     );
 
     return (
@@ -173,8 +175,9 @@ function SpecificDescriptionForm({ description }: { description: SpecificDescrip
                 </Section>
                 <div className="flex justify-end gap-2">
                     <ButtonLink to={description ? `${PATH}/${description.id}` : PATH}>{t('admin.actions.cancel')}</ButtonLink>
+                    {!readOnly && !description && <CreateAnotherButton another={another} disabled={save.isPending} />}
                     {!readOnly && (
-                        <Button type="submit" variant="primary" loading={save.isPending}>
+                        <Button type="submit" variant="primary" loading={save.isPending} onClick={() => another.ask(false)}>
                             {description ? t('admin.actions.save_changes') : t('admin.actions.create')}
                         </Button>
                     )}

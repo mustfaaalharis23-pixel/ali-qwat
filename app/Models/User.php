@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Enums\AppPermission;
 use App\Models\Concerns\Auditable;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,7 +18,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<UserFactory> */
     use Auditable, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
@@ -78,6 +79,16 @@ class User extends Authenticatable
     public function allowedInApp(AppPermission $permission): bool
     {
         return in_array($permission->value, $this->appPermissions(), true);
+    }
+
+    /**
+     * The language the user chose, or Arabic (the application's language) when they never chose a supported one.
+     */
+    public function preferredLocale(): string
+    {
+        return is_string($this->locale) && array_key_exists($this->locale, config('app.locales'))
+            ? $this->locale
+            : config('app.default_locale');
     }
 
     /**

@@ -31,6 +31,8 @@ interface I18n {
     t: (key: string, replace?: Replace) => string;
     has: (key: string) => boolean;
     setLocale: (locale: string) => Promise<void>;
+    /** Shows the application in the language the server already chose, such as the account's language after signing in. */
+    applyLocale: (locale: string) => Promise<void>;
     ready: boolean;
 }
 
@@ -71,15 +73,22 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         [strings],
     );
 
+    const applyLocale = useCallback(
+        async (next: string) => {
+            await client.prefetchQuery({ queryKey: ['translations', next], queryFn: () => api.get(`/translations/${next}`, { v: boot.translationsVersion }), staleTime: Infinity });
+            setLocaleState(next);
+        },
+        [client],
+    );
+
     const setLocale = useCallback(
         async (next: string) => {
             await api.post('/locale', { locale: next });
-            await client.prefetchQuery({ queryKey: ['translations', next], queryFn: () => api.get(`/translations/${next}`, { v: boot.translationsVersion }), staleTime: Infinity });
-            setLocaleState(next);
+            await applyLocale(next);
             // Every label the server writes (navigation, metric cards, validation) comes in the new language.
             client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'translations' });
         },
-        [client],
+        [client, applyLocale],
     );
 
     const value = useMemo<I18n>(
@@ -90,9 +99,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
             t,
             has: (key: string) => Boolean(strings?.[key]),
             setLocale,
+            applyLocale,
             ready: isSuccess,
         }),
-        [locale, t, setLocale, isSuccess, strings],
+        [locale, t, setLocale, applyLocale, isSuccess, strings],
     );
 
     return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

@@ -4,8 +4,9 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Image as ImageIcon, Minus, Package, Plus, Search, ShoppingCart, Trash2, X } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/format';
-import { useForm, useSave } from '../../lib/form';
+import { useCreateAnother, useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
+import { CreateAnotherButton } from '../../components/CreateAnotherButton';
 import { Badge, Button, Card, CardBody, CardHeader, Empty, Field, Input, MoneyInput, PageSpinner, Select, Skeleton, Textarea, toast } from '../../components/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
@@ -55,6 +56,7 @@ export function OrderFormPage() {
 function CheckoutForm({ order }: { order: EditData | null }) {
     const t = useT();
     const navigate = useNavigate();
+    const another = useCreateAnother();
     const key = 'filament/resources/order.';
     const field = (name: string) => t(`${key}fields.${name}`);
     const checkout = (name: string, replace?: Record<string, string | number>) => t(`${key}checkout.${name}`, replace);
@@ -150,7 +152,7 @@ function CheckoutForm({ order }: { order: EditData | null }) {
         {
             invalidate: ['list', 'record', 'sales', 'metric'],
             success: order ? t('admin.actions.saved') : t('admin/sales.orders.created'),
-            onSuccess: (result) => navigate(`/orders/${result.data.id}`),
+            onSuccess: (result) => another.after(() => navigate(`/orders/${result.data.id}`)),
             onError: form.fail,
         },
     );
@@ -435,9 +437,18 @@ function CheckoutForm({ order }: { order: EditData | null }) {
 
                         {cartError && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{cartError}</p>}
 
-                        <Button variant="primary" className="w-full" loading={save.isPending} onClick={submit}>
+                        <Button
+                            variant="primary"
+                            className="w-full"
+                            loading={save.isPending}
+                            onClick={() => {
+                                another.ask(false);
+                                submit();
+                            }}
+                        >
                             {order ? t('admin.actions.save_changes') : checkout('confirm')}
                         </Button>
+                        {!order && <CreateAnotherButton another={another} className="w-full" disabled={save.isPending} onClick={submit} />}
                     </div>
                 </Card>
             </div>

@@ -35,8 +35,7 @@ class ItemResourceTest extends TestCase
         $this->assertSame($model, __('filament/resources/item.label', locale: $locale));
         $this->assertSame($pluralModel, __('filament/resources/item.plural_label', locale: $locale));
 
-        $items = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true]))
-            ->withSession(['locale' => $locale])
+        $items = collect($this->actingAs(User::factory()->create(['is_active' => true, 'is_super' => true, 'locale' => $locale]))
             ->getJson('/admin-api/navigation')
             ->assertOk()
             ->json('groups'))->flatMap(fn (array $group): array => $group['items']);

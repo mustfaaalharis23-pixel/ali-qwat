@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'image', 'description', 'is_active', 'supplier_id', 'sale_price', 'pieces_per_packet'])]
+#[Fillable(['name', 'image', 'description', 'is_active', 'supplier_id', 'item_category_id', 'sale_price', 'pieces_per_packet'])]
 class Item extends BaseModel
 {
     /**
@@ -51,8 +51,9 @@ class Item extends BaseModel
         });
 
         static::updated(function (Item $item): void {
-            if ($item->wasChanged('image')) {
-                Storage::disk('public')->delete($item->getRawOriginal('image'));
+            $previous = $item->getRawOriginal('image');
+            if ($item->wasChanged('image') && filled($previous)) {
+                Storage::disk('public')->delete($previous);
             }
         });
 
@@ -61,7 +62,9 @@ class Item extends BaseModel
         });
 
         static::forceDeleted(function (Item $item): void {
-            Storage::disk('public')->delete($item->image);
+            if (filled($item->image)) {
+                Storage::disk('public')->delete($item->image);
+            }
         });
     }
 
@@ -103,6 +106,16 @@ class Item extends BaseModel
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /**
+     * The category of this item, such as frames or lenses. An item can have no category.
+     *
+     * @return BelongsTo<ItemCategory, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ItemCategory::class, 'item_category_id');
     }
 
     /**

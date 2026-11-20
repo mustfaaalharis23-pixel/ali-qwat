@@ -58,7 +58,7 @@ class AuditTest extends TestCase
         $this->assertNotNull($audit);
         $this->assertEqualsCanonicalizing(
             [
-                'id', 'name', 'image', 'description', 'is_active', 'supplier_id',
+                'id', 'name', 'image', 'description', 'is_active', 'supplier_id', 'item_category_id',
                 'sale_price', 'pieces_per_packet', 'cost_price', 'last_cost_price', 'available_quantity', 'incoming_quantity',
                 'created_at', 'updated_at', 'deleted_at',
             ],

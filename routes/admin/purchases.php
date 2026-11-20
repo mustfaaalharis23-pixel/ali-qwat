@@ -15,6 +15,8 @@ Route::prefix('purchase-invoices')->name('purchase-invoices.')->controller(Purch
     Route::get('create', 'create')->name('create');
     Route::post('/', 'store')->name('store');
     Route::post('uploads', 'upload')->name('upload');
+    Route::get('excel/template', 'excelTemplate')->name('excel.template');
+    Route::post('excel', 'readExcel')->name('excel');
     Route::get('metrics/{key}', 'metric')->name('metric');
     Route::get('chart', 'chart')->name('chart');
     Route::get('line-options', 'lineOptions')->name('line-options');

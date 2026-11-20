@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\GeneralDescription;
 use App\Models\InvoiceCategory;
 use App\Models\Item;
+use App\Models\ItemCategory;
 use App\Models\LensPower;
 use App\Models\SpecificDescription;
 use App\Models\Supplier;
@@ -72,6 +73,7 @@ class OptionController extends Controller
             'suppliers' => [Supplier::query()->orderBy('name_ar'), $like('name_ar', 'name_zh', 'phone'), fn (Supplier $supplier): string => (string) ($supplier->name_ar ?: $supplier->name_zh), fn (Supplier $supplier): ?string => $supplier->name_zh],
             'items' => [Item::query()->active()->orderBy('name'), $like('name'), fn (Item $item): string => $item->name, fn (Item $item): ?string => null],
             'all-items' => [Item::query()->orderBy('name'), $like('name'), fn (Item $item): string => $item->name, fn (Item $item): ?string => $item->is_active ? null : __('filament/resources/item.fields.is_active').': ✕'],
+            'item-categories' => [ItemCategory::query()->orderBy('name'), $like('name'), fn (ItemCategory $category): string => $category->name, fn (ItemCategory $category): ?string => null],
             'colors' => [Color::query()->orderBy('name'), $like('name'), fn (Color $color): string => $color->name, fn (Color $color): ?string => null],
             'lens-powers' => [LensPower::query()->orderBy('value'), fn (Builder $query, string $term) => $query->whereRaw('CAST(value AS TEXT) LIKE ?', ["%{$term}%"]), fn (LensPower $power): string => (string) $power->value, fn (LensPower $power): ?string => null],
             'containers' => [Container::query()->latest('id'), $like('international_number'), fn (Container $container): string => (string) $container->international_number, fn (Container $container): ?string => $container->loading_date?->toDateString()],

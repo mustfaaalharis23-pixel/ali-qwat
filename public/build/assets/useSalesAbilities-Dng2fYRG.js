@@ -1,0 +1,1 @@
+import{lt as e,ot as t}from"./ui-BN_4sclA.js";function n(){return e({queryKey:[`sales-abilities`],queryFn:()=>t.get(`/sales/abilities`),staleTime:6e4}).data}export{n as t};

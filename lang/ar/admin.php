@@ -3,7 +3,7 @@
 return [
     'actions' => [
         'close' => 'إغلاق', 'cancel' => 'إلغاء', 'confirm' => 'تأكيد', 'info' => 'معلومات أكثر', 'save' => 'حفظ', 'save_changes' => 'حفظ التغييرات',
-        'create' => 'إنشاء', 'new' => 'جديد', 'edit' => 'تعديل', 'view' => 'عرض', 'delete' => 'حذف', 'restore' => 'استرجاع',
+        'create' => 'إنشاء', 'create_another' => 'إنشاء وإضافة آخر', 'new' => 'جديد', 'edit' => 'تعديل', 'view' => 'عرض', 'delete' => 'حذف', 'restore' => 'استرجاع',
         'force_delete' => 'حذف نهائي', 'back' => 'رجوع', 'print' => 'طباعة', 'download' => 'تنزيل', 'add' => 'إضافة', 'remove' => 'إزالة',
         'search' => 'بحث', 'apply' => 'تطبيق', 'reset' => 'إعادة تعيين', 'export' => 'تصدير', 'saved' => 'تم الحفظ', 'deleted' => 'تم الحذف',
         'restored' => 'تم الاسترجاع', 'created' => 'تم الإنشاء', 'updated' => 'تم التحديث', 'yes' => 'نعم', 'no' => 'لا', 'more' => 'المزيد',

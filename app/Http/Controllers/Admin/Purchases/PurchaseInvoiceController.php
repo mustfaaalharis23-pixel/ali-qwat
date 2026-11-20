@@ -9,6 +9,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Purchases\PurchaseInvoiceRequest;
 use App\Http\Resources\Admin\Purchases\PurchaseInvoiceResource;
 use App\Invoices\ConfirmPurchaseInvoice;
+use App\Invoices\PurchaseExcelTemplate;
+use App\Invoices\ReadPurchaseExcel;
 use App\Invoices\RevertInvoiceConfirmation;
 use App\Metrics\Cards\PurchaseInvoices\ImporterConfirmedPurchaseInvoicesMetric;
 use App\Metrics\Cards\PurchaseInvoices\PendingPurchaseInvoicesMetric;
@@ -28,7 +30,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The purchase invoices: invoices under the purchases description. The list with its waiting counts and the pie of the suppliers
@@ -365,6 +369,34 @@ class PurchaseInvoiceController extends Controller
         Gate::authorize('viewAny', Payoff::class);
 
         return $this->storeUpload($request, 'payoffs', ['jpg', 'jpeg', 'png', 'webp'], 2048, __('filament/resources/payoff.fields.image'));
+    }
+
+    public function excelTemplate(Request $request, PurchaseExcelTemplate $template): StreamedResponse
+    {
+        Gate::authorize('create', Invoice::class);
+
+        $supported = array_keys(config('app.locales'));
+        $languages = $request->validate([
+            'languages' => ['sometimes', 'required', 'array', 'list', 'max:'.count($supported)],
+            'languages.*' => ['required', 'string', 'distinct', Rule::in($supported)],
+        ])['languages'] ?? PurchaseExcelTemplate::DEFAULT_LANGUAGES;
+
+        return response()->streamDownload(fn () => $template->write('php://output', $languages), PurchaseExcelTemplate::FILENAME, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /** Reads a factory workbook or legacy supplier order for review in the create form. */
+    public function readExcel(Request $request, ReadPurchaseExcel $reader): JsonResponse
+    {
+        Gate::authorize('create', Invoice::class);
+
+        $file = $request->validate(
+            ['file' => ['required', 'file', 'extensions:xlsx', 'max:20480']],
+            attributes: ['file' => __('invoices.excel.file')],
+        )['file'];
+
+        return response()->json($reader->handle($file->getRealPath()));
     }
 
     /**

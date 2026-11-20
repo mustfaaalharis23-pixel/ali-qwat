@@ -20,6 +20,7 @@ use App\Metrics\Cards\Items\SoldQuantityMetric;
 use App\Metrics\Cards\ItemWithoutSupplierCountMetric;
 use App\Metrics\Cards\ValueMetric;
 use App\Models\Item;
+use App\Models\ItemCategory;
 use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -39,6 +40,13 @@ use Illuminate\Validation\Rule;
 class ItemController extends Controller
 {
     use ListsRecords;
+
+    /**
+     * What every item in an answer comes with: its supplier and its category.
+     *
+     * @var list<string>
+     */
+    private const RELATIONS = ['supplier:id,name_ar', 'category:id,name'];
 
     /**
      * The cards above the items list.
@@ -79,7 +87,7 @@ class ItemController extends Controller
 
         $items = $this->listRecords(
             Item::query()
-                ->with('supplier:id,name_ar')
+                ->with(self::RELATIONS)
                 ->when($status === 'active', fn (Builder $query): Builder => $query->where('is_active', true))
                 ->when($status === 'inactive', fn (Builder $query): Builder => $query->where('is_active', false))
                 ->when($request->integer('supplier_id'), fn (Builder $query, int $supplierId): Builder => $query->where('supplier_id', $supplierId)),
@@ -95,6 +103,7 @@ class ItemController extends Controller
             ],
             filters: [
                 'supplier_id' => fn (Builder $query, string $value): Builder => $query->where('supplier_id', (int) $value),
+                'item_category_id' => fn (Builder $query, string $value): Builder => $query->where('item_category_id', (int) $value),
             ],
             defaultSort: ['column' => 'id', 'direction' => 'desc'],
         );
@@ -138,12 +147,12 @@ class ItemController extends Controller
 
         $item = Item::query()->create($this->validated($request));
 
-        return new ItemResource($item->load('supplier:id,name_ar'));
+        return new ItemResource($item->load(self::RELATIONS));
     }
 
     public function show(Request $request, int $item): JsonResponse
     {
-        $record = Item::withTrashed()->with('supplier:id,name_ar')->findOrFail($item);
+        $record = Item::withTrashed()->with(self::RELATIONS)->findOrFail($item);
         Gate::authorize('view', $record);
 
         return (new ItemResource($record))->withQuantities()->additional([
@@ -173,7 +182,7 @@ class ItemController extends Controller
 
         $item->update($this->validated($request, $item));
 
-        return new ItemResource($item->load('supplier:id,name_ar'));
+        return new ItemResource($item->load(self::RELATIONS));
     }
 
     public function destroy(Item $item): JsonResponse
@@ -253,7 +262,7 @@ class ItemController extends Controller
 
         $item->update(['sale_price' => (float) $data['sale_price']]);
 
-        return new ItemResource($item->load('supplier:id,name_ar'));
+        return new ItemResource($item->load(self::RELATIONS));
     }
 
     /**
@@ -265,7 +274,7 @@ class ItemController extends Controller
 
         $item->update(['is_active' => true]);
 
-        return new ItemResource($item->load('supplier:id,name_ar'));
+        return new ItemResource($item->load(self::RELATIONS));
     }
 
     /**
@@ -277,7 +286,7 @@ class ItemController extends Controller
 
         $item->recalculateStock();
 
-        return new ItemResource($item->refresh()->load('supplier:id,name_ar'));
+        return new ItemResource($item->refresh()->load(self::RELATIONS));
     }
 
     /**
@@ -289,7 +298,7 @@ class ItemController extends Controller
 
         $item->update(['supplier_id' => $this->validatedSupplier($request)]);
 
-        return new ItemResource($item->load('supplier:id,name_ar'));
+        return new ItemResource($item->load(self::RELATIONS));
     }
 
     /**
@@ -335,7 +344,8 @@ class ItemController extends Controller
 
     /**
      * The fields of the item form. The image is required on a new item; an item being edited keeps its image unless
-     * a new one is sent. A sale price left empty is saved as 0, to be set later.
+     * a new one is sent. A sale price left empty is saved as 0, to be set later. The category is optional, and a deleted
+     * category cannot be chosen.
      *
      * @return array<string, mixed>
      */
@@ -346,12 +356,13 @@ class ItemController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'supplier_id' => ['nullable', 'integer', Rule::exists(Supplier::class, 'id')],
+            'item_category_id' => ['nullable', 'integer', Rule::exists(ItemCategory::class, 'id')->withoutTrashed()],
             'image' => [$item === null ? 'required' : 'nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             'pieces_per_packet' => ['required', 'integer', Rule::in(Item::PACKET_SIZES)],
             'description' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'boolean'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
-        ], attributes: collect(['name', 'supplier_id', 'image', 'pieces_per_packet', 'description', 'is_active', 'sale_price'])
+        ], attributes: collect(['name', 'supplier_id', 'item_category_id', 'image', 'pieces_per_packet', 'description', 'is_active', 'sale_price'])
             ->mapWithKeys(fn (string $field): array => [$field => __("filament/resources/item.fields.{$field}")])
             ->all());
 
