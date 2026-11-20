@@ -980,7 +980,7 @@ function InvoiceForm({ initial, invoiceId, canChangeRate, canViewCostPrice, canC
                                         <QuickCreate
                                             endpoint="/invoice-categories"
                                             title={t('admin/purchases.form.new_category')}
-                                            label={t('filament/resources/invoice_category.fields.name')}
+                                            label={t('filament/resources/category.fields.name')}
                                             onCreated={(option) => {
                                                 form.set('invoice_category_id', option.value);
                                                 form.set('category_label', option.label);

@@ -72,4 +72,4 @@ Route::apiResource('containers', ContainerController::class)->where(['container'
 
 Route::post('invoice-categories/{category}/restore', [InvoiceCategoryController::class, 'restore'])->whereNumber('category')->name('invoice-categories.restore');
 Route::delete('invoice-categories/{category}/force', [InvoiceCategoryController::class, 'forceDelete'])->whereNumber('category')->name('invoice-categories.force-delete');
-Route::apiResource('invoice-categories', InvoiceCategoryController::class)->except('show')->parameters(['invoice-categories' => 'category']);
+Route::apiResource('invoice-categories', InvoiceCategoryController::class)->except('show')->parameters(['invoice-categories' => 'category'])->where(['category' => '[0-9]+']);

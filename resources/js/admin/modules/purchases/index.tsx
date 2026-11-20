@@ -11,7 +11,7 @@ const ContainerPage = page(() => import('./ContainersPage'), 'ContainerPage');
 const ContainersPage = page(() => import('./ContainersPage'), 'ContainersPage');
 const CreateContainerPage = page(() => import('./ContainersPage'), 'CreateContainerPage');
 const EditContainerPage = page(() => import('./ContainersPage'), 'EditContainerPage');
-const InvoiceCategoriesPage = page(() => import('./InvoiceCategoriesPage'), 'InvoiceCategoriesPage');
+const CategoriesPage = page(() => import('../../components/CategoriesPage'), 'CategoriesPage');
 
 /** The purchases: purchase invoices with their payoffs, suppliers, containers, and invoice categories, at the panel's own paths. */
 export default defineModule({
@@ -28,6 +28,6 @@ export default defineModule({
         { path: 'containers/create', element: <CreateContainerPage /> },
         { path: 'containers/:id', element: <ContainerPage /> },
         { path: 'containers/:id/edit', element: <EditContainerPage /> },
-        { path: 'invoice-categories', element: <InvoiceCategoriesPage /> },
+        { path: 'invoice-categories', element: <CategoriesPage section="purchases" /> },
     ],
 });

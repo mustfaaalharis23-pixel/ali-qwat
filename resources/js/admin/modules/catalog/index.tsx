@@ -1,7 +1,7 @@
 import { defineModule, page } from '../../lib/modules';
 const BatchesPage = page(() => import('./BatchesPage'), 'BatchesPage');
 const ColorsPage = page(() => import('./ColorsPage'), 'ColorsPage');
-const ItemCategoriesPage = page(() => import('./ItemCategoriesPage'), 'ItemCategoriesPage');
+const CategoriesPage = page(() => import('../../components/CategoriesPage'), 'CategoriesPage');
 const ItemCreatePage = page(() => import('./ItemFormPage'), 'ItemCreatePage');
 const ItemEditPage = page(() => import('./ItemFormPage'), 'ItemEditPage');
 const ItemPage = page(() => import('./ItemPage'), 'ItemPage');
@@ -12,7 +12,7 @@ const LensPowersPage = page(() => import('./LensPowersPage'), 'LensPowersPage');
 export default defineModule({
     routes: [
         { path: 'colors', element: <ColorsPage /> },
-        { path: 'item-categories', element: <ItemCategoriesPage /> },
+        { path: 'item-categories', element: <CategoriesPage section="items" /> },
         { path: 'items', element: <ItemsPage /> },
         { path: 'items/create', element: <ItemCreatePage /> },
         { path: 'items/:id', element: <ItemPage /> },

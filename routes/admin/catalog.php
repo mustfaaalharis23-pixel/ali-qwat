@@ -19,7 +19,7 @@ Route::apiResource('lens-powers', LensPowerController::class)->except('show');
 
 Route::post('item-categories/{category}/restore', [ItemCategoryController::class, 'restore'])->whereNumber('category')->name('item-categories.restore');
 Route::delete('item-categories/{category}/force', [ItemCategoryController::class, 'forceDelete'])->whereNumber('category')->name('item-categories.force-delete');
-Route::apiResource('item-categories', ItemCategoryController::class)->except('show')->parameters(['item-categories' => 'category']);
+Route::apiResource('item-categories', ItemCategoryController::class)->except('show')->parameters(['item-categories' => 'category'])->where(['category' => '[0-9]+']);
 
 Route::get('items/excel/template', [ItemExcelController::class, 'template'])->name('items.excel.template');
 Route::post('items/excel', [ItemExcelController::class, 'preview'])->name('items.excel.preview');

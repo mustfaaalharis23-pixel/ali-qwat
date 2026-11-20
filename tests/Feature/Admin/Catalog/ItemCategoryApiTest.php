@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Admin\Catalog;
 
+use App\Models\Invoice;
+use App\Models\InvoiceCategory;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
@@ -117,5 +119,55 @@ class ItemCategoryApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Round frame')
             ->assertJsonPath('data.0.category.name', 'Frames');
+    }
+
+    /**
+     * EN: Both menus and selectors use the same category IDs, and a rename is visible from either section.
+     * AR: القائمتين واختيارات الفئات تستخدم نفس المعرفات، وتغيير الاسم يبين بالقسمين.
+     */
+    public function test_items_and_invoices_share_their_categories(): void
+    {
+        $this->actingAs($this->userWith('item_category.view', 'item_category.create', 'invoice_category.view', 'invoice_category.create', 'invoice_category.update'));
+
+        $frames = $this->postJson('/admin-api/item-categories', ['name' => 'Frames'])->assertCreated()->json('data.id');
+        $lenses = $this->postJson('/admin-api/invoice-categories', ['name' => 'Lens cases'])->assertCreated()->json('data.id');
+        $this->postJson('/admin-api/invoice-categories', ['name' => 'Frames'])->assertJsonValidationErrors('name');
+        $this->putJson("/admin-api/invoice-categories/{$frames}", ['name' => 'Reading frames'])->assertOk();
+
+        foreach (['item-categories', 'invoice-categories'] as $endpoint) {
+            $this->getJson("/admin-api/{$endpoint}?sort=id")->assertOk()
+                ->assertJsonCount(2, 'data')
+                ->assertJsonPath('data.0.id', $frames)
+                ->assertJsonPath('data.0.name', 'Reading frames')
+                ->assertJsonPath('data.1.id', $lenses);
+            $this->getJson("/admin-api/options/{$endpoint}?ids[]={$frames}")->assertOk()
+                ->assertJsonPath('data.0.value', $frames)
+                ->assertJsonPath('data.0.label', 'Reading frames');
+        }
+    }
+
+    /**
+     * EN: A shared category in use by either record type is protected from deletion through both menus.
+     * AR: الفئة المستخدمة بمادة أو فاتورة ما تنحذف من أي قسم.
+     */
+    public function test_both_category_lists_count_and_protect_linked_records(): void
+    {
+        $frames = ItemCategory::factory()->create(['name' => 'Frames']);
+        $lenses = InvoiceCategory::factory()->create(['name' => 'Lenses']);
+        Item::factory()->create(['item_category_id' => $frames->id]);
+        Invoice::factory()->purchase()->create(['invoice_category_id' => $lenses->id]);
+        $this->actingAs($this->userWith('item_category.view', 'item_category.delete', 'invoice_category.view', 'invoice_category.delete'));
+
+        foreach (['item-categories', 'invoice-categories'] as $endpoint) {
+            $this->getJson("/admin-api/{$endpoint}?sort=name")->assertOk()
+                ->assertJsonPath('data.0.items_count', 1)
+                ->assertJsonPath('data.0.invoices_count', 0)
+                ->assertJsonPath('data.0.can.delete', false)
+                ->assertJsonPath('data.1.items_count', 0)
+                ->assertJsonPath('data.1.invoices_count', 1)
+                ->assertJsonPath('data.1.can.delete', false);
+            $this->deleteJson("/admin-api/{$endpoint}/{$frames->id}")->assertUnprocessable();
+            $this->deleteJson("/admin-api/{$endpoint}/{$lenses->id}")->assertUnprocessable();
+        }
     }
 }
