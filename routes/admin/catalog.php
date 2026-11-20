@@ -28,6 +28,7 @@ Route::post('items/excel/import', [ItemExcelController::class, 'store'])->name('
 Route::prefix('items')->name('items.')->controller(ItemController::class)->group(function (): void {
     Route::get('metrics', 'listMetrics')->name('list-metrics');
     Route::post('bulk', 'bulk')->name('bulk');
+    Route::post('category', 'bulkCategory')->name('bulk-category');
     Route::post('supplier', 'bulkSupplier')->name('bulk-supplier');
     Route::get('{item}', 'show')->whereNumber('item')->name('show');
     Route::get('{item}/metrics', 'metrics')->whereNumber('item')->name('metrics');

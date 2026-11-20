@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -64,10 +65,12 @@ abstract class CategoryController extends Controller
 
     public function destroy(int $category): JsonResponse
     {
-        $model = static::MODEL;
-        $record = $model::query()->findOrFail($category);
-        Gate::authorize('delete', $record);
-        $record->delete();
+        DB::transaction(function () use ($category): void {
+            $model = static::MODEL;
+            $record = $model::query()->lockForUpdate()->findOrFail($category);
+            Gate::authorize('delete', $record);
+            $record->delete();
+        });
 
         return response()->json(status: 204);
     }
@@ -84,10 +87,12 @@ abstract class CategoryController extends Controller
 
     public function forceDelete(int $category): JsonResponse
     {
-        $model = static::MODEL;
-        $record = $model::withTrashed()->findOrFail($category);
-        Gate::authorize('forceDelete', $record);
-        $record->forceDelete();
+        DB::transaction(function () use ($category): void {
+            $model = static::MODEL;
+            $record = $model::withTrashed()->lockForUpdate()->findOrFail($category);
+            Gate::authorize('forceDelete', $record);
+            $record->forceDelete();
+        });
 
         return response()->json(status: 204);
     }

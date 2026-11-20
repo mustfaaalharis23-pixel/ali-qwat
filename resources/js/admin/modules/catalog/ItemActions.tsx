@@ -3,7 +3,7 @@ import { api } from '../../lib/api';
 import { number } from '../../lib/format';
 import { useForm, useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Button, ConfirmDialog, Field, Input, Modal, MoneyInput } from '../../components/ui';
+import { Button, ConfirmDialog, Field, Input, Modal, MoneyInput, toast } from '../../components/ui';
 import { SearchSelect } from '../../components/SearchSelect';
 
 /** What every list and page that touches an item reads again after an item action. */
@@ -146,6 +146,52 @@ export function SetSupplierModal({ ids, onClose, onDone }: { ids: number[]; onCl
         >
             <Field label={t('filament/resources/item.fields.supplier_id')} error={error} required>
                 {(id) => <SearchSelect id={id} endpoint="/options/suppliers" value={supplierId} onChange={(value) => { setSupplierId(value === null ? null : Number(value)); setError(undefined); }} invalid={Boolean(error)} />}
+            </Field>
+        </Modal>
+    );
+}
+
+export function SetCategoryModal({ ids, onClose, onDone }: { ids: number[]; onClose: () => void; onDone: () => void }) {
+    const t = useT();
+    const form = useForm<{ item_category_id: number | null }>({ item_category_id: null });
+    const save = useSave((categoryId: number) => api.post<{ count: number }>('/items/category', { ids, item_category_id: categoryId }), {
+        invalidate: ITEM_INVALIDATE,
+        onSuccess: ({ count }) => {
+            toast.success(t('admin/catalog.category_assigned', { count }));
+            onDone();
+            onClose();
+        },
+        onError: form.fail,
+    });
+    const categoryId = form.values.item_category_id;
+    const error = form.errors.item_category_id ?? form.errors.ids;
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            size="sm"
+            title={t('admin/catalog.assign_category')}
+            description={t('admin.table.selected', { count: ids.length })}
+            footer={
+                <>
+                    <Button onClick={onClose}>{t('admin.actions.cancel')}</Button>
+                    <Button variant="primary" loading={save.isPending} disabled={categoryId === null} onClick={() => categoryId !== null && save.mutate(categoryId)}>
+                        {t('admin.actions.save')}
+                    </Button>
+                </>
+            }
+        >
+            <Field label={t('filament/resources/item.fields.item_category_id')} error={error} required>
+                {(id) => (
+                    <SearchSelect
+                        id={id}
+                        endpoint="/options/item-categories"
+                        value={categoryId}
+                        onChange={(value) => form.set('item_category_id', value === null ? null : Number(value))}
+                        invalid={Boolean(error)}
+                    />
+                )}
             </Field>
         </Modal>
     );

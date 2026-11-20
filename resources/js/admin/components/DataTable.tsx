@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Columns3, Ellipsis, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Columns3, Ellipsis, ListChecks, Search, X } from 'lucide-react';
 import { api, type Paginated, type Query } from '../lib/api';
 import { cn, number } from '../lib/format';
 import { useI18n } from '../lib/i18n';
@@ -23,6 +23,12 @@ export interface Filter {
     key: string;
     label: string;
     options: Option[];
+}
+
+export interface TableSelection<T> {
+    ids: (string | number)[];
+    rows: T[];
+    clear: () => void;
 }
 
 interface DataTableProps<T> {
@@ -50,6 +56,8 @@ interface DataTableProps<T> {
     footer?: (response: Paginated<T> & Record<string, unknown>) => ReactNode;
     className?: string;
     selectable?: boolean;
+    /** Menu entries for the currently selected rows. Providing entries enables selection by default. */
+    selectionActions?: (selection: TableSelection<T>) => MenuItem[];
     bulkActions?: (selected: (string | number)[], clear: () => void) => ReactNode;
     rowClassName?: (row: T) => string | undefined;
 }
@@ -76,7 +84,8 @@ export function DataTable<T extends { id?: number | string }>({
     rowKey = (row) => row.id as number,
     footer,
     className,
-    selectable,
+    selectionActions,
+    selectable = selectionActions !== undefined,
     bulkActions,
     rowClassName,
 }: DataTableProps<T>) {
@@ -134,7 +143,7 @@ export function DataTable<T extends { id?: number | string }>({
         filter: { ...((query.filter as Record<string, unknown> | undefined) ?? {}), ...Object.fromEntries(Object.entries(state.filters).filter(([, value]) => value !== '')) },
     };
 
-    const { data, isLoading, isFetching, isError, error } = useQuery({
+    const { data, isLoading, isFetching, isPlaceholderData, isError, error } = useQuery({
         queryKey: ['list', endpoint, requestQuery],
         queryFn: () => api.get<Paginated<T> & Record<string, unknown>>(endpoint, requestQuery),
         placeholderData: keepPreviousData,
@@ -170,6 +179,13 @@ export function DataTable<T extends { id?: number | string }>({
     const meta = data?.meta;
     const activeFilters = Object.values(state.filters).filter(Boolean).length + (state.trashed ? 1 : 0);
     const allSelected = rows.length > 0 && rows.every((row) => selected.includes(rowKey(row)));
+    const selectedRows = selectable && selectionActions && !isPlaceholderData && selected.length > 0
+        ? rows.filter((row) => selected.includes(rowKey(row)))
+        : [];
+    const selectionMenu = selectedRows.length > 0 && selectionActions
+        ? selectionActions({ ids: selectedRows.map(rowKey), rows: selectedRows, clear: () => setSelected([]) })
+        : [];
+    const hasSelectionActions = selectionMenu.some((action) => !action.hidden && !action.divider);
 
     const toggleSort = (column: string) => {
         if (state.sort !== column) update({ sort: column, direction: 'asc' });
@@ -180,7 +196,7 @@ export function DataTable<T extends { id?: number | string }>({
 
     return (
         <div className={cn('card animate-in overflow-hidden', className)}>
-            {(searchable || filters.length > 0 || trashed || toolbar) && (
+            {(searchable || filters.length > 0 || trashed || toolbar || hasSelectionActions) && (
                 <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
                     {searchable && (
                         <div className="relative min-w-48 flex-1 sm:max-w-72">
@@ -217,6 +233,19 @@ export function DataTable<T extends { id?: number | string }>({
                     )}
                     <div className="ms-auto flex flex-wrap items-center gap-2">
                         {selectable && selected.length > 0 && bulkActions?.(selected, () => setSelected([]))}
+                        {hasSelectionActions && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted" role="status">{t('admin.table.selected', { count: selectedRows.length })}</span>
+                                <Menu
+                                    items={selectionMenu}
+                                    trigger={(toggle, open) => (
+                                        <Button size="sm" onClick={toggle} icon={<ListChecks className="size-4" />} aria-expanded={open}>
+                                            {t('admin.table.actions')}
+                                        </Button>
+                                    )}
+                                />
+                            </div>
+                        )}
                         {showColumnPicker && availableColumns.length > 3 && (
                             <Menu
                                 items={availableColumns.map((column) => ({

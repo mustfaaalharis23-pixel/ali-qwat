@@ -397,6 +397,66 @@ class ItemApiTest extends TestCase
     }
 
     /**
+     * EN: Assigning a category updates only the selected items, and records each change in the audit log.
+     * AR: تعيين الفئة يغيّر المواد المحددة بس، وكل تغيير ينكتب بسجل التدقيق.
+     */
+    public function test_the_same_category_is_assigned_to_selected_items(): void
+    {
+        $previous = ItemCategory::factory()->create();
+        $category = ItemCategory::factory()->create();
+        $first = Item::factory()->create(['item_category_id' => $previous->id]);
+        $second = Item::factory()->inactive()->create();
+        $unselected = Item::factory()->create(['item_category_id' => $previous->id]);
+        $this->actingAs($this->userWith('item.view', 'item.update'));
+
+        $this->postJson('/admin-api/items/category', ['ids' => [$first->id, $second->id], 'item_category_id' => $category->id])
+            ->assertOk()->assertJsonPath('count', 2);
+
+        foreach ([$first, $second] as $item) {
+            $this->assertSame($category->id, $item->fresh()->item_category_id);
+            $this->assertDatabaseHas('activity_log', ['subject_type' => $item->getMorphClass(), 'subject_id' => $item->id, 'event' => 'updated']);
+        }
+        $this->assertSame($previous->id, $unselected->fresh()->item_category_id);
+    }
+
+    /**
+     * EN: Assigning a category to a selection requires permission to edit items.
+     * AR: تعيين فئة للمواد المحددة يحتاج صلاحية تعديل المواد.
+     */
+    public function test_bulk_category_assignment_requires_update_permission(): void
+    {
+        $item = Item::factory()->create();
+        $category = ItemCategory::factory()->create();
+        $this->actingAs($this->userWith('item.view'));
+
+        $this->postJson('/admin-api/items/category', ['ids' => [$item->id], 'item_category_id' => $category->id])->assertForbidden();
+
+        $this->assertNull($item->fresh()->item_category_id);
+    }
+
+    /**
+     * EN: An unavailable category or a deleted item in the selection prevents the whole batch from changing.
+     * AR: الفئة المحذوفة أو مادة محذوفة ضمن التحديد توقف التغيير لكل الدفعة.
+     */
+    public function test_bulk_category_assignment_rejects_unavailable_categories_and_items(): void
+    {
+        $first = Item::factory()->create();
+        $deleted = Item::factory()->create();
+        $deleted->delete();
+        $category = ItemCategory::factory()->create();
+        $unavailable = ItemCategory::factory()->create();
+        $unavailable->delete();
+        $this->actingAs($this->userWith('item.view', 'item.update'));
+
+        $this->postJson('/admin-api/items/category', ['ids' => [$first->id], 'item_category_id' => $unavailable->id])
+            ->assertJsonValidationErrors('item_category_id');
+        $this->postJson('/admin-api/items/category', ['ids' => [$first->id, $deleted->id], 'item_category_id' => $category->id])
+            ->assertJsonValidationErrors('ids');
+
+        $this->assertNull($first->fresh()->item_category_id);
+    }
+
+    /**
      * EN: The sale price is set by a user who can edit items; only the sale price is saved.
      * AR: سعر البيع يحدده اليوزر اللي يگدر يعدل المواد؛ ينحفظ سعر البيع بس.
      */

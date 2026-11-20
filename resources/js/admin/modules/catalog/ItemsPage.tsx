@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ImageOff, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ImageOff, Plus, RotateCcw, Tag, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cn, money, number } from '../../lib/format';
 import { useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Button, ButtonLink, ConfirmDialog, toast } from '../../components/ui';
+import { ButtonLink, ConfirmDialog, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { MetricView, type MetricPayload } from '../../components/MetricCard';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchSelect } from '../../components/SearchSelect';
 import { useRecordActions, type Abilities } from '../../components/RecordActions';
-import { ITEM_INVALIDATE } from './ItemActions';
+import { ITEM_INVALIDATE, SetCategoryModal } from './ItemActions';
 import { ItemExcel } from './ItemExcel';
 
 export interface ItemRow {
@@ -39,6 +39,7 @@ export interface ItemRow {
 
 interface ListAbilities {
     create?: boolean;
+    update?: boolean;
     delete?: boolean;
     restore?: boolean;
     force_delete?: boolean;
@@ -83,6 +84,7 @@ export function ItemsPage() {
     const supplierId = params.get('supplier') ? Number(params.get('supplier')) : null;
     const categoryId = params.get('category') ? Number(params.get('category')) : null;
     const [bulk, setBulk] = useState<{ kind: BulkKind; ids: (string | number)[]; clear: () => void } | null>(null);
+    const [assigningCategory, setAssigningCategory] = useState<{ ids: number[]; clear: () => void } | null>(null);
     const actions = useRecordActions<ItemRow>('/items', { label: (item) => item.name });
 
     const runBulk = useSave((pending: { kind: BulkKind; ids: (string | number)[] }) => api.post<{ count: number }>('/items/bulk', { action: pending.kind, ids: pending.ids }), {
@@ -147,26 +149,37 @@ export function ItemsPage() {
                         </>
                     );
                 }}
-                selectable={Boolean(can.delete || can.restore || can.force_delete)}
-                bulkActions={(ids, clear) => (
-                    <>
-                        {can.restore && (
-                            <Button size="sm" variant="secondary" icon={<RotateCcw className="size-3.5" />} onClick={() => setBulk({ kind: 'restore', ids, clear })}>
-                                {t('admin.actions.restore')}
-                            </Button>
-                        )}
-                        {can.delete && (
-                            <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={() => setBulk({ kind: 'delete', ids, clear })}>
-                                {t('admin.actions.delete')}
-                            </Button>
-                        )}
-                        {can.force_delete && (
-                            <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={() => setBulk({ kind: 'force_delete', ids, clear })}>
-                                {t('admin.actions.force_delete')}
-                            </Button>
-                        )}
-                    </>
-                )}
+                selectable={Boolean(can.update || can.delete || can.restore || can.force_delete)}
+                selectionActions={({ ids, rows, clear }) => [
+                    {
+                        label: t('admin/catalog.assign_category'),
+                        icon: <Tag className="size-4" />,
+                        hidden: !can.update,
+                        disabled: rows.some((item) => item.deleted_at !== null || !item.can.update),
+                        onSelect: () => setAssigningCategory({ ids: rows.map((item) => item.id), clear }),
+                    },
+                    { label: '', divider: true, hidden: !can.update },
+                    {
+                        label: t('admin.actions.restore'),
+                        icon: <RotateCcw className="size-4" />,
+                        hidden: !can.restore,
+                        onSelect: () => setBulk({ kind: 'restore', ids, clear }),
+                    },
+                    {
+                        label: t('admin.actions.delete'),
+                        icon: <Trash2 className="size-4" />,
+                        tone: 'danger',
+                        hidden: !can.delete,
+                        onSelect: () => setBulk({ kind: 'delete', ids, clear }),
+                    },
+                    {
+                        label: t('admin.actions.force_delete'),
+                        icon: <Trash2 className="size-4" />,
+                        tone: 'danger',
+                        hidden: !can.force_delete,
+                        onSelect: () => setBulk({ kind: 'force_delete', ids, clear }),
+                    },
+                ]}
                 columns={[
                     {
                         key: 'image',
@@ -205,6 +218,9 @@ export function ItemsPage() {
                 rowActions={(item) => actions.items(item, { edit: () => navigate(`/items/${item.id}/edit`) })}
             />
             {actions.dialogs}
+            {assigningCategory && (
+                <SetCategoryModal ids={assigningCategory.ids} onDone={assigningCategory.clear} onClose={() => setAssigningCategory(null)} />
+            )}
             <ConfirmDialog
                 open={bulk !== null}
                 onClose={() => setBulk(null)}

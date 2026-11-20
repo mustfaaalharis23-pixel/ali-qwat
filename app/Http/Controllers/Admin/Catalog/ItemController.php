@@ -27,9 +27,11 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The items, as the panel's item screens had them: a list of the active items by default (the status filter reaches the
@@ -315,6 +317,41 @@ class ItemController extends Controller
         $items->each(fn (Item $item): bool => $item->update(['supplier_id' => $supplierId]));
 
         return response()->json(['count' => $items->count()]);
+    }
+
+    /** Assigns a category to the entire selection and records each item's change. */
+    public function bulkCategory(Request $request): JsonResponse
+    {
+        Gate::authorize('update', new Item);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'list', 'min:1'],
+            'ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'item_category_id' => ['required', 'integer', 'min:1'],
+        ], attributes: [
+            'item_category_id' => __('filament/resources/item.fields.item_category_id'),
+        ]);
+
+        $count = DB::transaction(function () use ($data): int {
+            $category = ItemCategory::query()->lockForUpdate()->find($data['item_category_id'], ['id']);
+            if ($category === null) {
+                throw ValidationException::withMessages([
+                    'item_category_id' => __('validation.exists', ['attribute' => __('filament/resources/item.fields.item_category_id')]),
+                ]);
+            }
+
+            $items = Item::query()->whereKey($data['ids'])->orderBy('id')->lockForUpdate()->get();
+            if ($items->count() !== count($data['ids'])) {
+                throw ValidationException::withMessages(['ids' => __('admin/catalog.selected_items_unavailable')]);
+            }
+
+            $items->each(fn (Item $item) => Gate::authorize('update', $item));
+            $items->each(fn (Item $item): bool => $item->update(['item_category_id' => $category->id]));
+
+            return $items->count();
+        });
+
+        return response()->json(['count' => $count]);
     }
 
     /**
