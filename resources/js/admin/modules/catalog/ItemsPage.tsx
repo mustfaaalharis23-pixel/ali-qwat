@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ImageOff, Plus, RotateCcw, Store, Tag, Trash2 } from 'lucide-react';
+import { ImageOff, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cn, money, number } from '../../lib/format';
 import { useSave } from '../../lib/form';
 import { useT } from '../../lib/i18n';
-import { Badge, Button, ButtonLink, ConfirmDialog, toast } from '../../components/ui';
+import { Button, ButtonLink, ConfirmDialog, toast } from '../../components/ui';
 import { DataTable } from '../../components/DataTable';
 import { MetricView, type MetricPayload } from '../../components/MetricCard';
 import { PageHeader } from '../../components/PageHeader';
@@ -42,16 +42,16 @@ interface ListAbilities {
     delete?: boolean;
     restore?: boolean;
     force_delete?: boolean;
-    view_cost_price?: boolean;
 }
 
-/** The item's picture, small and square, or a quiet placeholder. */
-export function ItemThumb({ url, className }: { url: string | null; className?: string }) {
+export function ItemThumb({ url, large = false, className }: { url: string | null; large?: boolean; className?: string }) {
+    const frame = cn('shrink-0 ring-1 ring-line', large ? 'h-20 w-28 rounded-lg' : 'size-9 rounded-md', className);
+
     return url ? (
-        <img src={url} alt="" loading="lazy" className={cn('size-9 shrink-0 rounded-md object-cover ring-1 ring-line', className)} />
+        <img src={url} alt="" loading="lazy" className={cn(frame, large ? 'bg-subtle object-contain' : 'object-cover')} />
     ) : (
-        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-md bg-subtle text-faint ring-1 ring-line', className)}>
-            <ImageOff className="size-4" />
+        <span className={cn(frame, 'flex items-center justify-center bg-subtle text-faint')}>
+            <ImageOff className={large ? 'size-6' : 'size-4'} />
         </span>
     );
 }
@@ -116,6 +116,7 @@ export function ItemsPage() {
             <DataTable<ItemRow>
                 endpoint="/items"
                 trashed
+                showColumnPicker={false}
                 query={{ supplier_id: supplierId ?? undefined, filter: { item_category_id: categoryId ?? undefined } }}
                 defaultSort={{ column: 'id', direction: 'desc' }}
                 rowHref={(item) => `/items/${item.id}`}
@@ -168,49 +169,30 @@ export function ItemsPage() {
                 )}
                 columns={[
                     {
+                        key: 'image',
+                        header: t('filament/resources/item.fields.image'),
+                        className: 'w-36',
+                        cell: (item) => <ItemThumb url={item.image_url} large />,
+                    },
+                    {
                         key: 'name',
                         header: t('filament/resources/item.fields.name'),
                         sortable: true,
-                        cell: (item) => (
-                            <span className="flex min-w-56 items-center gap-3.5 py-1">
-                                <ItemThumb url={item.image_url} className="size-14 rounded-lg" />
-                                <span className="min-w-0">
-                                    <span className="block truncate text-[14.5px] font-semibold">{item.name}</span>
-                                    {(!item.is_active || item.deleted_at) && (
-                                        <span className="mt-1 flex flex-wrap gap-1.5">
-                                            {!item.is_active && <Badge tone="gray">{t('admin/catalog.inactive')}</Badge>}
-                                            {item.deleted_at && <Badge tone="danger">{t('admin.actions.deleted')}</Badge>}
-                                        </span>
-                                    )}
-                                </span>
-                            </span>
-                        ),
+                        cell: (item) => <span className="block min-w-32 text-[14.5px] font-semibold whitespace-normal break-words">{item.name}</span>,
                     },
                     {
-                        key: 'category',
-                        header: t('filament/resources/item.fields.item_category_id'),
-                        cell: (item) =>
-                            item.category ? (
-                                <span className="inline-flex max-w-48 items-center gap-2">
-                                    <Tag className="size-4 shrink-0 text-faint" />
-                                    <span className="truncate">{item.category.name}</span>
-                                </span>
-                            ) : (
-                                <span className="text-faint">—</span>
-                            ),
+                        key: 'available_quantity',
+                        header: t('filament/resources/item.fields.available_quantity'),
+                        sortable: true,
+                        align: 'end',
+                        cell: (item) => <span className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span>,
                     },
                     {
-                        key: 'supplier',
-                        header: t('filament/resources/item.fields.supplier_id'),
-                        cell: (item) =>
-                            item.supplier ? (
-                                <span className="inline-flex max-w-56 items-center gap-2">
-                                    <Store className="size-4 shrink-0 text-faint" />
-                                    <span className="truncate">{item.supplier.name}</span>
-                                </span>
-                            ) : (
-                                <span className="text-faint">—</span>
-                            ),
+                        key: 'incoming_quantity',
+                        header: t('filament/resources/item.fields.incoming_quantity'),
+                        sortable: true,
+                        align: 'end',
+                        cell: (item) => <span className="tabular-nums">{number(item.incoming_quantity)}</span>,
                     },
                     {
                         key: 'sale_price',
@@ -218,25 +200,6 @@ export function ItemsPage() {
                         sortable: true,
                         align: 'end',
                         cell: (item) => <span className="text-[15px] font-semibold whitespace-nowrap tabular-nums">{money(item.sale_price)}</span>,
-                    },
-                    { key: 'id', header: '#', sortable: true, defaultHidden: true, cell: (item) => <span className="text-muted tabular-nums">{item.id}</span> },
-                    { key: 'available_quantity', header: t('filament/resources/item.fields.available_quantity'), sortable: true, align: 'end', defaultHidden: true, cell: (item) => <span className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span> },
-                    { key: 'incoming_quantity', header: t('filament/resources/item.fields.incoming_quantity'), sortable: true, align: 'end', defaultHidden: true, cell: (item) => <span className="text-muted tabular-nums">{number(item.incoming_quantity)}</span> },
-                    { key: 'cost_price', header: t('filament/resources/item.fields.cost_price'), sortable: true, align: 'end', defaultHidden: true, hidden: !can.view_cost_price, cell: (item) => (item.cost_price === undefined ? null : <span className="tabular-nums">{number(item.cost_price)}</span>) },
-                    {
-                        key: 'profit_margin',
-                        header: t('filament/resources/item.fields.profit_margin'),
-                        align: 'end',
-                        defaultHidden: true,
-                        hidden: !can.view_cost_price,
-                        cell: (item) => (item.profit_margin === undefined ? null : <span className={cn('tabular-nums', item.profit_margin < 0 && 'text-danger')}>{number(item.profit_margin)}</span>),
-                    },
-                    {
-                        key: 'is_active',
-                        header: t('filament/resources/item.fields.is_active'),
-                        align: 'center',
-                        defaultHidden: true,
-                        cell: (item) => <Badge tone={item.is_active ? 'success' : 'gray'}>{item.is_active ? t('admin/catalog.active') : t('admin/catalog.inactive')}</Badge>,
                     },
                 ]}
                 rowActions={(item) => actions.items(item, { edit: () => navigate(`/items/${item.id}/edit`) })}

@@ -31,6 +31,7 @@ interface DataTableProps<T> {
     columns: Column<T>[];
     filters?: Filter[];
     searchable?: boolean;
+    showColumnPicker?: boolean;
     /** Shows the deleted-records filter (with or only the deleted ones). */
     trashed?: boolean;
     defaultSort?: { column: string; direction: 'asc' | 'desc' };
@@ -62,6 +63,7 @@ export function DataTable<T extends { id?: number | string }>({
     columns,
     filters = [],
     searchable = true,
+    showColumnPicker = true,
     trashed = false,
     defaultSort,
     rowHref,
@@ -140,6 +142,7 @@ export function DataTable<T extends { id?: number | string }>({
 
     const columnsKey = `admin-columns:${endpoint}:${stateKey}`;
     const [hiddenKeys, setHiddenKeys] = useState<string[]>(() => {
+        if (!showColumnPicker) return [];
         const byDefault = columns.filter((column) => column.defaultHidden).map((column) => column.key);
         try {
             const saved = localStorage.getItem(columnsKey);
@@ -159,7 +162,10 @@ export function DataTable<T extends { id?: number | string }>({
             return next;
         });
     const availableColumns = useMemo(() => columns.filter((column) => !column.hidden), [columns]);
-    const visibleColumns = useMemo(() => availableColumns.filter((column) => !hiddenKeys.includes(column.key)), [availableColumns, hiddenKeys]);
+    const visibleColumns = useMemo(
+        () => showColumnPicker ? availableColumns.filter((column) => !hiddenKeys.includes(column.key)) : availableColumns,
+        [availableColumns, hiddenKeys, showColumnPicker],
+    );
     const rows = data?.data ?? [];
     const meta = data?.meta;
     const activeFilters = Object.values(state.filters).filter(Boolean).length + (state.trashed ? 1 : 0);
@@ -211,7 +217,7 @@ export function DataTable<T extends { id?: number | string }>({
                     )}
                     <div className="ms-auto flex flex-wrap items-center gap-2">
                         {selectable && selected.length > 0 && bulkActions?.(selected, () => setSelected([]))}
-                        {availableColumns.length > 3 && (
+                        {showColumnPicker && availableColumns.length > 3 && (
                             <Menu
                                 items={availableColumns.map((column) => ({
                                     label: (
