@@ -23,6 +23,9 @@ class ItemExcel
 
     public const int MAX_ROWS = 500;
 
+    /** Tall enough for a photo to sit inside its cell. */
+    private const int FILL_ROW_HEIGHT = 150;
+
     /** @param non-empty-list<string> $languages */
     public function template(string $path, array $languages): void
     {
@@ -30,8 +33,9 @@ class ItemExcel
             $path,
             array_map(fn (string $language): array => __('item_excel', [], $language), $languages),
             $languages[0] === 'ar',
-            [27, 26, 26, 26, 30, 42, 20],
+            [40, 34, 38, 38, 40, 54, 40],
             [0, 2, 3, 5],
+            self::FILL_ROW_HEIGHT,
         );
     }
 

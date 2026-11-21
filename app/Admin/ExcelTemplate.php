@@ -4,6 +4,7 @@ namespace App\Admin;
 
 use Illuminate\Validation\ValidationException;
 use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\CellVerticalAlignment;
 use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Writer\XLSX\Entity\SheetView;
 use OpenSpout\Writer\XLSX\Writer;
@@ -26,8 +27,9 @@ class ExcelTemplate
      * @param  non-empty-list<array{order_tab: string, order_title: string, start_row: string, guide_tab: string, guide_title: string, columns: array<string, string>, instructions: list<string>}>  $translations
      * @param  list<int>  $columnWidths
      * @param  list<int>  $textColumns  Zero-based column indexes that must keep leading zeroes or symbols.
+     * @param  int|null  $fillRowHeight  A taller height for the rows to fill, with their text centered vertically.
      */
-    public function write(string $path, array $translations, bool $rightToLeft, array $columnWidths, array $textColumns): void
+    public function write(string $path, array $translations, bool $rightToLeft, array $columnWidths, array $textColumns, ?int $fillRowHeight = null): void
     {
         $localizedColumns = array_column($translations, 'columns');
         $headers = array_map(
@@ -50,8 +52,7 @@ class ExcelTemplate
             $writer->addRow(Row::fromValues($headers, (clone $heading)->setShouldWrapText())->setHeight(22 * count($translations)));
             $writer->addRow(Row::fromValues(array_column($translations, 'start_row'), $hint)->setHeight(23));
 
-            $blankValues = array_replace(array_fill(0, count($headers), null), array_fill_keys($textColumns, ' '));
-            $blank = Row::fromValuesWithStyles($blankValues, columnStyles: array_fill_keys($textColumns, (new Style)->setFormat('@')));
+            $blank = $this->fillRow(count($headers), $textColumns, $fillRowHeight);
             for ($row = 0; $row < 200; $row++) {
                 $writer->addRow($blank);
             }
@@ -69,6 +70,27 @@ class ExcelTemplate
         } finally {
             $writer->close();
         }
+    }
+
+    /**
+     * An empty row to fill. A tall row holds a space in every cell, because the writer drops the alignment of an empty cell.
+     *
+     * @param  list<int>  $textColumns
+     */
+    private function fillRow(int $columnCount, array $textColumns, ?int $height): Row
+    {
+        $textStyle = (new Style)->setFormat('@');
+        if ($height === null) {
+            $values = array_replace(array_fill(0, $columnCount, null), array_fill_keys($textColumns, ' '));
+
+            return Row::fromValuesWithStyles($values, columnStyles: array_fill_keys($textColumns, $textStyle));
+        }
+
+        $textStyle->setCellVerticalAlignment(CellVerticalAlignment::CENTER);
+        $centered = (new Style)->setCellVerticalAlignment(CellVerticalAlignment::CENTER);
+        $styles = array_replace(array_fill(0, $columnCount, $centered), array_fill_keys($textColumns, $textStyle));
+
+        return Row::fromValuesWithStyles(array_fill(0, $columnCount, ' '), columnStyles: $styles)->setHeight($height);
     }
 
     /**
