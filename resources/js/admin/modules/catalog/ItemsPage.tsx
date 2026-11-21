@@ -45,14 +45,15 @@ interface ListAbilities {
     force_delete?: boolean;
 }
 
-export function ItemThumb({ url, large = false, className }: { url: string | null; large?: boolean; className?: string }) {
-    const frame = cn('shrink-0 ring-1 ring-line', large ? 'h-20 w-28 rounded-lg' : 'size-9 rounded-md', className);
+export function ItemThumb({ url, large = false, fill = false, className }: { url: string | null; large?: boolean; fill?: boolean; className?: string }) {
+    const frame = cn('shrink-0', fill ? 'aspect-square w-full' : cn('ring-1 ring-line', large ? 'h-20 w-28 rounded-lg' : 'size-9 rounded-md'), className);
+    const roomy = large || fill;
 
     return url ? (
-        <img src={url} alt="" loading="lazy" className={cn(frame, large ? 'bg-subtle object-contain' : 'object-cover')} />
+        <img src={url} alt="" loading="lazy" className={cn(frame, roomy ? 'bg-subtle object-contain' : 'object-cover')} />
     ) : (
         <span className={cn(frame, 'flex items-center justify-center bg-subtle text-faint')}>
-            <ImageOff className={large ? 'size-6' : 'size-4'} />
+            <ImageOff className={roomy ? 'size-6' : 'size-4'} />
         </span>
     );
 }
@@ -122,6 +123,7 @@ export function ItemsPage() {
                 query={{ supplier_id: supplierId ?? undefined, filter: { item_category_id: categoryId ?? undefined } }}
                 defaultSort={{ column: 'id', direction: 'desc' }}
                 rowHref={(item) => `/items/${item.id}`}
+                cardImage={(item) => <ItemThumb url={item.image_url} fill />}
                 filters={[
                     {
                         key: 'status',
@@ -185,6 +187,7 @@ export function ItemsPage() {
                         key: 'image',
                         header: t('filament/resources/item.fields.image'),
                         className: 'w-36',
+                        cardHidden: true,
                         cell: (item) => <ItemThumb url={item.image_url} large />,
                     },
                     {
@@ -198,7 +201,7 @@ export function ItemsPage() {
                         header: t('filament/resources/item.fields.available_quantity'),
                         sortable: true,
                         align: 'end',
-                        cell: (item) => <span className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span>,
+                        cell: (item) => <span dir="ltr" className={cn('tabular-nums', item.available_quantity < 0 && 'text-danger')}>{number(item.available_quantity)}</span>,
                     },
                     {
                         key: 'incoming_quantity',
@@ -212,6 +215,7 @@ export function ItemsPage() {
                         header: t('filament/resources/item.fields.sale_price'),
                         sortable: true,
                         align: 'end',
+                        cardHidden: true,
                         cell: (item) => <span className="text-[15px] font-semibold whitespace-nowrap tabular-nums">{money(item.sale_price)}</span>,
                     },
                 ]}

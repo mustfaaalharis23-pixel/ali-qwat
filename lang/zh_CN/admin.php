@@ -19,6 +19,8 @@ return [
         'showing' => '第 :from–:to 条，共 :total 条', 'per_page' => '每页', 'previous' => '上一页', 'next' => '下一页',
         'clear_filters' => '清除筛选', 'trashed_without' => '不含已删除', 'trashed_with' => '包含已删除', 'trashed_only' => '仅已删除',
         'selected' => '已选择 :count 项', 'all' => '全部', 'columns' => '列', 'total' => '合计',
+        'sort_by' => '排序方式', 'sort_default' => '默认排序', 'sort_direction' => '反向排序',
+        'view' => '显示方式', 'view_cards' => '卡片视图', 'view_table' => '表格视图',
     ],
     'form' => ['choose' => '请选择…', 'optional' => '可选', 'required' => '必填', 'none' => '无', 'from' => '从', 'until' => '至'],
     'metrics' => ['example' => '示例'],

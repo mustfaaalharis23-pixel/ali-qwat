@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Columns3, Ellipsis, ListChecks, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Columns3, Ellipsis, LayoutGrid, List, ListChecks, Search, X } from 'lucide-react';
 import { api, type Paginated, type Query } from '../lib/api';
 import { cn, number } from '../lib/format';
 import { useI18n } from '../lib/i18n';
@@ -17,6 +17,8 @@ export interface Column<T> {
     hidden?: boolean;
     /** Starts hidden until the user shows it from the columns menu, for a detail the list does not lead with. */
     defaultHidden?: boolean;
+    /** Shown in the table view only, for a detail the cards leave out. */
+    cardHidden?: boolean;
 }
 
 export interface Filter {
@@ -60,6 +62,8 @@ interface DataTableProps<T> {
     selectionActions?: (selection: TableSelection<T>) => MenuItem[];
     bulkActions?: (selected: (string | number)[], clear: () => void) => ReactNode;
     rowClassName?: (row: T) => string | undefined;
+    /** Adds a cards view, the default one: this image on top, the first card column as the title, and the others under it. */
+    cardImage?: (row: T) => ReactNode;
 }
 
 /**
@@ -88,6 +92,7 @@ export function DataTable<T extends { id?: number | string }>({
     selectable = selectionActions !== undefined,
     bulkActions,
     rowClassName,
+    cardImage,
 }: DataTableProps<T>) {
     const { t } = useI18n();
     const navigate = useNavigate();
@@ -97,6 +102,23 @@ export function DataTable<T extends { id?: number | string }>({
 
     const [searchText, setSearchText] = useState(read('search'));
     const [selected, setSelected] = useState<(string | number)[]>([]);
+
+    const viewKey = `admin-view:${endpoint}:${stateKey}`;
+    const [view, setView] = useState<'cards' | 'table'>(() => {
+        try {
+            return localStorage.getItem(viewKey) === 'table' ? 'table' : 'cards';
+        } catch {
+            return 'cards';
+        }
+    });
+    const chooseView = (next: 'cards' | 'table') => {
+        setView(next);
+        try {
+            localStorage.setItem(viewKey, next);
+        } catch {
+            /* remembered only when the browser allows it */
+        }
+    };
 
     const state = {
         search: read('search'),
@@ -194,6 +216,98 @@ export function DataTable<T extends { id?: number | string }>({
 
     const align = (value?: 'start' | 'end' | 'center') => (value === 'end' ? 'text-end' : value === 'center' ? 'text-center' : 'text-start');
 
+    const openRow = (event: MouseEvent, href: string | null | undefined) => {
+        if (!href || (event.target as HTMLElement).closest('a,button,input,label')) return;
+        if (event.metaKey || event.ctrlKey) window.open(`/app${href}`, '_blank');
+        else navigate(href);
+    };
+
+    const selectAllCheckbox = (
+        <input type="checkbox" className="size-4 accent-[var(--color-accent)]" checked={allSelected} onChange={() => setSelected(allSelected ? [] : rows.map(rowKey))} />
+    );
+
+    const rowCheckbox = (id: string | number) => (
+        <input
+            type="checkbox"
+            className="size-4 accent-[var(--color-accent)]"
+            checked={selected.includes(id)}
+            onChange={() => setSelected((list) => (list.includes(id) ? list.filter((value) => value !== id) : [...list, id]))}
+        />
+    );
+
+    const rowMenu = (row: T) => (
+        <Menu
+            items={rowActions?.(row) ?? []}
+            trigger={(toggle) => (
+                <button onClick={toggle} className="rounded-md p-1.5 text-faint opacity-60 transition-opacity group-hover/row:opacity-100 hover:bg-hover hover:text-ink" aria-label={t('admin.table.actions')}>
+                    <Ellipsis className="size-4" />
+                </button>
+            )}
+        />
+    );
+
+    const sortableColumns = availableColumns.filter((column) => column.sortable);
+    const chosenSort = sortableColumns.some((column) => column.key === state.sort) ? state.sort : '';
+    const [titleColumn, ...detailColumns] = visibleColumns.filter((column) => !column.cardHidden);
+
+    const cardList = (image: (row: T) => ReactNode) => (
+        <>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-subtle/70 px-4 py-2">
+                {selectable ? (
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-[12.5px] text-muted">
+                        {selectAllCheckbox}
+                        {t('admin.table.all')}
+                    </label>
+                ) : (
+                    <span />
+                )}
+                <div className="flex items-center gap-1.5">
+                    <Select
+                        value={chosenSort}
+                        onChange={(event) => (event.target.value ? update({ sort: event.target.value, direction: 'asc' }) : update({ sort: null, direction: null }))}
+                        options={sortableColumns.map((column) => ({ value: column.key, label: String(column.header) }))}
+                        placeholder={t('admin.table.sort_default')}
+                        aria-label={t('admin.table.sort_by')}
+                        className="h-7.5 w-auto text-[12.5px]"
+                    />
+                    <Button size="xs" variant="secondary" className="w-7.5 px-0" disabled={!chosenSort} onClick={() => toggleSort(chosenSort)} aria-label={t('admin.table.sort_direction')} title={t('admin.table.sort_direction')}>
+                        {state.direction === 'asc' ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+                    </Button>
+                </div>
+            </div>
+            {(isLoading || rows.length > 0) && (
+                <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {isLoading && Array.from({ length: 10 }).map((_, index) => <Skeleton key={index} className="aspect-[3/4] w-full rounded-xl" />)}
+                    {!isLoading &&
+                        rows.map((row) => {
+                            const href = rowHref?.(row);
+                            const id = rowKey(row);
+                            return (
+                                <article
+                                    key={id}
+                                    onClick={(event) => openRow(event, href)}
+                                    className={cn('group/row relative overflow-hidden rounded-xl border transition-colors', selected.includes(id) ? 'border-accent/60 bg-accent-soft/50' : 'border-line bg-surface', href && 'cursor-pointer hover:border-line-strong', rowClassName?.(row))}
+                                >
+                                    {image(row)}
+                                    {selectable && <div className="absolute start-2 top-2 flex rounded-md bg-surface/90 p-1 shadow-sm">{rowCheckbox(id)}</div>}
+                                    {rowActions && <div className="absolute end-2 top-2 rounded-md bg-surface/90 shadow-sm">{rowMenu(row)}</div>}
+                                    <div className="space-y-1.5 border-t border-line p-3">
+                                        {titleColumn?.cell(row)}
+                                        {detailColumns.map((column) => (
+                                            <div key={column.key} className="flex items-baseline justify-between gap-2 text-[12.5px]">
+                                                <span className="text-muted">{column.header}</span>
+                                                <span className="font-semibold">{column.cell(row)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                </div>
+            )}
+        </>
+    );
+
     return (
         <div className={cn('card animate-in overflow-hidden', className)}>
             {(searchable || filters.length > 0 || trashed || toolbar || hasSelectionActions) && (
@@ -268,6 +382,23 @@ export function DataTable<T extends { id?: number | string }>({
                                 )}
                             />
                         )}
+                        {cardImage && (
+                            <div role="group" aria-label={t('admin.table.view')} className="flex items-center rounded-lg border border-line bg-subtle p-0.5">
+                                {([['cards', LayoutGrid, 'view_cards'], ['table', List, 'view_table']] as const).map(([value, Icon, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => chooseView(value)}
+                                        aria-pressed={view === value}
+                                        aria-label={t(`admin.table.${label}`)}
+                                        title={t(`admin.table.${label}`)}
+                                        className={cn('rounded-md p-1.5 transition-colors', view === value ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-ink')}
+                                    >
+                                        <Icon className="size-4" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {typeof toolbar === 'function' ? toolbar(data) : toolbar}
                     </div>
                 </div>
@@ -275,91 +406,67 @@ export function DataTable<T extends { id?: number | string }>({
 
             <div className="relative overflow-x-auto">
                 {isFetching && !isLoading && <div className="absolute inset-x-0 top-0 h-0.5 animate-pulse bg-accent/60" />}
-                <table className="w-full border-collapse text-sm">
-                    <thead>
-                        <tr className="border-b border-line bg-subtle/70 text-[12px] text-muted">
-                            {selectable && (
-                                <th className="w-10 px-3 py-2.5">
-                                    <input type="checkbox" className="size-4 accent-[var(--color-accent)]" checked={allSelected} onChange={() => setSelected(allSelected ? [] : rows.map(rowKey))} />
-                                </th>
-                            )}
-                            {visibleColumns.map((column) => (
-                                <th key={column.key} className={cn('h-10 px-4 font-medium whitespace-nowrap first:ps-5 last:pe-5', align(column.align), column.className)}>
-                                    {column.sortable ? (
-                                        <button className={cn('-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-hover hover:text-ink', state.sort === column.key && 'text-ink')} onClick={() => toggleSort(column.key)}>
-                                            {column.header}
-                                            {state.sort === column.key ? (
-                                                state.direction === 'asc' ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
-                                            ) : (
-                                                <ChevronsUpDown className="size-3 opacity-40" />
-                                            )}
-                                        </button>
-                                    ) : (
-                                        column.header
-                                    )}
-                                </th>
-                            ))}
-                            {rowActions && <th className="w-12" />}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading &&
-                            Array.from({ length: 6 }).map((_, index) => (
-                                <tr key={index} className="border-b border-line last:border-0">
-                                    {visibleColumns.map((column) => (
-                                        <td key={column.key} className="h-12 px-4 first:ps-5">
-                                            <Skeleton className="h-3.5 w-2/3" />
-                                        </td>
-                                    ))}
-                                    {rowActions && <td />}
-                                </tr>
-                            ))}
-                        {!isLoading &&
-                            rows.map((row) => {
-                                const href = rowHref?.(row);
-                                const id = rowKey(row);
-                                return (
-                                    <tr
-                                        key={id}
-                                        onClick={(event) => {
-                                            if (!href || (event.target as HTMLElement).closest('a,button,input,label')) return;
-                                            if (event.metaKey || event.ctrlKey) window.open(`/app${href}`, '_blank');
-                                            else navigate(href);
-                                        }}
-                                        className={cn('group/row border-b border-line/70 transition-colors last:border-0', href ? 'cursor-pointer hover:bg-subtle/70' : 'hover:bg-subtle/40', selected.includes(id) && 'bg-accent-soft/50', rowClassName?.(row))}
-                                    >
-                                        {selectable && (
-                                            <td className="px-3 py-3">
-                                                <input
-                                                    type="checkbox"
-                                                    className="size-4 accent-[var(--color-accent)]"
-                                                    checked={selected.includes(id)}
-                                                    onChange={() => setSelected((list) => (list.includes(id) ? list.filter((value) => value !== id) : [...list, id]))}
-                                                />
-                                            </td>
+                {cardImage && view === 'cards' ? (
+                    cardList(cardImage)
+                ) : (
+                    <table className="w-full border-collapse text-sm">
+                        <thead>
+                            <tr className="border-b border-line bg-subtle/70 text-[12px] text-muted">
+                                {selectable && <th className="w-10 px-3 py-2.5">{selectAllCheckbox}</th>}
+                                {visibleColumns.map((column) => (
+                                    <th key={column.key} className={cn('h-10 px-4 font-medium whitespace-nowrap first:ps-5 last:pe-5', align(column.align), column.className)}>
+                                        {column.sortable ? (
+                                            <button className={cn('-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-hover hover:text-ink', state.sort === column.key && 'text-ink')} onClick={() => toggleSort(column.key)}>
+                                                {column.header}
+                                                {state.sort === column.key ? (
+                                                    state.direction === 'asc' ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                                                ) : (
+                                                    <ChevronsUpDown className="size-3 opacity-40" />
+                                                )}
+                                            </button>
+                                        ) : (
+                                            column.header
                                         )}
+                                    </th>
+                                ))}
+                                {rowActions && <th className="w-12" />}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading &&
+                                Array.from({ length: 6 }).map((_, index) => (
+                                    <tr key={index} className="border-b border-line last:border-0">
                                         {visibleColumns.map((column) => (
-                                            <td key={column.key} className={cn('h-12 px-4 py-2 align-middle text-[13.5px] whitespace-nowrap tabular-nums first:ps-5 last:pe-5', align(column.align), column.className)}>
-                                                {column.cell(row)}
+                                            <td key={column.key} className="h-12 px-4 first:ps-5">
+                                                <Skeleton className="h-3.5 w-2/3" />
                                             </td>
                                         ))}
-                                        {rowActions && (
-                                            <td className="px-2 py-2 text-end">
-                                                <Menu
-                                                    items={rowActions(row)}
-                                                    trigger={(toggle) => (
-                                                        <button onClick={toggle} className="rounded-md p-1.5 text-faint opacity-60 transition-opacity group-hover/row:opacity-100 hover:bg-hover hover:text-ink" aria-label={t('admin.table.actions')}>
-                                                            <Ellipsis className="size-4" />
-                                                        </button>
-                                                    )}
-                                                />
-                                            </td>
-                                        )}
+                                        {rowActions && <td />}
                                     </tr>
-                                );
-                            })}
-                    </tbody>
-                </table>
+                                ))}
+                            {!isLoading &&
+                                rows.map((row) => {
+                                    const href = rowHref?.(row);
+                                    const id = rowKey(row);
+                                    return (
+                                        <tr
+                                            key={id}
+                                            onClick={(event) => openRow(event, href)}
+                                            className={cn('group/row border-b border-line/70 transition-colors last:border-0', href ? 'cursor-pointer hover:bg-subtle/70' : 'hover:bg-subtle/40', selected.includes(id) && 'bg-accent-soft/50', rowClassName?.(row))}
+                                        >
+                                            {selectable && <td className="px-3 py-3">{rowCheckbox(id)}</td>}
+                                            {visibleColumns.map((column) => (
+                                                <td key={column.key} className={cn('h-12 px-4 py-2 align-middle text-[13.5px] whitespace-nowrap tabular-nums first:ps-5 last:pe-5', align(column.align), column.className)}>
+                                                    {column.cell(row)}
+                                                </td>
+                                            ))}
+                                            {rowActions && <td className="px-2 py-2 text-end">{rowMenu(row)}</td>}
+                                        </tr>
+                                    );
+                                })}
+                        </tbody>
+                    </table>
+                )}
                 {!isLoading && rows.length === 0 && (
                     <Empty title={isError ? (error as Error).message : (emptyTitle ?? t('admin.table.empty'))} description={state.search || activeFilters ? t('admin.table.empty_hint') : undefined} />
                 )}

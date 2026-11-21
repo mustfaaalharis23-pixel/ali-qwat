@@ -19,6 +19,8 @@ return [
         'showing' => ':from–:to من :total', 'per_page' => 'لكل صفحة', 'previous' => 'الصفحة السابقة', 'next' => 'الصفحة التالية',
         'clear_filters' => 'مسح التصفية', 'trashed_without' => 'بدون المحذوفة', 'trashed_with' => 'مع المحذوفة', 'trashed_only' => 'المحذوفة فقط',
         'selected' => 'تم تحديد :count', 'all' => 'الكل', 'columns' => 'الأعمدة', 'total' => 'المجموع',
+        'sort_by' => 'ترتيب حسب', 'sort_default' => 'الترتيب الافتراضي', 'sort_direction' => 'عكس الترتيب',
+        'view' => 'طريقة العرض', 'view_cards' => 'عرض كروت', 'view_table' => 'عرض جدول',
     ],
     'form' => ['choose' => 'اختر…', 'optional' => 'اختياري', 'required' => 'مطلوب', 'none' => 'لا شيء', 'from' => 'من', 'until' => 'إلى'],
     'metrics' => ['example' => 'مثال'],

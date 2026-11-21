@@ -19,6 +19,8 @@ return [
         'showing' => ':from–:to of :total', 'per_page' => 'Per page', 'previous' => 'Previous page', 'next' => 'Next page',
         'clear_filters' => 'Clear filters', 'trashed_without' => 'Without deleted', 'trashed_with' => 'With deleted', 'trashed_only' => 'Only deleted',
         'selected' => ':count selected', 'all' => 'All', 'columns' => 'Columns', 'total' => 'Total',
+        'sort_by' => 'Sort by', 'sort_default' => 'Default order', 'sort_direction' => 'Reverse order',
+        'view' => 'View', 'view_cards' => 'Cards view', 'view_table' => 'Table view',
     ],
     'form' => ['choose' => 'Choose…', 'optional' => 'Optional', 'required' => 'Required', 'none' => 'None', 'from' => 'From', 'until' => 'Until'],
     'metrics' => ['example' => 'Example'],
