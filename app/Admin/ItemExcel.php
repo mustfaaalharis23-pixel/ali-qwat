@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\Supplier;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class ItemExcel
             $path,
             array_map(fn (string $language): array => __('item_excel', [], $language), $languages),
             $languages[0] === 'ar',
-            [27, 26, 26, 26, 30, 42],
+            [27, 26, 26, 26, 30, 42, 20],
             [0, 2, 3, 5],
         );
     }
@@ -155,7 +156,7 @@ class ItemExcel
         $options->SHOULD_PRESERVE_EMPTY_ROWS = true;
         $reader = new Reader($options);
         $locales = array_keys(config('app.locales'));
-        $labels = array_map(fn (string $locale): array => __('item_excel.columns', [], $locale), $locales);
+        $labels = array_map(fn (string $locale): array => Arr::except(__('item_excel.columns', [], $locale), 'image'), $locales);
         $columns = [];
         $rows = [];
 
